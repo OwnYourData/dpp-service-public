@@ -1,0 +1,189 @@
+{
+  "DigitalProductPassportID": "https://dpp.lumina.example/01/09520123456788/8546",
+  "ProductID": "https://id.lumina.example/01/09520123456788",
+  "Granularity": "model",
+  "DPPSchemaVersion": "prEN 18223:2025",
+  "DPPStatus": "Active",
+  "EconomicOperatorID": "did:web:lumina.example",
+  "FacilityID": "https://id.lumina.example/414/0952012345001",
+  "dataElementCollections": [
+    {
+      "ElementId": "ProductIdentification",
+      "Name": "Produktidentifikation",
+      "DictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
+      "DataElements": [
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "ModelIdentifier",
+          "Name": "Modellkennung",
+          "Value": "LUM-A60-827-806",
+          "ValueDataType": "xs:string"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "BrandName",
+          "Name": "Marke",
+          "Value": "Lumina",
+          "ValueDataType": "xs:string"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "LightSourceType",
+          "Name": "Art der Lichtquelle",
+          "DictionaryReference": "0173-1#02-AAO677#003",
+          "Value": "LED",
+          "ValueDataType": "xs:string"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "CapType",
+          "Name": "Sockeltyp",
+          "Value": "E27",
+          "ValueDataType": "xs:string"
+        }
+      ]
+    },
+    {
+      "ElementId": "EnergyPerformance",
+      "Name": "Energieeffizienz",
+      "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
+      "DataElements": [
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "OnModePower",
+          "Name": "Leistungsaufnahme im Ein-Zustand",
+          "Value": 8.5,
+          "ValueDataType": "xs:decimal",
+          "UnitOfMeasure": "W"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "LuminousFlux",
+          "Name": "Lichtstrom",
+          "Value": 806,
+          "ValueDataType": "xs:integer",
+          "UnitOfMeasure": "lm"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "LuminousEfficacy",
+          "Name": "Lichtausbeute",
+          "Value": 94.8,
+          "ValueDataType": "xs:decimal",
+          "UnitOfMeasure": "lm/W"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "EnergyEfficiencyClass",
+          "Name": "Energieeffizienzklasse",
+          "Value": "E",
+          "ValueDataType": "xs:string"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "EprelRegistrationNumber",
+          "Name": "EPREL-Registrierungsnummer",
+          "Value": "1234567",
+          "ValueDataType": "xs:string"
+        }
+      ]
+    },
+    {
+      "ElementId": "LightQuality",
+      "Name": "Lichtqualität",
+      "DataElements": [
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "CorrelatedColourTemperature",
+          "Name": "Ähnlichste Farbtemperatur",
+          "Value": 2700,
+          "ValueDataType": "xs:integer",
+          "UnitOfMeasure": "K"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "ColourRenderingIndex",
+          "Name": "Farbwiedergabeindex (Ra)",
+          "Value": 80,
+          "ValueDataType": "xs:integer"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "Dimmable",
+          "Name": "Dimmbar",
+          "Value": false,
+          "ValueDataType": "xs:boolean"
+        }
+      ]
+    },
+    {
+      "ElementId": "Durability",
+      "Name": "Haltbarkeit",
+      "DataElements": [
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "RatedLifetime",
+          "Name": "Bemessungslebensdauer (L70B50)",
+          "Value": 15000,
+          "ValueDataType": "xs:integer",
+          "UnitOfMeasure": "h"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "SwitchingCycles",
+          "Name": "Schaltzyklen bis Ausfall",
+          "Value": 100000,
+          "ValueDataType": "xs:integer"
+        }
+      ]
+    },
+    {
+      "ElementId": "SubstancesOfConcern",
+      "Name": "Besorgniserregende Stoffe",
+      "DataElements": [
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "MercuryContent",
+          "Name": "Quecksilbergehalt",
+          "Value": 0.0,
+          "ValueDataType": "xs:decimal",
+          "UnitOfMeasure": "mg"
+        },
+        {
+          "@type": "MultivaluedDataElement",
+          "ElementId": "MaterialComposition",
+          "Name": "Materialzusammensetzung",
+          "ValueList": [
+            {
+              "ElementId": "Polycarbonate",
+              "Name": "Polycarbonat",
+              "Value": 42.0,
+              "ValueDataType": "xs:decimal"
+            },
+            {
+              "ElementId": "Aluminium",
+              "Name": "Aluminium",
+              "Value": 31.5,
+              "ValueDataType": "xs:decimal"
+            },
+            {
+              "ElementId": "Electronics",
+              "Name": "Elektronik",
+              "Value": 26.5,
+              "ValueDataType": "xs:decimal"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "dataElements": [
+    {
+      "@type": "SinglevaluedDataElement",
+      "ElementId": "DeclarationOfConformity",
+      "Name": "EU-Konformitätserklärung",
+      "Value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
+      "ValueDataType": "xs:anyURI"
+    }
+  ]
+}

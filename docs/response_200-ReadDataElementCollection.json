@@ -1,0 +1,12 @@
+{
+  "ElementId": "EnergyPerformance",
+  "Name": "Energieeffizienz",
+  "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
+  "DataElements": [
+    { "@type": "SinglevaluedDataElement", "ElementId": "OnModePower", "Name": "Leistungsaufnahme im Ein-Zustand", "Value": 8.5, "ValueDataType": "xs:decimal", "UnitOfMeasure": "W" },
+    { "@type": "SinglevaluedDataElement", "ElementId": "LuminousFlux", "Name": "Lichtstrom", "Value": 806, "ValueDataType": "xs:integer", "UnitOfMeasure": "lm" },
+    { "@type": "SinglevaluedDataElement", "ElementId": "LuminousEfficacy", "Name": "Lichtausbeute", "Value": 94.8, "ValueDataType": "xs:decimal", "UnitOfMeasure": "lm/W" },
+    { "@type": "SinglevaluedDataElement", "ElementId": "EnergyEfficiencyClass", "Name": "Energieeffizienzklasse", "Value": "E", "ValueDataType": "xs:string" },
+    { "@type": "SinglevaluedDataElement", "ElementId": "EprelRegistrationNumber", "Name": "EPREL-Registrierungsnummer", "Value": "1234567", "ValueDataType": "xs:string" }
+  ]
+}

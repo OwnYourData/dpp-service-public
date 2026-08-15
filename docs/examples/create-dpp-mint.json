@@ -1,0 +1,29 @@
+{
+  "ProductID": "https://id.lumina.example/01/09520123456788",
+  "Granularity": "model",
+  "DPPSchemaVersion": "prEN 18223:2025",
+  "EconomicOperatorID": "did:web:lumina.example",
+  "dataElementCollections": [
+    {
+      "ElementId": "EnergyPerformance",
+      "Name": "Energieeffizienz",
+      "DataElements": [
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "LuminousFlux",
+          "Name": "Lichtstrom",
+          "Value": 806,
+          "ValueDataType": "xs:integer",
+          "UnitOfMeasure": "lm"
+        },
+        {
+          "@type": "SinglevaluedDataElement",
+          "ElementId": "EnergyEfficiencyClass",
+          "Name": "Energieeffizienzklasse",
+          "Value": "E",
+          "ValueDataType": "xs:string"
+        }
+      ]
+    }
+  ]
+}

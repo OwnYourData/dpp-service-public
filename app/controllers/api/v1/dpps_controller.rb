@@ -1,0 +1,206 @@
+# frozen_string_literal: true
+
+module Api
+  module V1
+    # prEN 18222 Clause 4 — Life Cycle API (Main Methods).
+    class DppsController < ApplicationController
+      # Reads of public data are unauthenticated; writes require an actor.
+      before_action :authenticate_actor!, only: %i[create update destroy]
+      before_action :find_dpp, only: %i[show update destroy]
+
+      # POST /dpp/v1/dpps  — CreateDPP (§4.6, Table 5)
+      #
+      # DID handling keyed off DigitalProductPassportID (no proprietary fields):
+      #   * omitted        -> Variante A: the service mints a did:oyd and keeps
+      #                       its keys (prEN 18219 / oydid). Standard-conform:
+      #                       CreateDPP returns the assigned dpp ID (Table 5).
+      #   * did:oyd:...     -> client-supplied DID; stored as-is (Variante C
+      #                       validation via Oydid.read is a later increment).
+      #   * other URI/URL   -> stored as-is (unchanged behaviour).
+      #
+      # Storage backend (S2), keyed off the X-DPP-Storage header — deliberately
+      # a header and not a field of the DPP document, so the payload stays free
+      # of proprietary attributes (prEN 18223):
+      #   * absent  -> the document is stored in this service's database
+      #   * present -> the document is stored in the hosting pod named by the
+      #                token; the pod also serves the public read paths, so both
+      #                the UPI and the DID's serviceEndpoint point at it.
+      def create
+        storage = pod_storage_param     # nil unless X-DPP-Storage is present
+        # Reachability and credentials are verified BEFORE anything permanent
+        # happens — a DID whose serviceEndpoint points at an unreachable pod
+        # could only be corrected with a DID update.
+        storage&.reachable!
+
+        dpp = Dpp.from_document(dpp_document_param)
+        dpp.assign_pod_storage!(storage) if storage
+
+        if dpp.dpp_id.blank?
+          if dpp.product_id.blank?
+            return render_result("ClientErrorBadRequest",
+                                 text: "ProductID is required to mint a DID")
+          end
+          minted = if storage
+                     DidOyd.mint(dpp.product_id, endpoint_base: storage.base_url)
+                   else
+                     DidOyd.mint(dpp.product_id)
+                   end
+          dpp.assign_minted_did!(minted)
+        end
+
+        dpp.save!
+        begin
+          dpp.store_in_pod!
+        rescue PodStorage::Error
+          # Roll back so no half-created passport is left behind: the DID is
+          # revoked (only possible for a service-minted one) and the row goes.
+          rollback_failed_pod_create(dpp)
+          raise
+        end
+
+        render_dpp(dpp.to_document, status_code: "SuccessCreated")
+      end
+
+      # GET /dpp/v1/dpps/:dpp_id  — ReadDPPById (§4.2, Table 1)
+      def show
+        render_dpp(@dpp.to_document)
+      end
+
+      # PATCH /dpp/v1/dpps/:dpp_id  — UpdateDPP, RFC 7396 (§4.7, Table 6)
+      def update
+        @dpp.apply_merge_patch!(merge_patch_body)
+        render_dpp(@dpp.to_document)
+      end
+
+      # DELETE /dpp/v1/dpps/:dpp_id  — DeleteDPPById (§4.8, Table 7)
+      #
+      # The active passport is removed, but its history is kept: the final
+      # snapshot is written with DPPStatus "Archived" and remains retrievable
+      # via ReadDPPVersionByProductIdAndDate (prEN 18221 / Module 6).
+      #
+      # For a service-minted DID (Variante A) the DID is revoked first, using
+      # the stored keys; a revocation failure aborts before anything is deleted.
+      def destroy
+        if @dpp.did_managed?
+          DidOyd.revoke(@dpp.dpp_id, doc_key: @dpp.did_doc_key, rev_key: @dpp.did_rev_key)
+        end
+        @dpp.update!(dpp_status: "Archived")
+        @dpp.archive_current_version!   # no-op for a pod-backed DPP
+
+        if @dpp.pod?
+          # Write the final "Archived" state, then soft-delete in the pod: the
+          # public paths answer 404 afterwards, the history survives.
+          @dpp.store_in_pod!
+          @dpp.pod_storage.delete_object(@dpp.storage_object_id) if @dpp.storage_object_id.present?
+        end
+
+        @dpp.destroy!
+        render_dpp(nil, status_code: "SuccessNoContent")
+      end
+
+      # GET /dpp/v1/dppsByProductId/:product_id  — ReadDPPByProductId (§4.3, Table 2)
+      def by_product_id
+        dpp = Dpp.active.where(product_id: params[:product_id]).order(last_update: :desc).first!
+        render_dpp(dpp.to_document)
+      end
+
+      # GET /dpp/v1/dppsByProductIdAndDate/:product_id?date=  (§4.4, Table 3)
+      #
+      # The version that was current at +date+ is the earliest snapshot archived
+      # at or after that date. If none exists, the DPP has not changed since —
+      # so the live passport is returned. No join on dpps: archived versions
+      # outlive a deleted passport.
+      # For a pod-backed DPP the history lives in the pod (which archives every
+      # change on its own), so the lookup is delegated there.
+      def by_product_id_and_date
+        date = Time.iso8601(params.require(:date)).utc
+
+        pod_dpp = Dpp.where(product_id: params[:product_id], storage_backend: "pod")
+                     .order(last_update: :desc).first
+        if pod_dpp
+          document = pod_dpp.pod_storage.version_at(params[:product_id], date)
+          raise ActiveRecord::RecordNotFound if document.nil?
+
+          return render_dpp(document)
+        end
+
+        version = DppVersion.for_product(params[:product_id])
+                            .where(archived_at: date..)
+                            .order(:archived_at).first
+        document = version&.content ||
+                   Dpp.active.find_by!(product_id: params[:product_id]).to_document
+        render_dpp(document)
+      rescue ArgumentError
+        render_result("ClientErrorBadRequest", text: "Invalid 'date' (expected ISO 8601 UTC)")
+      end
+
+      # POST /dpp/v1/dppsByProductIds  — ReadDPPIdsByProductIds (§4.5, Table 4)
+      # AND-match of the supplied product identifiers, with cursor pagination.
+      def ids_by_product_ids
+        product_ids = Array(request_json)
+        return render_result("ClientErrorBadRequest", text: "Body must be a non-empty array") if product_ids.empty?
+
+        limit  = [params.fetch(:limit, 100).to_i, 1000].min
+        cursor = params[:cursor].presence
+
+        relation = Dpp.where(product_id: product_ids).order(:dpp_id)
+        relation = relation.where("dpp_id > ?", cursor) if cursor
+        page = relation.limit(limit + 1).pluck(:dpp_id)
+
+        next_cursor = page.size > limit ? page[limit - 1] : nil
+        render json: { statusCode: "Success", payload: page.first(limit), nextCursor: next_cursor }
+      end
+
+      private
+
+      def find_dpp
+        @dpp = Dpp.find(params[:dpp_id])
+      end
+
+      # Storage token from the X-DPP-Storage header, or nil for local storage.
+      # Raises PodStorage::ConfigError (-> 400) if the token is malformed.
+      def pod_storage_param
+        raw = request.headers["X-DPP-Storage"].presence
+        return nil if raw.nil?
+
+        PodStorage.from_jwt(raw)
+      end
+
+      # CreateDPP failed while talking to the pod: undo what we already did so
+      # the client can simply retry.
+      def rollback_failed_pod_create(dpp)
+        if dpp.did_managed?
+          begin
+            DidOyd.revoke(dpp.dpp_id, doc_key: dpp.did_doc_key, rev_key: dpp.did_rev_key)
+          rescue DidOyd::DidError => e
+            Rails.logger.error("[dpp] could not revoke #{dpp.dpp_id} after a failed " \
+                               "pod write: #{e.message}")
+          end
+        end
+        dpp.destroy!
+      rescue StandardError => e
+        Rails.logger.error("[dpp] rollback after failed pod write incomplete: #{e.message}")
+      end
+
+      # The DPP document (prEN 18223 attributes) from the request body.
+      def dpp_document_param
+        body = request_json
+        raise ActionController::ParameterMissing, :dpp if body.blank?
+
+        body
+      end
+
+      def merge_patch_body
+        request_json || {}
+      end
+
+      def request_json
+        @request_json ||= begin
+          request.body.rewind
+          raw = request.body.read
+          raw.present? ? JSON.parse(raw) : nil
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,11 @@
+{
+  "statusCode": "ClientErrorBadRequest",
+  "message": [
+    {
+      "messageType": "Error",
+      "text": "Invalid 'date' (expected ISO 8601 UTC)",
+      "correlationId": "b7c1f0e2-3a4d-4f9b-9c11-2f6d8a1e5c33",
+      "timestamp": "2026-07-13T09:20:11Z"
+    }
+  ]
+}

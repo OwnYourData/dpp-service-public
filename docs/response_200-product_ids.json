@@ -1,0 +1,8 @@
+{
+  "statusCode": "Success",
+  "payload": [
+    "https://dpp.lumina.example/01/09520123456788/8546",
+    "https://dpp.lumina.example/01/09520123456795/8547"
+  ],
+  "nextCursor": null
+}

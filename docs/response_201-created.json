@@ -1,0 +1,12 @@
+{
+  "DigitalProductPassportID": "https://dpp.lumina.example/01/09520123456788/8546",
+  "ProductID": "https://id.lumina.example/01/09520123456788",
+  "Granularity": "model",
+  "DPPSchemaVersion": "prEN 18223:2025",
+  "DPPStatus": "Active",
+  "LastUpdate": "2026-07-13T09:14:02Z",
+  "EconomicOperatorID": "did:web:lumina.example",
+  "FacilityID": "https://id.lumina.example/414/0952012345001",
+  "dataElementCollections": [ "… wie im Request …" ],
+  "dataElements": [ "… wie im Request …" ]
+}

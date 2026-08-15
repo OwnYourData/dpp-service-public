@@ -1,0 +1,224 @@
+# frozen_string_literal: true
+
+# A Digital Product Passport instance.
+#
+# The header attributes of the prEN 18223 semantic model (Table 1) are stored
+# as columns for querying; the full DPP document (header + dataElementCollections
+# + dataElements) is kept in +content+ as the single source of truth.
+class Dpp < ApplicationRecord
+  self.primary_key = "dpp_id"
+
+  STATUSES     = %w[Active Archived].freeze
+  GRANULARITIES = %w[model batch item].freeze
+
+  # NOT dependent: :destroy — DeleteDPPById archives the current version and
+  # removes the active passport; the archived versions must survive so that
+  # ReadDPPVersionByProductIdAndDate keeps working (prEN 18221 / Module 6).
+  has_many :dpp_versions, foreign_key: "dpp_id", primary_key: "dpp_id",
+                          dependent: nil, inverse_of: :dpp
+
+  validates :dpp_id, :product_id, :dpp_schema_version, :economic_operator_id, presence: true
+  validates :dpp_status, inclusion: { in: STATUSES }
+  validates :granularity, inclusion: { in: GRANULARITIES }
+
+  scope :active, -> { where(dpp_status: "Active") }
+
+  # Short id -> resolvable UPI URL (<= 50 chars) for the EU DPP Registry.
+  # 12 base62 chars keep the full https URL well under the 50-char limit.
+  SHORT_ID_LENGTH = 12
+  before_create :assign_short_id
+
+  # Base for the short-link UPI, e.g. "https://r.oydapp.eu/p".
+  def self.upi_base
+    ENV.fetch("DPP_UPI_BASE_URL", "https://r.oydapp.eu/p")
+  end
+
+  # The Unique Product Identifier registered at the EU Registry: a short,
+  # directly resolvable https URL that answers with a direct 200.
+  #
+  # For a pod-backed DPP the pod itself serves the short link, so the host is
+  # the pod's base_url — the same host the DID's serviceEndpoint points to.
+  def upi
+    return nil if short_id.blank?
+
+    base = pod? ? "#{storage_base_url}/p" : self.class.upi_base
+    "#{base}/#{short_id}"
+  end
+
+  # --- storage backend (S2: hosting pod of the data intermediary) --------------
+
+  STORAGE_BACKENDS = %w[local pod].freeze
+  validates :storage_backend, inclusion: { in: STORAGE_BACKENDS }
+
+  # True when the DPP document lives in a hosting pod instead of this database.
+  def pod?
+    storage_backend == "pod"
+  end
+
+  def pod_storage
+    @pod_storage ||= PodStorage.for(self)
+  end
+
+  # Attach a pod as the storage backend. The credentials (which contain a
+  # client_secret) are encrypted at rest and never leave the service.
+  def assign_pod_storage!(storage)
+    # from_document put the inbound document into +content+; move it out so
+    # nothing of the payload stays in this database.
+    document = content.presence || {}
+    self.storage_backend       = "pod"
+    self.storage_base_url      = storage.base_url
+    self.storage_collection_id = storage.collection_id
+    self.storage_credentials_enc = KeyVault.encrypt(storage.credentials_json)
+    @pod_storage = storage
+    self.document_content = document
+    self
+  end
+
+  # The DPP document: locally the +content+ column, for a pod-backed DPP a
+  # read-through fetch from the pod (cached for the lifetime of this instance).
+  def document_content
+    return content || {} unless pod?
+    return @document_content if defined?(@document_content) && @document_content
+
+    @document_content = storage_object_id.present? ? pod_storage.read_payload(storage_object_id) : {}
+  end
+
+  def document_content=(value)
+    if pod?
+      @document_content = value
+      self.content = {}          # nothing of the payload stays behind locally
+    else
+      self.content = value
+    end
+  end
+
+  # Push the current document into the pod. Creates the card on first use.
+  def store_in_pod!
+    return false unless pod?
+
+    if storage_object_id.blank?
+      update_column(:storage_object_id, pod_storage.create_object(self))
+    end
+    pod_storage.write_payload(storage_object_id, to_document)
+    true
+  end
+
+  # --- did:oyd private key material (Variante A) ------------------------------
+  # Stored encrypted (KeyVault) in the *_enc columns; accessed in the clear via
+  # these helpers. Never exposed through to_document.
+  def did_doc_key = KeyVault.decrypt(did_doc_key_enc)
+  def did_rev_key = KeyVault.decrypt(did_rev_key_enc)
+  def did_rev_log = KeyVault.decrypt(did_rev_log_enc)
+
+  def did_doc_key=(value)
+    self.did_doc_key_enc = KeyVault.encrypt(value)
+  end
+
+  def did_rev_key=(value)
+    self.did_rev_key_enc = KeyVault.encrypt(value)
+  end
+
+  def did_rev_log=(value)
+    self.did_rev_log_enc = KeyVault.encrypt(value)
+  end
+
+  # Attach a freshly minted did:oyd (from DidOyd.mint) to this DPP.
+  def assign_minted_did!(minted)
+    self.dpp_id      = minted[:did]
+    self.did_managed = true
+    self.did_doc_key = minted[:doc_key]
+    self.did_rev_key = minted[:rev_key]
+    self.did_rev_log = minted[:rev_log]
+  end
+
+  # Build a Dpp from an inbound DPP document (prEN 18223 attribute names).
+  def self.from_document(doc)
+    doc = doc.with_indifferent_access
+    new(
+      dpp_id:               doc[:DigitalProductPassportID],
+      product_id:           doc[:ProductID],
+      granularity:          doc[:Granularity],
+      dpp_schema_version:   doc[:DPPSchemaVersion],
+      dpp_status:           doc[:DPPStatus] || "Active",
+      economic_operator_id: doc[:EconomicOperatorID],
+      facility_id:          doc[:FacilityID],
+      last_update:          Time.now.utc,
+      content:              doc.to_h
+    )
+  end
+
+  # The DPP document as returned to clients (prEN 18223 §4.1.3.1).
+  # "UPI" is our resolvable short-link identifier registered at the EU Registry.
+  def to_document
+    (document_content || {}).merge(
+      "DigitalProductPassportID" => dpp_id,
+      "ProductID"                => product_id,
+      "Granularity"              => granularity,
+      "DPPSchemaVersion"         => dpp_schema_version,
+      "DPPStatus"                => dpp_status,
+      "LastUpdate"               => last_update&.iso8601,
+      "EconomicOperatorID"       => economic_operator_id,
+      "FacilityID"               => facility_id,
+      "UPI"                      => upi
+    ).compact
+  end
+
+  # prEN 18222 §4.7: every change shall be archived (prEN 18221 / Module 6).
+  # The snapshot holds the state *before* the change.
+  #
+  # For a pod-backed DPP this is a no-op: the pod archives on its own — a
+  # changed payload becomes a new object (the old one stays retrievable under
+  # its DRI) and is logged with a timestamp. Writing a second copy here would
+  # duplicate the history and let the two drift apart.
+  def archive_current_version!
+    return nil if pod?
+
+    next_no = (DppVersion.where(dpp_id: dpp_id).maximum(:version_number) || 0) + 1
+    DppVersion.create!(
+      dpp_id:         dpp_id,
+      product_id:     product_id,
+      version_number: next_no,
+      dpp_status:     dpp_status,
+      content:        to_document,
+      archived_at:    Time.now.utc
+    )
+  end
+
+  # Apply an RFC 7396 merge patch to the DPP document and persist.
+  # For a pod-backed DPP the new document goes to the pod, which archives the
+  # previous one on its own.
+  def apply_merge_patch!(patch)
+    archive_current_version!
+    merged = JsonMergePatch.apply(to_document, patch.deep_stringify_keys)
+    assign_from_document(merged)
+    save!
+    store_in_pod!
+    self
+  end
+
+  private
+
+  # Assign a unique, URL-safe short id (retry on the rare collision).
+  def assign_short_id
+    return if short_id.present?
+
+    10.times do
+      candidate = SecureRandom.alphanumeric(SHORT_ID_LENGTH)
+      unless self.class.exists?(short_id: candidate)
+        self.short_id = candidate
+        return
+      end
+    end
+    raise "could not generate a unique short_id"
+  end
+
+  def assign_from_document(doc)
+    doc = doc.with_indifferent_access
+    self.granularity        = doc[:Granularity] if doc.key?(:Granularity)
+    self.dpp_schema_version = doc[:DPPSchemaVersion] if doc.key?(:DPPSchemaVersion)
+    self.dpp_status         = doc[:DPPStatus] if doc.key?(:DPPStatus)
+    self.facility_id        = doc[:FacilityID] if doc.key?(:FacilityID)
+    self.last_update        = Time.now.utc
+    self.document_content   = doc.to_h
+  end
+end

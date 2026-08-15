@@ -1,0 +1,20 @@
+/.bundle
+/log/*
+/tmp/*
+/storage/*
+!/storage/.keep
+/config/master.key
+.env
+*.sqlite3
+.DS_Store
+
+# Kubernetes secrets — nur *.example.yaml wird eingecheckt
+/k8s/secret.yaml
+/k8s/*-secret.yaml
+
+# Gekaufte Normentwuerfe (DIN EN 18216 ff., DIN DKE SPEC, Registry-Guide):
+# lizenzierte Dokumente, die nicht ins Repository gehoeren — auch nicht in ein
+# privates. Die eigenen Unterlagen in docs/ (Markdown, JSON, openapi.yaml)
+# bleiben versioniert.
+/docs/*.pdf
+/docs/*.PDF

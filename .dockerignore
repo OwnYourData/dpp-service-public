@@ -1,0 +1,34 @@
+.git
+.gitignore
+.DS_Store
+
+# Never let host-local (mac) gems or bundler config leak into the image
+.bundle
+vendor/bundle
+/vendor/bundle
+README.md
+docs/*.pdf
+docs/*.PDF
+
+# Local databases / storage
+storage/*
+!storage/.keep
+*.sqlite3
+*.sqlite3-*
+
+# Dev/test artefacts
+spec
+tmp
+log
+.rspec
+
+# Kubernetes / deploy (not needed inside the image)
+k8s
+Dockerfile
+.dockerignore
+
+# Secrets — never bake these into an image
+.env
+.env.*
+config/master.key
+config/credentials/*.key

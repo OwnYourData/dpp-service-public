@@ -27,8 +27,9 @@ model follows **prEN 18223**; identifiers may be W3C DIDs (**prEN 18219**,
 ```bash
 BASE="https://dpp-service.ownyourdata.eu/dpp/v1"
 TOKEN="$(ruby mint_token.rb)"
-# permissive instances only:
-# TOKEN="eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ."
+# permissive instances only — an unsigned token, built on the spot:
+# b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+# TOKEN="$(printf '{"alg":"none"}' | b64).$(printf '{"sub":"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS","scope":"dpp:write"}' | b64)."
 
 # Reusable header arrays
 JSON=(-H "Content-Type: application/json")

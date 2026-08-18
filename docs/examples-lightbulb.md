@@ -50,15 +50,23 @@ statusCode `ClientForbidden`. Reading stays open and needs no token.
 How such a token is issued is described in `docs/Guide.md`, section
 "Authentication (prEN 18239)".
 
-The examples below use the unsigned test token
+The requests below write `Authorization: Bearer <token>`. Substitute a JWT of your
+own with these claims, signed with the document key of your `did:oyd`:
 
-```
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+```json
+{
+  "iss": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "sub": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "aud": "https://dpp-service.ownyourdata.eu",
+  "iat": 1786000000,
+  "exp": 1786000600,
+  "jti": "3f1c…"
+}
 ```
 
-(it decodes to `{"sub":"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS","scope":"dpp:write"}`, alg `none`), which
-only works against an instance in `permissive` mode; against the hosted instance it has
-to be replaced by a signed token.
+Header `{"alg":"EdDSA","typ":"JWT"}`. Against your own instance running
+`permissive` the signature is not checked and any decodable token gets through;
+against the hosted instance an unsigned one is refused with `401`.
 
 ---
 
@@ -71,7 +79,7 @@ Creates the passport. Writing → bearer token required.
 ```http
 POST /dpp/v1/dpps HTTP/1.1
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -399,7 +407,7 @@ The previous version is archived automatically.
 ```http
 PATCH /dpp/v1/dpps/https%3A%2F%2Fdpp.lumina.example%2F01%2F09520123456788%2F8546 HTTP/1.1
 Content-Type: application/merge-patch+json
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -482,7 +490,7 @@ Merge patch on exactly one data group.
 ```http
 PATCH /dpp/v1/dpps/{DPP}/collections/LightQuality HTTP/1.1
 Content-Type: application/merge-patch+json
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -539,7 +547,7 @@ Correct a single value — for example the reclassification of the efficiency cl
 ```http
 PATCH /dpp/v1/dpps/{DPP}/elements/dataElementCollections/EnergyPerformance/DataElements/EnergyEfficiencyClass HTTP/1.1
 Content-Type: application/merge-patch+json
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -571,7 +579,7 @@ Registers the passport with the EU registry (prEN 18222, 5.2).
 ```http
 POST /dpp/v1/registerDPP HTTP/1.1
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -604,7 +612,7 @@ Archives the current version and removes the active passport.
 
 ```http
 DELETE /dpp/v1/dpps/https%3A%2F%2Fdpp.lumina.example%2F01%2F09520123456788%2F8546 HTTP/1.1
-Authorization: Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ.
+Authorization: Bearer <token>
 ```
 
 ### Response `204 No Content`

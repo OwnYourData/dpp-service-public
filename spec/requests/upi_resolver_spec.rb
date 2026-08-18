@@ -5,7 +5,7 @@ require "rails_helper"
 # Short-link UPI for the EU DPP Registry: each DPP gets a short id and a
 # resolvable https URL (<= 50 chars, direct 200, no auth).
 RSpec.describe "UPI short-link resolver", type: :request do
-  let(:token) { "Bearer #{JWT.encode({ sub: 'did:web:lumina.example', scope: 'dpp:write' }, nil, 'none')}" }
+  let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:auth)  { { "Content-Type" => "application/json", "Authorization" => token } }
 
   let(:dpp_document) do
@@ -14,7 +14,7 @@ RSpec.describe "UPI short-link resolver", type: :request do
       "ProductID" => "https://id.lumina.example/01/09520123456788",
       "Granularity" => "model",
       "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:web:lumina.example"
+      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
     }
   end
 

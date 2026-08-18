@@ -33,6 +33,9 @@ module Api
         storage&.reachable!
 
         dpp = Dpp.from_document(dpp_document_param)
+        # Owner comes from the verified token, never from the payload; nil in
+        # permissive mode, where there is no verified identity to record.
+        dpp.owner_did = actor_did if DidTokenVerifier.enabled?
         dpp.assign_pod_storage!(storage) if storage
 
         if dpp.dpp_id.blank?
@@ -68,6 +71,8 @@ module Api
 
       # PATCH /dpp/v1/dpps/:dpp_id  — UpdateDPP, RFC 7396 (§4.7, Table 6)
       def update
+        return unless authorize_owner!(@dpp)
+
         @dpp.apply_merge_patch!(merge_patch_body)
         render_dpp(@dpp.to_document)
       end
@@ -81,6 +86,8 @@ module Api
       # For a service-minted DID (Variante A) the DID is revoked first, using
       # the stored keys; a revocation failure aborts before anything is deleted.
       def destroy
+        return unless authorize_owner!(@dpp)
+
         if @dpp.did_managed?
           DidOyd.revoke(@dpp.dpp_id, doc_key: @dpp.did_doc_key, rev_key: @dpp.did_rev_key)
         end

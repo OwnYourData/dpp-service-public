@@ -7,7 +7,7 @@ require "rails_helper"
 RSpec.describe "DPP API", type: :request do
   # The bearer gate decodes the JWT (signature verification is still TODO), so
   # the token must be a structurally valid JWT — a placeholder string yields 401.
-  let(:token) { "Bearer #{JWT.encode({ sub: 'did:web:lumina.example', scope: 'dpp:write' }, nil, 'none')}" }
+  let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:json)  { { "Content-Type" => "application/json" } }
   let(:auth)  { json.merge("Authorization" => token) }
   let(:patch_headers) { auth.merge("Content-Type" => "application/merge-patch+json") }
@@ -25,7 +25,7 @@ RSpec.describe "DPP API", type: :request do
       "Granularity" => "model",
       "DPPSchemaVersion" => "prEN 18223:2025",
       "DPPStatus" => "Active",
-      "EconomicOperatorID" => "did:web:lumina.example",
+      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
       "dataElementCollections" => [
         {
           "ElementId" => "EnergyPerformance",
@@ -198,7 +198,7 @@ RSpec.describe "DPP API", type: :request do
   describe "Registry API (Clause 5)" do
     it "registers a DPP and returns a registry identifier" do
       post "/dpp/v1/registerDPP",
-           params: { "ProductID" => product_id, "OperatorID" => "did:web:lumina.example" }.to_json,
+           params: { "ProductID" => product_id, "OperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }.to_json,
            headers: auth
 
       expect(response).to have_http_status(:created)

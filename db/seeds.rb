@@ -6,7 +6,7 @@ Dpp.find_or_create_by!(dpp_id: "https://dpp.example.org/01/09520123456788/21/000
   dpp.granularity          = "item"
   dpp.dpp_schema_version   = "prEN18223:2025"
   dpp.dpp_status           = "Active"
-  dpp.economic_operator_id = "did:web:flexco.example.org"
+  dpp.economic_operator_id = "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
   dpp.facility_id          = "https://id.example.org/414/4012345000009"
   dpp.last_update          = Time.now.utc
   dpp.content = {

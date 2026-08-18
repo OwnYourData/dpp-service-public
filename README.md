@@ -10,7 +10,7 @@ payloads from **prEN 18223** (system interoperability / semantic model).
 > periodically. Pull requests here cannot be merged — please open an issue
 > instead, or contact [OwnYourData](https://www.ownyourdata.eu).
 
-> ⚠️ The source standards are 2025 drafts (*Entwurf* / CEN Enquiry) and are
+> ⚠️ The source standards are 2025 drafts (CEN Enquiry stage) and are
 > technology-neutral. This implementation must be re-validated against the
 > final published standards. The `semanticId` base URI `https://jtc24/...` is a
 > placeholder taken from the drafts.
@@ -41,6 +41,23 @@ service keeps only an index and the storage configuration.
 That mode is out of scope for this snapshot — it needs a pod provisioned by the
 intermediary and credentials issued by them. Everything documented here is the
 stand-alone path, which is fully functional on its own.
+
+The hosted instance runs with `DPP_AUTH_MODE=did`: writing requires a bearer
+token that is a self-issued JWT, signed with the document key of the issuer's
+`did:oyd`, and only the DID that created a passport may change it. Reading is
+public and needs no token. A stand-alone instance starts in `permissive` mode,
+where the signature is not checked — see [docs/Standalone.md](docs/Standalone.md).
+
+## Documentation
+
+| File | What it covers |
+|---|---|
+| [docs/Standalone.md](docs/Standalone.md) | running the service on your own, without the intermediary's pod |
+| [docs/Guide.md](docs/Guide.md) | the full picture: sequence diagrams, storage variants, authentication, and a walkthrough of every endpoint |
+| [docs/EXAMPLES.md](docs/EXAMPLES.md) | the same walkthrough condensed to copy-paste `curl` calls |
+| [docs/examples-lightbulb.md](docs/examples-lightbulb.md) | one complete worked example (an LED lamp) with full request and response payloads |
+| [docs/Identifiers.md](docs/Identifiers.md) | the nine things called "identifier" in the DPP context, and how they relate |
+| [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract |
 
 ## Endpoints (prEN 18222, Tables 17–19)
 
@@ -90,9 +107,11 @@ bundle exec rspec
 
 ## Open items before production use
 
-1. **Auth profile (prEN 18239).** `TokenAuthenticatable` currently decodes the
-   bearer token without verifying its signature. Wire it to your OIDC provider
-   (JWKS, `iss`/`aud`/`exp`) and map roles to access rights.
+1. **Role model (prEN 18239).** Signature verification and owner binding are
+   implemented — set `DPP_AUTH_MODE=did` and bearer tokens must be self-issued
+   JWTs signed with the document key of the issuer's `did:oyd`. Still missing:
+   the roles (authority, refurbisher, consumer) and the distinction between
+   public data, controlled data and trade secrets.
 2. **EC Registry client (prEN 18222 §5).** `registerDPP` returns a synthetic
    identifier; the real endpoint is defined by EU implementing acts.
 3. **Content negotiation (prEN 18216 §5).** JSON is implemented; XML, JSON-LD

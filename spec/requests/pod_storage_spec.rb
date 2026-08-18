@@ -7,7 +7,7 @@ require "rails_helper"
 # wird die Verdrahtung im DPP Service geprüft, nicht die HTTP-Schicht
 # (die deckt spec/services/pod_storage_spec.rb ab).
 RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
-  let(:token) { "Bearer #{JWT.encode({ sub: 'did:web:lumina.example', scope: 'dpp:write' }, nil, 'none')}" }
+  let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:base_url) { "https://dpp.go-data.at" }
 
   let(:storage_jwt) do
@@ -31,7 +31,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
     { "ProductID" => product_id,
       "Granularity" => "model",
       "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:web:lumina.example" }
+      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }
   end
 
   # Fake-Pod: merkt sich das zuletzt geschriebene Dokument.

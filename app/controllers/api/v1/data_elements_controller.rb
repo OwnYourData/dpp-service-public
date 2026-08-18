@@ -22,6 +22,8 @@ module Api
       # objects with the persisted +content+, so patching in place would also
       # corrupt the snapshot written by archive_current_version! (prEN 18221).
       def update
+        return unless authorize_owner!(@dpp)
+
         document = @dpp.to_document.deep_dup
         element  = resolve_path(document, path_segments)
         return render_result("ClientErrorResourceNotFound", text: "Element not found") if element.nil?

@@ -20,6 +20,8 @@ module Api
       # persisted content, so patching in place would also alter the snapshot
       # taken by archive_current_version! (prEN 18221).
       def update
+        return unless authorize_owner!(@dpp)
+
         collections = Array(@dpp.to_document["dataElementCollections"]).deep_dup
         idx = collections.find_index { |c| c["ElementId"] == params[:element_id] }
         return render_result("ClientErrorResourceNotFound", text: "Collection not found") if idx.nil?

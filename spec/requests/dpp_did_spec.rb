@@ -6,7 +6,7 @@ require "rails_helper"
 # is supplied. DidOyd is stubbed so these specs need neither libsodium nor
 # network access to the VDR.
 RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
-  let(:token) { "Bearer #{JWT.encode({ sub: 'did:web:lumina.example', scope: 'dpp:write' }, nil, 'none')}" }
+  let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:auth)  { { "Content-Type" => "application/json", "Authorization" => token } }
 
   let(:product_id) { "https://id.lumina.example/01/09520123456788" }
@@ -20,7 +20,7 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
       "ProductID" => product_id,
       "Granularity" => "model",
       "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:web:lumina.example"
+      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
     }
   end
 

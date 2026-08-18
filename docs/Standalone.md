@@ -1,33 +1,34 @@
-# Stand-alone Betrieb
+# Stand-alone Operation
 
-Diese Anleitung beschreibt den DPP Service so, wie er **ohne jede externe
-Infrastruktur** läuft: die Passdokumente liegen in der eigenen Datenbank, der
-Dienst liefert sie selbst aus, und ausser einem PostgreSQL-Server wird nichts
-benötigt.
+This guide describes the DPP Service as it runs **without any external
+infrastructure**: the passport documents live in its own database, the service
+serves them itself, and nothing beyond a PostgreSQL server is needed.
 
-> OwnYourData betreibt unter **https://dpp-service.ownyourdata.eu** eine
-> öffentliche Instanz. Die speichert Passdokumente nicht selbst, sondern in
-> einem Hosting-Pod des Datenvermittlers **DID FlexCo**, der sie dann auch
-> öffentlich ausliefert. Dieser Betriebsmodus braucht einen vom Vermittler
-> bereitgestellten Pod samt Zugangsdaten und ist hier nicht dokumentiert.
-> Alles Folgende ist der eigenständige Weg — er ist vollständig funktionsfähig.
-
----
-
-## 1. Voraussetzungen
-
-* Ruby **3.2.8** (siehe `.ruby-version`)
-* PostgreSQL 14 oder neuer für den Produktivbetrieb; für Entwicklung und Tests
-  genügt SQLite, das ist in `config/database.yml` bereits so hinterlegt
-* optional Docker, wenn du das mitgelieferte Image bauen willst
-
-Warum PostgreSQL im Produktivbetrieb: das Passdokument wird als JSON in einer
-`jsonb`-Spalte gehalten, und die Suche über `ProductID` und `short_id` läuft
-über Ausdrucks-Indizes darauf.
+> OwnYourData operates a public instance at
+> **https://dpp-service.ownyourdata.eu**. That instance does not store passport
+> documents itself, but in a hosting pod of the data intermediary
+> **DID FlexCo**, which then also serves them publicly. That mode of operation
+> needs a pod provided by the intermediary together with credentials and is not
+> documented here. Everything that follows is the stand-alone path — it is
+> fully functional.
 
 ---
 
-## 2. Einrichten
+## 1. Prerequisites
+
+* Ruby **3.2.8** (see `.ruby-version`)
+* PostgreSQL 14 or newer for production operation; for development and tests
+  SQLite is sufficient, and it is already configured that way in
+  `config/database.yml`
+* optionally Docker, if you want to build the bundled image
+
+Why PostgreSQL in production: the passport document is held as JSON in a
+`jsonb` column, and the lookup by `ProductID` and `short_id` runs over
+expression indexes on it.
+
+---
+
+## 2. Setup
 
 ```bash
 bundle install
@@ -35,11 +36,11 @@ bin/rails db:create db:migrate db:seed
 bin/rails server
 ```
 
-Der Dienst hört auf `http://localhost:3000`, die Swagger-Oberfläche liegt unter
+The service listens on `http://localhost:3000`, the Swagger UI is at
 `http://localhost:3000/api-docs`.
 
-Die Testsuite braucht eine einmal aufgebaute Testdatenbank — es gibt keine
-eingecheckte `db/schema.rb`:
+The test suite needs a test database built once — there is no checked-in
+`db/schema.rb`:
 
 ```bash
 mkdir -p storage
@@ -49,38 +50,64 @@ bundle exec rspec
 
 ---
 
-## 3. Konfiguration
+## 3. Configuration
 
-Alle Einstellungen kommen aus Umgebungsvariablen.
+All settings come from environment variables.
 
-| Variable | Vorgabe | Bedeutung |
+| Variable | Default | Meaning |
 |---|---|---|
-| `SECRET_KEY_BASE` | — | Pflicht in Produktion (Rails) |
-| `KEY_VAULT_KEK` | aus `SECRET_KEY_BASE` abgeleitet | Schlüssel, mit dem DID-Schlüssel verschlüsselt abgelegt werden |
+| `SECRET_KEY_BASE` | — | mandatory in production (Rails) |
+| `KEY_VAULT_KEK` | derived from `SECRET_KEY_BASE` | key with which DID keys are stored encrypted |
 | `DPP_DB_HOST` | `localhost` | PostgreSQL |
 | `DPP_DB_NAME` | `dpp_service_production` | |
 | `DPP_DB_USER` / `DPP_DB_PASSWORD` | — | |
-| `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | öffentliche Basis-URL dieser Instanz; wird in den `serviceEndpoint` des DID-Dokuments geschrieben |
-| `DPP_UPI_BASE_URL` | `https://r.oydapp.eu/p` | Basis des Kurzlinks für die EU-Registry |
-| `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | Registrar/VDR für `did:oyd` |
-| `DPP_CORS_ORIGINS` | `*` | erlaubte Ursprünge für Browser-Clients |
+| `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | public base URL of this instance; written into the `serviceEndpoint` of the DID document |
+| `DPP_UPI_BASE_URL` | `https://r.oydapp.eu/p` | base of the short link for the EU registry |
+| `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | registrar/VDR for `did:oyd` |
+| `DPP_CORS_ORIGINS` | `*` | permitted origins for browser clients |
 | `RAILS_MAX_THREADS` | `5` | |
 | `RAILS_LOG_LEVEL` | `info` | |
+| `DPP_AUTH_MODE` | `permissive` | `did` enables signature verification of the bearer tokens and owner binding |
+| `DPP_AUTH_AUDIENCE` | same as `DPP_SERVICE_ENDPOINT_BASE` | value the `aud` claim must carry |
+| `DID_AUTH_CACHE_TTL` | `300` | how long a resolved public key stays valid |
+| `DID_AUTH_MAX_LIFETIME` | `900` | longest accepted token lifetime in seconds |
 
-**`KEY_VAULT_KEK` unbedingt setzen, bevor der erste Pass mit selbst geprägter
-DID angelegt wird.** Ohne die Variable leitet der Dienst den Schlüssel aus
-`SECRET_KEY_BASE` ab — wer dann später `SECRET_KEY_BASE` rotiert, macht damit
-alle gespeicherten DID-Schlüssel unlesbar und die betroffenen Pässe
-unwiderrufbar.
+**Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
+DID is created.** Without the variable the service derives the key from
+`SECRET_KEY_BASE` — whoever then rotates `SECRET_KEY_BASE` later makes all
+stored DID keys unreadable and the affected passports irrevocable.
 
-**`DPP_UPI_BASE_URL` kurz halten.** Die EU-Registry begrenzt den Unique Product
-Identifier auf 50 Zeichen. Der Dienst hängt einen zwölfstelligen `short_id` an,
-also bleiben für die Basis höchstens 37 Zeichen. Die Basis muss `https` sein und
-direkt mit `200` antworten, ohne Weiterleitung.
+**`DPP_AUTH_MODE` is set to `permissive`** as long as nothing else is
+configured. In this mode the bearer token is only decoded, not verified, and no
+ownership is enforced: every caller may change every passport. That is
+convenient for development and not safe for production.
+
+For production operation set `did`: the token must then be a self-issued JWT,
+EdDSA-signed with the document key of the issuer's `did:oyd`, carrying
+`iss` = `sub` = the issuer's DID, `aud` = the base URL of this service
+(`DPP_AUTH_AUDIENCE`), `iat`, an `exp` at most 900 s after `iat`, and `jti`.
+On top of that, only the DID that created a passport may update or delete it;
+another DID is refused with `403` and `statusCode` `ClientForbidden`. Reading
+is public in both modes and needs no token. A central identity provider is not
+needed for this — the service resolves the DID and checks against the public
+key from the DID document.
+
+Since 2026-08-17 the public instance operated by OwnYourData at
+https://dpp-service.ownyourdata.eu runs in `did` mode. A stand-alone operator
+gets `permissive` by default and should switch to `did` before going into
+production.
+
+To keep in mind when switching: passports created before have no recorded owner
+and can no longer be changed afterwards.
+
+**Keep `DPP_UPI_BASE_URL` short.** The EU registry limits the Unique Product
+Identifier to 50 characters. The service appends a twelve-character `short_id`,
+so at most 37 characters remain for the base. The base must be `https` and must
+answer with `200` directly, without a redirect.
 
 ---
 
-## 4. Mit Docker
+## 4. With Docker
 
 ```bash
 docker build -t dpp-service .
@@ -97,7 +124,7 @@ docker run --rm -p 3000:3000 \
   dpp-service
 ```
 
-Migrationen laufen nicht automatisch mit:
+Migrations do not run automatically:
 
 ```bash
 docker run --rm -e RAILS_ENV=production ... dpp-service bin/rails db:prepare
@@ -105,35 +132,35 @@ docker run --rm -e RAILS_ENV=production ... dpp-service bin/rails db:prepare
 
 ---
 
-## 5. Erster Durchlauf
+## 5. First run
 
-Schreibende Zugriffe brauchen ein Bearer-Token, lesende nicht (prEN 18239).
-Die Signaturprüfung ist noch ein Platzhalter — siehe die offenen Punkte im
-README. Für einen ersten Test genügt ein unsigniertes Token:
+Write access needs a bearer token, read access does not (prEN 18239).
+With `DPP_AUTH_MODE=permissive` (the default) an unsigned token is sufficient —
+for a first run that is enough:
 
 ```bash
 b64() { printf %s "$1" | base64 | tr '+/' '-_' | tr -d '=\n'; }
 enc() { printf %s "$1" | jq -sRr @uri; }
 BASE=http://localhost:3000/dpp/v1
-TOKEN="$(b64 '{"alg":"none"}').$(b64 '{"sub":"did:web:example.org","scope":"dpp:write"}')."
+TOKEN="$(b64 '{"alg":"none"}').$(b64 '{"sub":"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS","scope":"dpp:write"}')."
 PID="https://id.example.org/01/09520123456788"
 ```
 
-### Pass anlegen, Identifier selbst mitgeben
+### Create a passport, supplying the identifier yourself
 
-Wer den Identifier bereits besitzt, gibt ihn im Dokument mit. Der Dienst prägt
-dann nichts und hält kein Schlüsselmaterial:
+Whoever already owns the identifier passes it along in the document. The
+service then mints nothing and holds no key material:
 
 ```bash
 curl -sS -X POST "$BASE/dpps" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "DigitalProductPassportID": "did:web:example.org:dpp:0001",
+    "DigitalProductPassportID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS:dpp:0001",
     "ProductID": "https://id.example.org/01/09520123456788",
     "Granularity": "model",
     "DPPSchemaVersion": "prEN 18223:2025",
-    "EconomicOperatorID": "did:web:example.org",
+    "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
     "dataElementCollections": [
       { "ElementId": "EnergyPerformance", "Name": "Energy performance",
         "DataElements": [
@@ -143,14 +170,14 @@ curl -sS -X POST "$BASE/dpps" \
     ] }' | jq .
 ```
 
-Die Antwort enthält `DPPStatus`, `LastUpdate` und `UPI` — den Kurzlink, der bei
-der EU-Registry gemeldet wird.
+The response contains `DPPStatus`, `LastUpdate` and `UPI` — the short link that
+is reported to the EU registry.
 
-### Pass anlegen, Identifier prägen lassen
+### Create a passport, letting the identifier be minted
 
-Fehlt `DigitalProductPassportID`, prägt der Dienst eine `did:oyd` beim
-Registrar aus `OYDID_LOCATION` und legt die privaten Schlüssel verschlüsselt ab.
-Der `serviceEndpoint` des DID-Dokuments zeigt auf
+If `DigitalProductPassportID` is missing, the service mints a `did:oyd` at the
+registrar from `OYDID_LOCATION` and stores the private keys encrypted.
+The `serviceEndpoint` of the DID document points to
 `{DPP_SERVICE_ENDPOINT_BASE}/dpp/v1/dppsByProductId/{ProductID}`:
 
 ```bash
@@ -159,17 +186,17 @@ curl -sS -X POST "$BASE/dpps" \
   -H "Authorization: Bearer $TOKEN" \
   -d "{\"ProductID\": \"$PID\", \"Granularity\": \"model\",
        \"DPPSchemaVersion\": \"prEN 18223:2025\",
-       \"EconomicOperatorID\": \"did:web:example.org\"}" | jq -r .DigitalProductPassportID
+       \"EconomicOperatorID\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"}" | jq -r .DigitalProductPassportID
 ```
 
-Beachte: der `serviceEndpoint` läuft über die `ProductID`, nicht über die DID.
-Die DID kann im eigenen Dokument nicht vorkommen — sie ist der Hash über genau
-dieses Dokument.
+Note: the `serviceEndpoint` goes through the `ProductID`, not through the DID.
+The DID cannot appear in its own document — it is the hash over exactly this
+document.
 
-### Lesen
+### Reading
 
 ```bash
-DID="did:web:example.org:dpp:0001"
+DID="did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS:dpp:0001"
 EDID=$(enc "$DID"); EPID=$(enc "$PID")
 
 curl -sS "$BASE/dpps/$EDID" | jq -c '{DigitalProductPassportID, DPPStatus, UPI}'
@@ -178,16 +205,16 @@ curl -sS "$BASE/dpps/$EDID/collections/EnergyPerformance" | jq -c '{ElementId, N
 curl -sS "$BASE/dpps/$EDID/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux" | jq -c '{Value, UnitOfMeasure}'
 ```
 
-Lesen braucht kein Token. Der Kurzlink liegt ausserhalb von `/dpp/v1` und
-antwortet direkt mit `200`, ohne Weiterleitung:
+Reading needs no token. The short link lies outside `/dpp/v1` and answers with
+`200` directly, without a redirect:
 
 ```bash
 curl -sS http://localhost:3000/p/<short_id>
 ```
 
-### Ändern
+### Updating
 
-`UpdateDPP` erwartet einen Merge Patch nach RFC 7396:
+`UpdateDPP` expects a merge patch per RFC 7396:
 
 ```bash
 curl -sS -X PATCH "$BASE/dpps/$EDID" \
@@ -196,32 +223,36 @@ curl -sS -X PATCH "$BASE/dpps/$EDID" \
   -d '{"FacilityID": "https://id.example.org/414/0952012345002"}' | jq -c '{FacilityID, LastUpdate}'
 ```
 
-Jede Änderung archiviert den vorherigen Stand in `dpp_versions`. Der Stand zu
-einem Zeitpunkt ist damit abrufbar (prEN 18221, Modul 6):
+Every update archives the previous state in `dpp_versions`. The state at a
+given point in time can thus be retrieved (prEN 18221, module 6):
 
 ```bash
 curl -sS "$BASE/dppsByProductIdAndDate/$EPID?date=2026-01-01T00:00:00Z" | jq .
 ```
 
-### Löschen
+### Deleting
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' -X DELETE "$BASE/dpps/$EDID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Antwortet mit `204`. Der aktive Pass verschwindet, der letzte Stand bleibt mit
-`DPPStatus: "Archived"` in `dpp_versions` erhalten — das verlangt prEN 18221.
-Hat der Dienst die DID selbst geprägt, widerruft er sie dabei beim Registrar.
+Answers with `204`. The active passport disappears, the last state is kept in
+`dpp_versions` with `DPPStatus: "Archived"` — prEN 18221 requires that.
+If the service minted the DID itself, it revokes it at the registrar in the
+process.
 
 ---
 
-## 6. Was der Stand-alone-Betrieb nicht abdeckt
+## 6. What stand-alone operation does not cover
 
-* **Kein Datenvermittler.** Der Header `X-DPP-Storage`, mit dem ein einzelner
-  Pass in einem Hosting-Pod abgelegt wird, bleibt ungenutzt. Ohne ihn speichert
-  der Dienst lokal — das ist die Vorgabe und erfordert keine Konfiguration.
-* **Keine Registry-Anbindung.** `registerDPP` liefert eine synthetische
-  Kennung; der echte Endpunkt wird durch EU-Durchführungsrechtsakte definiert.
-* **Keine produktionsreife Authentifizierung.** Siehe die offenen Punkte im
-  README.
+* **No data intermediary.** The header `X-DPP-Storage`, with which an
+  individual passport is placed in a hosting pod, remains unused. Without it
+  the service stores locally — that is the default and needs no configuration.
+* **No registry connection.** `registerDPP` returns a synthetic identifier; the
+  real endpoint is defined by EU implementing acts.
+* **No role model.** Signature verification (`DPP_AUTH_MODE=did`) and owner
+  binding are implemented. The roles from prEN 18239 — authority, refurbisher,
+  consumer — and the distinction between public data, controlled data and trade
+  secrets are missing. There are two levels: publicly readable, and writable by
+  the owner.

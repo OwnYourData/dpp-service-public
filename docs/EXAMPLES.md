@@ -14,15 +14,21 @@ model follows **prEN 18223**; identifiers may be W3C DIDs (**prEN 18219**,
 - Reading public DPP data needs no token; **creating, updating and deleting**
   require a bearer token.
 
-> The token used below is an **unsigned test JWT** (`alg: none`). The service
-> currently verifies only the token structure, not the signature — this is for
-> testing, not production.
+> Since 2026-08-17 the hosted instance runs `DPP_AUTH_MODE=did`: the bearer
+> token has to be a self-issued JWT, EdDSA-signed with the document key of the
+> issuer's `did:oyd`, and only the DID that created a passport may update or
+> delete it. `docs/Guide.md`, section *Issuing a token*, shows how to mint the
+> DID and sign the token; keep that snippet as `mint_token.rb`. The unsigned
+> token below is the fallback for your own instance running `permissive`, where
+> the signature is not checked.
 
 ## Setup
 
 ```bash
 BASE="https://dpp-service.ownyourdata.eu/dpp/v1"
-TOKEN="eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6d2ViOmx1bWluYS5leGFtcGxlIiwic2NvcGUiOiJkcHA6d3JpdGUifQ."
+TOKEN="$(ruby mint_token.rb)"
+# permissive instances only:
+# TOKEN="eyJhbGciOiJub25lIn0.eyJzdWIiOiJkaWQ6b3lkOnpRbVBQd0hKSzFOSEJ6M0JTODlTdFdzZnJINHB6a3lxd0ppSzk0elZqMjV3WFVTIiwic2NvcGUiOiJkcHA6d3JpdGUifQ."
 
 # Reusable header arrays
 JSON=(-H "Content-Type: application/json")
@@ -62,7 +68,7 @@ Save the request body as `create-dpp.json`:
   "ProductID": "https://id.lumina.example/01/09520123456788",
   "Granularity": "model",
   "DPPSchemaVersion": "prEN 18223:2025",
-  "EconomicOperatorID": "did:web:lumina.example",
+  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
   "dataElementCollections": [
     {
       "ElementId": "EnergyPerformance",
@@ -111,7 +117,7 @@ when the default repository is used:
   "DPPSchemaVersion": "prEN 18223:2025",
   "DPPStatus": "Active",
   "LastUpdate": "2026-08-03T09:14:02Z",
-  "EconomicOperatorID": "did:web:lumina.example",
+  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
   "dataElementCollections": [ "… as submitted …" ]
 }
 ```
@@ -129,7 +135,7 @@ curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d '{
   "ProductID": "https://id.lumina.example/01/09520123456788",
   "Granularity": "model",
   "DPPSchemaVersion": "prEN 18223:2025",
-  "EconomicOperatorID": "did:web:lumina.example"
+  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
 }' | jq '.DigitalProductPassportID'
 ```
 
@@ -255,7 +261,7 @@ identifier.
 ```bash
 curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" "${AUTH[@]}" -d '{
   "ProductID": "https://id.lumina.example/01/09520123456788",
-  "OperatorID": "did:web:lumina.example"
+  "OperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
 }' | jq .
 ```
 

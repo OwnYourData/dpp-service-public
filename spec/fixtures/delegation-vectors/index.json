@@ -1,0 +1,69 @@
+{
+  "anchor_now": 1786960000,
+  "pod": "https://dpp.go-data.at",
+  "token_endpoint": "https://dpp.go-data.at/oauth/token",
+  "identities": {
+    "holder": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+    "service": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+    "other-holder": "did:oyd:zQmXoYRuzj9gV5TP6W6FUj9mjhtziravVVvxrut8U17YPJ6",
+    "other-service": "did:oyd:zQmQDA2Gko7fevWJdnt6ncsupp9aiqV7qnp8nq9UTutFUFc",
+    "stray-dpop-key": "did:oyd:zQmfYJ5yuF1UXfJ1w7zHyRkfyAf9de9PZ9XjWfprRFsjNDg"
+  },
+  "vectors": [
+    {
+      "id": "01-valid",
+      "checks": "all ten rules of section 8",
+      "expect": "success"
+    },
+    {
+      "id": "02-bad-signature",
+      "checks": "rule 2 \u2014 resolve iss, verify the signature against the document key",
+      "expect": "invalid_grant"
+    },
+    {
+      "id": "03-wrong-audience",
+      "checks": "rule 3 \u2014 aud must equal the pod's own base_url",
+      "expect": "invalid_grant"
+    },
+    {
+      "id": "04-expired-delegation",
+      "checks": "rule 4 \u2014 nbf <= now <= exp",
+      "expect": "invalid_grant"
+    },
+    {
+      "id": "05-jti-replay",
+      "checks": "rule 7 \u2014 the client assertion's own jti store",
+      "expect": "invalid_grant"
+    },
+    {
+      "id": "06-wrong-controller-did",
+      "checks": "rule 6 \u2014 iss must be the collection's controller_did",
+      "expect": "invalid_grant"
+    },
+    {
+      "id": "07-sub-mismatch",
+      "checks": "rule 8 \u2014 the delegation's sub must equal the client assertion's iss",
+      "expect": "invalid_grant"
+    },
+    {
+      "id": "08-dpop-key-mismatch",
+      "checks": "rule 9 \u2014 the DPoP proof must be made with the client's own key",
+      "expect": "invalid_dpop_proof"
+    },
+    {
+      "id": "09-act-exceeds-collection",
+      "checks": "rule 10 \u2014 act must be a subset of the collection's allowed operations",
+      "expect": "insufficient_scope"
+    },
+    {
+      "id": "10-unknown-act-value",
+      "checks": "decision D3 \u2014 act is extensible, unknown values fail closed",
+      "expect": "insufficient_scope"
+    },
+    {
+      "id": "11-wildcard-product-id",
+      "checks": "decision D2 \u2014 no wildcard, exactly one product per delegation",
+      "expect": "invalid_grant"
+    }
+  ]
+}

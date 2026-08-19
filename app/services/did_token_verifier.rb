@@ -76,6 +76,36 @@ class DidTokenVerifier
       nil
     end
 
+    # Ed25519 public key of the DID's document key, from cache or the VDR.
+    #
+    # Public because the delegation model (docs/Delegation.md §8 rule 2) needs
+    # exactly this and nothing else from here: resolve a DID, cache the answer,
+    # hand back a key. Sharing it keeps one resolution cache and one revocation
+    # window in the service instead of two that drift apart.
+    #
+    # Written explicitly rather than through Rails.cache.fetch, because hits and
+    # misses need different lifetimes: a failure is cached only briefly (that is
+    # what bounds abuse without pinning a temporary outage for minutes), a key
+    # for as long as we are willing to miss a revocation.
+    def public_key_for(did)
+      cache_key = "did-auth/key/#{did}"
+      cached = Rails.cache.read(cache_key)
+
+      if cached.nil?
+        raw = resolve_public_key(did)
+        if raw
+          Rails.cache.write(cache_key, raw, expires_in: CACHE_TTL)
+          cached = raw
+        else
+          Rails.cache.write(cache_key, UNRESOLVABLE, expires_in: NEGATIVE_CACHE_TTL)
+          cached = UNRESOLVABLE
+        end
+      end
+      return nil if cached == UNRESOLVABLE
+
+      Ed25519::VerifyKey.new(cached)
+    end
+
     private
 
     def verify!(token)
@@ -106,31 +136,6 @@ class DidTokenVerifier
       end
 
       claims
-    end
-
-    # Ed25519 public key of the DID's document key, from cache or the VDR.
-    #
-    # Written explicitly rather than through Rails.cache.fetch, because hits and
-    # misses need different lifetimes: a failure is cached only briefly (that is
-    # what bounds abuse without pinning a temporary outage for minutes), a key
-    # for as long as we are willing to miss a revocation.
-    def public_key_for(did)
-      cache_key = "did-auth/key/#{did}"
-      cached = Rails.cache.read(cache_key)
-
-      if cached.nil?
-        raw = resolve_public_key(did)
-        if raw
-          Rails.cache.write(cache_key, raw, expires_in: CACHE_TTL)
-          cached = raw
-        else
-          Rails.cache.write(cache_key, UNRESOLVABLE, expires_in: NEGATIVE_CACHE_TTL)
-          cached = UNRESOLVABLE
-        end
-      end
-      return nil if cached == UNRESOLVABLE
-
-      Ed25519::VerifyKey.new(cached)
     end
 
     # Returns the raw 32 key bytes, or nil. The DID document holds

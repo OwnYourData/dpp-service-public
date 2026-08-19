@@ -1,0 +1,84 @@
+{
+  "id": "08-dpop-key-mismatch",
+  "description": "The DPoP proof is signed with a key unrelated to the client assertion, so the token would be bound to a key the caller does not control.",
+  "checks": "rule 9 \u2014 the DPoP proof must be made with the client's own key",
+  "now": 1786960000,
+  "resolver": {
+    "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+          "publicKeyMultibase": "z6MkkZL5DNyWL1qjkuwtYCMuJUYvGDjthr2xmuQL9PEq63tt"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc"
+      ]
+    },
+    "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+          "publicKeyMultibase": "z6MkqhbZy41bYSGxYx2P2JvTyHadnE5f5J43yjea2C9yqJwk"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc"
+      ]
+    },
+    "did:oyd:zQmfYJ5yuF1UXfJ1w7zHyRkfyAf9de9PZ9XjWfprRFsjNDg": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmfYJ5yuF1UXfJ1w7zHyRkfyAf9de9PZ9XjWfprRFsjNDg",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmfYJ5yuF1UXfJ1w7zHyRkfyAf9de9PZ9XjWfprRFsjNDg#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmfYJ5yuF1UXfJ1w7zHyRkfyAf9de9PZ9XjWfprRFsjNDg",
+          "publicKeyMultibase": "z6MktnxCkHEKPdYqse4n3x4o9qPs4bQ6yGX4d7PnNHhcgvWd"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmfYJ5yuF1UXfJ1w7zHyRkfyAf9de9PZ9XjWfprRFsjNDg#key-doc"
+      ]
+    }
+  },
+  "collection": {
+    "id": "4",
+    "controller_did": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+    "allowed_act": [
+      "create",
+      "update",
+      "delete"
+    ],
+    "revoked_delegation_jti": []
+  },
+  "preconditions": [],
+  "request": {
+    "method": "POST",
+    "url": "https://dpp.go-data.at/oauth/token",
+    "headers": {
+      "DPoP": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6IjFROFBHUTdWWWpKcm1SRWJyZFBQSl9MM2VLUzRSOWZabVVseDdiZldOdkkifSwidHlwIjoiZHBvcCtqd3QifQ.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9kcHAuZ28tZGF0YS5hdC9vYXV0aC90b2tlbiIsImlhdCI6MTc4Njk2MDAwMCwianRpIjoiNjFiNGQ4NGQ1ZTlhYzk1YSJ9.kvjvQI65MpmUOfjNWZYyo_pG6UkUY2hCrv5CcbSKDU9RKEDE4L1OET-Gnk7vTZ1h1Ya3QBcZsSAbsPvdHZS5Ag",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "form": {
+      "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWjh0bVdkMmNRampMcVV6cnJ4OFNBdjJKVTJDNW5HbWlvaXZpaXNZZEFXUlcja2V5LWRvYyIsInR5cCI6ImRwcC1kZWxlZ2F0aW9uK2p3dCJ9.eyJhY3QiOlsiY3JlYXRlIiwidXBkYXRlIiwiZGVsZXRlIl0sImF1ZCI6Imh0dHBzOi8vZHBwLmdvLWRhdGEuYXQiLCJjb2xsZWN0aW9uIjoiNCIsImV4cCI6MTc5NDczNjAwMCwiaWF0IjoxNzg2OTYwMDAwLCJpc3MiOiJkaWQ6b3lkOnpRbVo4dG1XZDJjUWpqTHFVenJyeDhTQXYySlUyQzVuR21pb2l2aWlzWWRBV1JXIiwianRpIjoiYjJjZjg0ZDcwMWZmYjRhYSIsIm5iZiI6MTc4Njk2MDAwMCwicHJvZHVjdF9pZCI6Imh0dHBzOi8vaWQubHVtaW5hLmV4YW1wbGUvMDEvMDk1MjAxMjM0NTY3OTEiLCJwdXJwb3NlIjoiZHBwLWhvc3RpbmciLCJzdWIiOiJkaWQ6b3lkOnpRbVlMNko3UHN6OWMyWHlEOVJHU01kdGJjNkxvSkhhRXRyWHBhV3J3bWt1eEd1In0._e1mfG0_Q7dJyZQXfv0hpG4qV6zgGE2-SPXMwjmNA_L3mTVjflyMbClf0Pt3elj1Yvz5zcNB_n1wZEphfsYADg",
+      "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      "client_assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWUw2SjdQc3o5YzJYeUQ5UkdTTWR0YmM2TG9KSGFFdHJYcGFXcndta3V4R3Uja2V5LWRvYyIsInR5cCI6ImNsaWVudC1hc3NlcnRpb24rand0In0.eyJhdWQiOiJodHRwczovL2RwcC5nby1kYXRhLmF0L29hdXRoL3Rva2VuIiwiZXhwIjoxNzg2OTYwMDYwLCJpYXQiOjE3ODY5NjAwMDAsImlzcyI6ImRpZDpveWQ6elFtWUw2SjdQc3o5YzJYeUQ5UkdTTWR0YmM2TG9KSGFFdHJYcGFXcndta3V4R3UiLCJqdGkiOiJmNGEzOTcxYjM3OTlmNzU1Iiwic3ViIjoiZGlkOm95ZDp6UW1ZTDZKN1BzejljMlh5RDlSR1NNZHRiYzZMb0pIYUV0clhwYVdyd21rdXhHdSJ9.6sx3gJdWALwynjsusii_n3EykgneMQjcRpV2dpHVfJKkARhX83kGE1jvBCL3ntAHbryrVOeUkkpzBJIVi-ViDQ"
+    }
+  },
+  "expect": {
+    "http_status": 400,
+    "error": "invalid_dpop_proof",
+    "log_reason": "DPoP key does not match the client assertion",
+    "note": "the reason belongs in the log, never in the response body"
+  }
+}

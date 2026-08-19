@@ -309,21 +309,69 @@ Public, without a token, with `ETag` and `Cache-Control` for caching.
 
 ## Storage in a hosting pod (header `X-DPP-Storage`)
 
-The data intermediary provides pod, collection and OAuth credentials and hands
-over a storage JWT with four fields:
+> **Not live yet.** What this section describes is implemented in this
+> repository and covered by tests, but the hosted instance at
+> `dpp-service.ownyourdata.eu` still runs the previous mechanism, in which the
+> intermediary handed over a `client_id` and a `client_secret`. The changeover
+> happens on both sides at once — pod and service — and this box goes away with
+> it. Local storage, which is the default and everything else in this guide, is
+> unaffected.
+
+The data intermediary provides pod and collection and records the economic
+operator's identity DID as the collection's controller. What is handed over
+contains no secret:
 
 ```json
-{ "base_url": "https://dpp.go-data.at", "collection_id": "4",
-  "client_id": "…", "client_secret": "…" }
+{ "base_url": "https://dpp.go-data.at", "collection_id": "4" }
 ```
 
-At creation it is supplied as a header — deliberately as a header and not as a
-field of the DPP document, so that the payload stays free of proprietary
-attributes (prEN 18223):
+The third field is produced by the economic operator, not by the intermediary:
+a **delegation**, a JWT signed with the document key of their own `did:oyd`,
+naming this service, this pod and exactly one product:
+
+```json
+{
+  "iss":        "did:oyd:… (the economic operator)",
+  "sub":        "did:oyd:… (this service, see /.well-known/dpp-service)",
+  "aud":        "https://dpp.go-data.at",
+  "collection": "4",
+  "product_id": "https://id.lumina.example/01/09520123456788",
+  "act":        ["create", "update", "delete"],
+  "purpose":    "dpp-hosting",
+  "iat": 1786960000, "nbf": 1786960000, "exp": 1794736000,
+  "jti": "b2f1c9e4a7d05386"
+}
+```
+
+The three together go into the header at creation — deliberately as a header and
+not as a field of the DPP document, so that the payload stays free of
+proprietary attributes (prEN 18223):
 
 ```bash
+STORAGE='{"base_url":"https://dpp.go-data.at","collection_id":"4","delegation":"'"$DELEGATION"'"}'
+
 curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" \
-     -H "X-DPP-Storage: $STORAGE_JWT" -d @create-dpp.json
+     -H "X-DPP-Storage: $STORAGE" -d @create-dpp.json
+```
+
+Why a signed mandate instead of a password: a `client_secret` never expires,
+covers every object of the collection rather than one passport, and has to be
+stored by whoever received it. The delegation expires, names one product, can be
+revoked by its issuer at the pod, and is worthless to anyone but the service
+named in `sub` — which is why this service keeps it in the clear. It presents
+the delegation together with two statements of its own (a client assertion and a
+DPoP proof) to obtain a ten-minute access token. The full model, including what
+the pod verifies, is in `docs/Delegation.md`.
+
+The DID to name in `sub` is published by the service itself:
+
+```bash
+curl -sS https://dpp-service.ownyourdata.eu/.well-known/dpp-service | jq .
+```
+
+```json
+{ "did": "did:oyd:zQmZBWgKreVE9VK4fxxU9RrkQ6LzcryfU15tFgDvtgtBbZd",
+  "audience": "https://dpp-service.ownyourdata.eu" }
 ```
 
 What changes as a result:
@@ -337,7 +385,7 @@ What changes as a result:
 | public reading | this service | the pod |
 
 The write API stays unchanged. `ReadDPPVersionByProductIdAndDate` is delegated to
-the pod for pod-backed DPPs. The storage JWT has to be present at `CreateDPP`,
+the pod for pod-backed DPPs. The header has to be present at `CreateDPP`,
 because the serviceEndpoint is frozen when the DID is minted.
 
 ## Authentication (prEN 18239)
@@ -694,11 +742,15 @@ key for, so the identifier stays valid until the holder revokes it. See step 15.
 
 ### 2c. Create a DPP — Variant B with the intermediary's hosting pod
 
-Same as 2b, plus the storage token in the `X-DPP-Storage` header. The document
-then lives in the pod, which also serves the public read paths — so the
-`serviceEndpoint` of the DID and the `UPI` must both point at the pod. Because
-the `serviceEndpoint` is frozen when the DID is minted, **the storage token has
-to exist before the identifier is created**.
+Same as 2b, plus the `X-DPP-Storage` header. The document then lives in the pod,
+which also serves the public read paths — so the `serviceEndpoint` of the DID
+and the `UPI` must both point at the pod. Because the `serviceEndpoint` is
+frozen when the DID is minted, **the header has to exist before the identifier
+is created**.
+
+> **Not live yet**, like the section *Storage in a hosting pod* above: the
+> hosted instance still expects the previous header, which carried a
+> `client_secret`. Steps 2a and 2b are unaffected.
 
 ```bash=
 PIDC="https://id.lumina.example/01/09520123456790"
@@ -714,13 +766,45 @@ oydid create
 created did:oyd:zQmWdUVpUGY8LdE1PVZUwz8gS7iwa1SfsWVoKx8CsDMFGeD
 ```
 
-Build the storage token from the four OAuth2 parameters issued by the
-intermediary, then create the passport:
+Sign a delegation for this one product. It is signed with the document key of
+**your** identity DID — the same key that signs your bearer token, so no new
+key management is involved. `sub` is the service DID from
+`/.well-known/dpp-service`, `aud` is the pod:
+
+```ruby
+require "oydid"
+require "jwt"
+require "jwt/eddsa"
+require "securerandom"
+
+my_did  = "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+doc_key = "z1S5Vc8QZXjHQvAZ…"
+service = "did:oyd:zQmZBWgKreVE9VK4fxxU9RrkQ6LzcryfU15tFgDvtgtBbZd"
+
+_code, _len, digest = Oydid.multi_decode(doc_key).first.unpack("SCa*")
+now = Time.now.to_i
+
+puts JWT.encode({ "iss" => my_did, "sub" => service,
+                  "aud" => "https://dpp.go-data.at",
+                  "collection" => "4",
+                  "product_id" => "https://id.lumina.example/01/09520123456790",
+                  "act" => %w[create update delete],
+                  "purpose" => "dpp-hosting",
+                  "iat" => now, "nbf" => now, "exp" => now + (90 * 86_400),
+                  "jti" => SecureRandom.hex(8) },
+                Ed25519::SigningKey.new(digest), "EdDSA",
+                { "typ" => "dpp-delegation+jwt", "kid" => "#{my_did}#key-doc" })
+```
+
+The `typ` header is not decoration: without it the same JWT could be presented
+as a write token or as a client assertion (RFC 8725 §3.11), and every verifier
+in this model rejects a foreign `typ`.
+
+Then create the passport:
 
 ```bash=
-b64() { printf %s "$1" | base64 | tr '+/' '-_' | tr -d '=\n'; }
-
-STORAGE="$(b64 '{"alg":"none"}').$(b64 "{\"base_url\":\"https://dpp.go-data.at\",\"collection_id\":\"4\",\"client_id\":\"$CLIENT_ID\",\"client_secret\":\"$CLIENT_SECRET\"}")."
+DELEGATION="$(ruby mint_delegation.rb)"
+STORAGE="{\"base_url\":\"https://dpp.go-data.at\",\"collection_id\":\"4\",\"delegation\":\"$DELEGATION\"}"
 DIDC="did:oyd:zQmWdUVpUGY8LdE1PVZUwz8gS7iwa1SfsWVoKx8CsDMFGeD"
 
 curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" \
@@ -876,6 +960,14 @@ curl -sS "$BASE/dppsByProductIdAndDate/$PENC?date=$NOW" | jq '{ DPPStatus, LastU
 The pod can enumerate the versions of a passport it stores. Unlike the read
 paths this one is **not** public — it needs a token for the collection, and it
 only answers for the organisation that owns the object.
+
+> This call is yours, not the service's: the delegation authorises the DPP
+> Service to write your passport, it does not authorise you to read the pod's
+> management views. Credentials of your own at the pod are therefore still what
+> this step uses, and they are unaffected by the changeover — the pod keeps its
+> `client_credentials` grant for every application that needs it. How a holder
+> should authenticate for their own views once they have an identity DID is an
+> open point (`docs/Delegation.md` §16, item 5).
 
 ```bash=
 POD_TOKEN=$(curl -sS -d grant_type=client_credentials \

@@ -1,0 +1,84 @@
+{
+  "id": "07-sub-mismatch",
+  "description": "A delegation addressed to service A, presented by service B. This is the vector that matters most: without rule 8 the delegation is a bearer artifact that anyone who has seen it can present.",
+  "checks": "rule 8 \u2014 the delegation's sub must equal the client assertion's iss",
+  "now": 1786960000,
+  "resolver": {
+    "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+          "publicKeyMultibase": "z6MkkZL5DNyWL1qjkuwtYCMuJUYvGDjthr2xmuQL9PEq63tt"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc"
+      ]
+    },
+    "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+          "publicKeyMultibase": "z6MkqhbZy41bYSGxYx2P2JvTyHadnE5f5J43yjea2C9yqJwk"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc"
+      ]
+    },
+    "did:oyd:zQmQDA2Gko7fevWJdnt6ncsupp9aiqV7qnp8nq9UTutFUFc": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmQDA2Gko7fevWJdnt6ncsupp9aiqV7qnp8nq9UTutFUFc",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmQDA2Gko7fevWJdnt6ncsupp9aiqV7qnp8nq9UTutFUFc#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmQDA2Gko7fevWJdnt6ncsupp9aiqV7qnp8nq9UTutFUFc",
+          "publicKeyMultibase": "z6MkguaGpC3msHmU9dNqmeCuQcCqVXfoGdSVuhMuoymYMhc7"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmQDA2Gko7fevWJdnt6ncsupp9aiqV7qnp8nq9UTutFUFc#key-doc"
+      ]
+    }
+  },
+  "collection": {
+    "id": "4",
+    "controller_did": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+    "allowed_act": [
+      "create",
+      "update",
+      "delete"
+    ],
+    "revoked_delegation_jti": []
+  },
+  "preconditions": [],
+  "request": {
+    "method": "POST",
+    "url": "https://dpp.go-data.at/oauth/token",
+    "headers": {
+      "DPoP": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6IkpIVVYyTGZCd0oydXU1aUM5Vk1peWdSaGRnazZBSnJpdENVeTVlSnhxaVEifSwidHlwIjoiZHBvcCtqd3QifQ.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9kcHAuZ28tZGF0YS5hdC9vYXV0aC90b2tlbiIsImlhdCI6MTc4Njk2MDAwMCwianRpIjoiNTBiOGUzMTU3OGIzZDc5ZiJ9.2BBZ482DFYqK7dOXAzQzK-xN-GYmsOSD694GW1ZV8GfR9NqwEropKPGC_Jfg2oZLLg0bRkOBciEwcXHAaBwKCQ",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "form": {
+      "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWjh0bVdkMmNRampMcVV6cnJ4OFNBdjJKVTJDNW5HbWlvaXZpaXNZZEFXUlcja2V5LWRvYyIsInR5cCI6ImRwcC1kZWxlZ2F0aW9uK2p3dCJ9.eyJhY3QiOlsiY3JlYXRlIiwidXBkYXRlIiwiZGVsZXRlIl0sImF1ZCI6Imh0dHBzOi8vZHBwLmdvLWRhdGEuYXQiLCJjb2xsZWN0aW9uIjoiNCIsImV4cCI6MTc5NDczNjAwMCwiaWF0IjoxNzg2OTYwMDAwLCJpc3MiOiJkaWQ6b3lkOnpRbVo4dG1XZDJjUWpqTHFVenJyeDhTQXYySlUyQzVuR21pb2l2aWlzWWRBV1JXIiwianRpIjoiOWRjYTBkZWZiNTI4Mjk1OSIsIm5iZiI6MTc4Njk2MDAwMCwicHJvZHVjdF9pZCI6Imh0dHBzOi8vaWQubHVtaW5hLmV4YW1wbGUvMDEvMDk1MjAxMjM0NTY3OTEiLCJwdXJwb3NlIjoiZHBwLWhvc3RpbmciLCJzdWIiOiJkaWQ6b3lkOnpRbVlMNko3UHN6OWMyWHlEOVJHU01kdGJjNkxvSkhhRXRyWHBhV3J3bWt1eEd1In0.YAf-06PcNcaX9rVTjYYJvXA0bcUuNYX_2mbN1yqo3-xceaUgBjSQ4RxsXDsqJKYRNW7CZHIm9Clf1xtKEMD5Aw",
+      "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      "client_assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtUURBMkdrbzdmZXZXSmRudDZuY3N1cHA5YWlxVjdxbnA4bnE5VVR1dEZVRmMja2V5LWRvYyIsInR5cCI6ImNsaWVudC1hc3NlcnRpb24rand0In0.eyJhdWQiOiJodHRwczovL2RwcC5nby1kYXRhLmF0L29hdXRoL3Rva2VuIiwiZXhwIjoxNzg2OTYwMDYwLCJpYXQiOjE3ODY5NjAwMDAsImlzcyI6ImRpZDpveWQ6elFtUURBMkdrbzdmZXZXSmRudDZuY3N1cHA5YWlxVjdxbnA4bnE5VVR1dEZVRmMiLCJqdGkiOiJjZGZmMjRhMDQ4ZWNlYmE1Iiwic3ViIjoiZGlkOm95ZDp6UW1RREEyR2tvN2ZldldKZG50Nm5jc3VwcDlhaXFWN3FucDhucTlVVHV0RlVGYyJ9.-9NyNgm-WuLYs0zIAp_GzD2HL3nZBUAKpjI4lCcaDtMOcMjtphuIFSRNurM0_elGE7WSRYsbCENv4PGFCShxBg"
+    }
+  },
+  "expect": {
+    "http_status": 400,
+    "error": "invalid_grant",
+    "log_reason": "delegation sub does not match the presenting client",
+    "note": "the reason belongs in the log, never in the response body"
+  }
+}

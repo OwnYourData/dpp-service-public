@@ -3,24 +3,33 @@
 require "net/http"
 require "uri"
 require "json"
+require "base64"
+require "digest"
 
-# Client für einen Hosting-Pod des Datenintermediärs (dc-pod / pod-dpp).
+# Client for a hosting pod of the data intermediary (dc-pod / pod-dpp).
 #
-# Der Pod wird vom Intermediär vorab provisioniert; das DPP Service bekommt je
-# Speicherort ein JWT mit den OAuth2-Parametern:
+# The pod is provisioned by the intermediary beforehand. Since the changeover
+# described in docs/Delegation.md this service is handed no secret for it — what
+# arrives in the X-DPP-Storage header is:
 #
-#   { "base_url": "https://dpp.go-data.at", "collection_id": "1",
-#     "client_id": "…", "client_secret": "…" }
+#   { "base_url": "https://dpp.go-data.at", "collection_id": "4",
+#     "delegation": "eyJhbGciOiJFZERTQSIsInR5cCI6ImRwcC1kZWxlZ2F0aW9uK2p3dCJ9…" }
 #
-# Daraus erzeugt dieser Client per client_credentials einen Bearer-Token und
-# schreibt bzw. liest über die Standard-API des Pods. Ein DPP besteht dort aus
-# zwei Objekten: der Karteikarte (POST /object) und dem Payload
-# (PUT /object/:id/write) — das eigentliche DPP-Dokument nach prEN 18223.
+# The delegation is a JWT the economic operator signed with the document key of
+# their own identity DID. It names this service in `sub`, this pod in `aud` and
+# exactly one `product_id`. To turn it into an access token (§7) the service
+# adds two statements of its own: a client assertion proving it is the service
+# the delegation names, and a DPoP proof binding the token to its key.
 #
-# Bewusst ohne zusätzliche Gems: Net::HTTP aus der Standardbibliothek.
+# What this buys, compared with the client_secret it replaces: the artefact we
+# store is useless to anyone else (it only works together with the private key
+# of the service DID), it covers one passport rather than a whole collection,
+# and the holder can revoke it at the pod without touching anything else.
+#
+# Deliberately without extra gems: Net::HTTP from the standard library.
 class PodStorage
-  # Fehler des Pods werden auf die generischen Statuscodes aus prEN 18222
-  # (Tabelle 16) abgebildet.
+  # Pod failures are mapped onto the generic status codes of prEN 18222
+  # (Table 16); docs/Delegation.md §14 fixes the mapping for the OAuth errors.
   class Error < StandardError
     attr_reader :status_code
 
@@ -36,70 +45,125 @@ class PodStorage
     end
   end
 
-  # Die EU-Registry verlangt für den UPI eine https-URL von höchstens
-  # 50 Zeichen: len(base_url) + len("/p/") + len(short_id) <= 50.
+  # The delegation itself is not acceptable — wrong service, wrong pod, expired,
+  # or an operation it does not cover. +status_code+ carries the §14 answer.
+  class DelegationError < Error; end
+
+  # The EU Registry requires an https URL of at most 50 characters for the UPI:
+  # len(base_url) + len("/p/") + len(short_id) <= 50.
   MAX_BASE_URL_LENGTH = 50 - "/p/".length - Dpp::SHORT_ID_LENGTH
 
   OPEN_TIMEOUT = Integer(ENV.fetch("POD_OPEN_TIMEOUT", 5))
   READ_TIMEOUT = Integer(ENV.fetch("POD_READ_TIMEOUT", 15))
 
-  attr_reader :base_url, :collection_id, :client_id
+  # §7: no refresh token. A short access token is cheap because it can always be
+  # re-fetched with the same delegation.
+  DEFAULT_TOKEN_TTL = 600
 
-  # --- Konstruktion ----------------------------------------------------------
+  # §14, seen from this service: the pod deliberately does not say *why* a grant
+  # failed, so invalid_grant covers both "expired or revoked" and "not the
+  # controller of this collection". It becomes 401 here; the pod's log is where
+  # the distinction lives.
+  OAUTH_ERROR_STATUS = {
+    "invalid_grant"       => "ClientNotAuthorized",
+    "invalid_client"      => "ClientNotAuthorized",
+    "invalid_dpop_proof"  => "ClientNotAuthorized",
+    "insufficient_scope"  => "ClientForbidden"
+  }.freeze
 
-  # Aus dem Storage-JWT, wie es der Datenintermediär ausstellt.
-  # TODO: Signatur gegen den Schlüssel des Intermediärs prüfen, sobald geklärt
-  # ist, wer das JWT ausstellt (siehe docs/Prompts_Datenintermediaer_260812.md).
-  def self.from_jwt(raw)
-    raise ConfigError, "Missing storage token" if raw.blank?
+  attr_reader :base_url, :collection_id, :delegation, :delegation_claims
 
-    payload = begin
-      JWT.decode(raw.to_s, nil, false).first
-    rescue JWT::DecodeError => e
-      raise ConfigError, "Invalid storage token (#{e.message})"
-    end
-    from_hash(payload)
+  # --- construction ----------------------------------------------------------
+
+  # From the X-DPP-Storage header. Accepts the JSON object of §9 directly, or
+  # the same object base64url-encoded for clients that would rather not put
+  # braces and quotes into a header value.
+  def self.from_header(raw, verify: true)
+    raise ConfigError, "Missing storage configuration" if raw.blank?
+
+    payload = parse_header(raw)
+    raise ConfigError, "X-DPP-Storage is not a JSON object" unless payload.is_a?(Hash)
+
+    from_hash(payload, verify: verify)
   end
 
-  def self.from_hash(payload)
+  def self.parse_header(raw)
+    text = raw.to_s.strip
+    return JSON.parse(text) if text.start_with?("{")
+
+    JSON.parse(Base64.urlsafe_decode64(text + ("=" * ((4 - (text.length % 4)) % 4))))
+  rescue JSON::ParserError, ArgumentError => e
+    raise ConfigError, "X-DPP-Storage is neither JSON nor base64url JSON (#{e.class})"
+  end
+  private_class_method :parse_header
+
+  def self.from_hash(payload, verify: true)
     payload = (payload || {}).with_indifferent_access
     new(base_url:      payload[:base_url],
         collection_id: payload[:collection_id],
-        client_id:     payload[:client_id],
-        client_secret: payload[:client_secret])
+        delegation:    payload[:delegation],
+        verify:        verify)
   end
 
-  # Aus den verschlüsselt gespeicherten Zugangsdaten eines DPP.
+  # From what was stored on the DPP. The delegation is kept in the clear (§9):
+  # without the private key of the service DID it is not usable by anyone, so
+  # there is nothing left to encrypt.
+  #
+  # The signature is not re-checked on every read — it was checked when the
+  # delegation arrived, and an attacker who can rewrite our own database has
+  # better options than forging a delegation. What is still checked, on every
+  # use, is that it has not expired and that it covers the operation.
   def self.for(dpp)
     return nil unless dpp.pod?
 
-    raw = KeyVault.decrypt(dpp.storage_credentials_enc)
-    raise ConfigError, "No storage credentials stored for this DPP" if raw.blank?
+    if dpp.storage_delegation.blank?
+      raise ConfigError,
+            "No delegation stored for this passport — it predates the delegation " \
+            "changeover and has to be created again (docs/Delegation.md §13)"
+    end
 
-    from_hash(JSON.parse(raw))
+    new(base_url:      dpp.storage_base_url,
+        collection_id: dpp.storage_collection_id,
+        delegation:    dpp.storage_delegation,
+        verify:        false)
   end
 
-  def initialize(base_url:, collection_id:, client_id:, client_secret:)
+  def initialize(base_url:, collection_id:, delegation:, verify: true)
     @base_url      = base_url.to_s.strip.chomp("/")
     @collection_id = collection_id.to_s.strip
-    @client_id     = client_id.to_s
-    @client_secret = client_secret.to_s
+    @delegation    = delegation.to_s.strip
     validate!
+    @delegation_claims = verify ? verify_delegation! : Delegation.peek(@delegation)
+    raise ConfigError, "delegation is not a readable JWT" if @delegation_claims.nil?
   end
 
-  # Für die verschlüsselte Ablage am DPP.
-  def credentials_json
-    { "base_url"      => base_url,
-      "collection_id" => collection_id,
-      "client_id"     => client_id,
-      "client_secret" => @client_secret }.to_json
+  # What gets stored on the DPP. No secret in here — that is the point of §9.
+  def storage_delegation
+    delegation
   end
 
-  # --- Objekt-Lebenszyklus ---------------------------------------------------
+  # Does the stored delegation still permit +operation+ ("create", "update",
+  # "delete")? Checked before the request so the service fails on its own terms
+  # instead of at the pod.
+  def covers?(operation)
+    Delegation.covers?(delegation_claims, operation)
+  end
 
-  # Legt die Karteikarte an, über die pod-dpp den Passport wiederfindet.
-  # Liefert die object-id.
+  def ensure_covers!(operation)
+    return true if covers?(operation)
+
+    raise DelegationError.new(
+      "the delegation for this passport does not cover #{operation}",
+      status_code: "ClientForbidden"
+    )
+  end
+
+  # --- object lifecycle ------------------------------------------------------
+
+  # Creates the index card through which pod-dpp finds the passport again.
+  # Returns the object id.
   def create_object(dpp)
+    ensure_covers!("create")
     body = {
       "collection-id"            => numeric_collection_id,
       "type"                     => "DigitalProductPassport",
@@ -114,10 +178,11 @@ class PodStorage
     id.to_s
   end
 
-  # Schreibt das DPP-Dokument als Payload. Jede inhaltliche Änderung erzeugt im
-  # Pod eine neue Payload-Row; die alte bleibt unter ihrem DRI abrufbar — das
-  # ist die Versionshistorie nach prEN 18221.
+  # Writes the DPP document as the payload. Every change creates a new payload
+  # row in the pod; the previous one stays retrievable under its DRI — that is
+  # the version history of prEN 18221.
   def write_payload(object_id, document)
+    ensure_covers!("update")
     request(:put, "/object/#{object_id}/write", body: document, auth: true)
     true
   end
@@ -126,13 +191,14 @@ class PodStorage
     request(:get, "/object/#{object_id}/read", auth: true)
   end
 
-  # Soft-Delete: die Archivversionen bleiben erhalten (prEN 18221).
+  # Soft delete: the archived versions survive (prEN 18221).
   def delete_object(object_id)
+    ensure_covers!("delete")
     request(:delete, "/object/#{object_id}", auth: true)
     true
   end
 
-  # Stand zum Zeitpunkt +date+ — bedient von pod-dpp, öffentlich, ohne Token.
+  # State at +date+ — served by pod-dpp, public, without a token.
   def version_at(product_id, date)
     path = "/dpp/v1/dppsByProductIdAndDate/#{CGI.escape(product_id.to_s)}" \
            "?date=#{CGI.escape(date.utc.iso8601)}"
@@ -143,31 +209,29 @@ class PodStorage
     nil
   end
 
-  # --- Token -----------------------------------------------------------------
+  # --- token (§7) ------------------------------------------------------------
 
-  # Access Token, gecacht bis kurz vor Ablauf. dc-pod gibt keine Refresh Tokens
-  # aus, Tokens sind per Default 2 Stunden gültig.
+  # Access token, cached until shortly before it expires. §7: no refresh token —
+  # when it runs out, the same delegation fetches a new one.
   def token
-    key = [base_url, client_id]
+    key = [base_url, delegation_claims["jti"]]
     cached = self.class.token_cache_get(key)
     return cached if cached
 
-    response = form_post("/oauth/token",
-                         "grant_type"    => "client_credentials",
-                         "client_id"     => client_id,
-                         "client_secret" => @client_secret,
-                         "scope"         => "write")
+    response = fetch_token
     access = response["access_token"].to_s
-    raise Error.new("Pod returned no access_token", status_code: "ClientNotAuthorized") if access.empty?
+    if access.empty?
+      raise Error.new("Pod returned no access_token", status_code: "ClientNotAuthorized")
+    end
 
     ttl = response["expires_in"].to_i
-    ttl = 3600 if ttl <= 0
+    ttl = DEFAULT_TOKEN_TTL if ttl <= 0
     self.class.token_cache_put(key, access, ttl)
     access
   end
 
-  # Prüft Erreichbarkeit und Zugangsdaten, bevor irgendetwas Bleibendes
-  # passiert (insbesondere bevor eine DID gemintet wird).
+  # Checks reachability and that the delegation is actually redeemable, before
+  # anything permanent happens — in particular before a DID is minted.
   def reachable!
     token
     true
@@ -186,8 +250,8 @@ class PodStorage
 
     def token_cache_put(key, token, ttl_seconds)
       mutex.synchronize do
-        # 60 s Sicherheitsabstand, damit kein Request mit einem gerade
-        # ablaufenden Token losläuft.
+        # 60 s of headroom so no request starts with a token that is about to
+        # expire mid-flight.
         cache[key] = { token: token,
                        expires_at: Time.now.utc + [ttl_seconds - 60, 30].max }
       end
@@ -205,28 +269,62 @@ class PodStorage
 
   private
 
+  # §5 and §8, as far as this side can check it: a delegation naming another
+  # service, another pod or another collection is not ours to keep. Storing it
+  # would only move the failure to the first token request, where the pod's log
+  # would carry the blame for our mistake.
+  def verify_delegation!
+    Delegation.verify!(delegation, audience: base_url, collection_id: collection_id)
+  rescue Delegation::Invalid => e
+    raise DelegationError.new(
+      "delegation refused: #{e.message}",
+      status_code: OAUTH_ERROR_STATUS.fetch(e.code, "ClientNotAuthorized")
+    )
+  rescue ServiceDid::NotConfigured => e
+    raise ConfigError, "this deployment cannot accept delegations: #{e.message}"
+  end
+
+  def token_endpoint
+    "#{base_url}/oauth/token"
+  end
+
+  def fetch_token
+    proof = Delegation.dpop_proof(htm: "POST", htu: token_endpoint)
+    form  = {
+      "grant_type"            => "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      "assertion"             => delegation,
+      "client_assertion_type" => "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      "client_assertion"      => Delegation.client_assertion(token_endpoint)
+    }
+
+    perform(:post, "/oauth/token",
+            { "Accept" => "application/json",
+              "Content-Type" => "application/x-www-form-urlencoded",
+              "DPoP" => proof },
+            URI.encode_www_form(form))
+  end
+
   def validate!
-    raise ConfigError, "storage token: base_url is required"      if base_url.empty?
-    raise ConfigError, "storage token: collection_id is required" if collection_id.empty?
-    raise ConfigError, "storage token: client_id is required"     if client_id.empty?
-    raise ConfigError, "storage token: client_secret is required" if @client_secret.empty?
+    raise ConfigError, "storage configuration: base_url is required"      if base_url.empty?
+    raise ConfigError, "storage configuration: collection_id is required" if collection_id.empty?
+    raise ConfigError, "storage configuration: delegation is required"    if delegation.empty?
 
     unless base_url.start_with?("https://")
-      raise ConfigError, "storage token: base_url must use https (prEN 18216 §6.2)"
+      raise ConfigError, "storage configuration: base_url must use https (prEN 18216 §6.2)"
     end
 
     if base_url.length > MAX_BASE_URL_LENGTH
       raise ConfigError,
-            "storage token: base_url must not exceed #{MAX_BASE_URL_LENGTH} characters " \
+            "storage configuration: base_url must not exceed #{MAX_BASE_URL_LENGTH} characters " \
             "so that the UPI stays within the Registry's 50-character limit"
     end
 
     URI.parse(base_url)
   rescue URI::InvalidURIError
-    raise ConfigError, "storage token: base_url is not a valid URL"
+    raise ConfigError, "storage configuration: base_url is not a valid URL"
   end
 
-  # dc-pod erwartet die collection-id numerisch.
+  # dc-pod expects the collection id numerically.
   def numeric_collection_id
     Integer(collection_id)
   rescue ArgumentError, TypeError
@@ -235,17 +333,21 @@ class PodStorage
 
   def request(method, path, body: nil, auth: true)
     headers = { "Accept" => "application/json" }
-    headers["Content-Type"]  = "application/json" unless body.nil?
-    headers["Authorization"] = "Bearer #{token}" if auth
+    headers["Content-Type"] = "application/json" unless body.nil?
+
+    if auth
+      access = token
+      # RFC 9449: a DPoP-bound token travels in an "Authorization: DPoP" header,
+      # and every request carries its own proof over this method and this URL.
+      # `ath` binds the proof to the token, so a proof captured from one request
+      # cannot be replayed with a different token.
+      headers["Authorization"] = "DPoP #{access}"
+      headers["DPoP"] = Delegation.dpop_proof(htm: method.to_s.upcase,
+                                              htu: "#{base_url}#{path.split('?').first}",
+                                              ath: access)
+    end
 
     perform(method, path, headers, body.nil? ? nil : JSON.generate(body))
-  end
-
-  def form_post(path, form)
-    perform(:post, path,
-            { "Accept" => "application/json",
-              "Content-Type" => "application/x-www-form-urlencoded" },
-            URI.encode_www_form(form))
   end
 
   def perform(method, path, headers, payload)
@@ -278,10 +380,9 @@ class PodStorage
 
     case response.code.to_i
     when 200, 201, 204 then parsed
-    when 401, 403
+    when 400, 401, 403
       self.class.reset_token_cache!
-      raise Error.new("Pod rejected the credentials (#{response.code})",
-                      status_code: "ClientNotAuthorized")
+      raise oauth_error(parsed, response, method, path)
     when 404
       raise Error.new("Pod: not found (#{method.to_s.upcase} #{path})",
                       status_code: "ClientErrorResourceNotFound")
@@ -290,5 +391,22 @@ class PodStorage
       raise Error, "Pod #{base_url} returned #{response.code} on " \
                    "#{method.to_s.upcase} #{path}: #{detail}"
     end
+  end
+
+  # The pod answers a refused grant with an OAuth error code (§14). It says
+  # nothing about *which* rule failed — deliberately, because a precise message
+  # is a manual for forging the next attempt — so the log line here records what
+  # we asked for, and the client gets the mapped status code.
+  def oauth_error(parsed, response, method, path)
+    code = parsed["error"].to_s
+    status = OAUTH_ERROR_STATUS.fetch(code, "ClientNotAuthorized")
+    Rails.logger.info(
+      "[pod] #{method.to_s.upcase} #{path} refused with #{response.code} #{code.presence || 'unspecified'} " \
+      "(collection #{collection_id}, delegation #{delegation_claims['jti']})"
+    )
+
+    klass = code.empty? ? Error : DelegationError
+    klass.new("Pod refused the request (#{response.code}#{code.empty? ? '' : ", #{code}"})",
+              status_code: status)
   end
 end

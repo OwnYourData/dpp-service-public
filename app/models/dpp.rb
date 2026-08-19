@@ -59,8 +59,10 @@ class Dpp < ApplicationRecord
     @pod_storage ||= PodStorage.for(self)
   end
 
-  # Attach a pod as the storage backend. The credentials (which contain a
-  # client_secret) are encrypted at rest and never leave the service.
+  # Attach a pod as the storage backend. What is kept is the delegation the
+  # economic operator signed (docs/Delegation.md §9) — in the clear, because
+  # without the private key of the service DID it is worth nothing to anyone.
+  # No credential of the customer is stored here any more.
   def assign_pod_storage!(storage)
     # from_document put the inbound document into +content+; move it out so
     # nothing of the payload stays in this database.
@@ -68,7 +70,7 @@ class Dpp < ApplicationRecord
     self.storage_backend       = "pod"
     self.storage_base_url      = storage.base_url
     self.storage_collection_id = storage.collection_id
-    self.storage_credentials_enc = KeyVault.encrypt(storage.credentials_json)
+    self.storage_delegation    = storage.storage_delegation
     @pod_storage = storage
     self.document_content = document
     self

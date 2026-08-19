@@ -2,23 +2,29 @@
 
 require "rails_helper"
 
-# Stufe S2: die DPP-Inhalte liegen nicht lokal, sondern in einem vom
-# Datenintermediär verwalteten Hosting-Pod. Der Pod selbst ist gestubbt — hier
-# wird die Verdrahtung im DPP Service geprüft, nicht die HTTP-Schicht
-# (die deckt spec/services/pod_storage_spec.rb ab).
+# Stage S2: the DPP content does not live locally but in a hosting pod run by
+# the data intermediary. The pod itself is stubbed — what is checked here is the
+# wiring inside the DPP Service, not the HTTP layer (spec/services/
+# pod_storage_spec.rb covers that).
+#
+# Since docs/Delegation.md the X-DPP-Storage header carries no credential any
+# more: base_url, collection_id and the delegation the economic operator signed.
 RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
   let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:base_url) { "https://dpp.go-data.at" }
 
-  let(:storage_jwt) do
-    JWT.encode({ base_url: base_url, collection_id: "1",
-                 client_id: "pod-client", client_secret: "pod-secret" }, nil, "none")
+  # The delegation as it arrives from the customer. Its signature is verified by
+  # PodStorage; here the whole client is stubbed, so any well-formed value does.
+  let(:delegation) { "eyJhbGciOiJFZERTQSIsInR5cCI6ImRwcC1kZWxlZ2F0aW9uK2p3dCJ9.eyJzdWIiOiJkaWQ6b3lkOnpTZXJ2aWNlIn0.c2ln" }
+
+  let(:storage_header) do
+    { base_url: base_url, collection_id: "1", delegation: delegation }.to_json
   end
 
   let(:headers) do
     { "Content-Type" => "application/json",
       "Authorization" => token,
-      "X-DPP-Storage" => storage_jwt }
+      "X-DPP-Storage" => storage_header }
   end
   let(:local_headers) { headers.except("X-DPP-Storage") }
 
@@ -39,9 +45,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
     fake = instance_double(PodStorage,
                            base_url: base_url,
                            collection_id: "1",
-                           credentials_json: { base_url: base_url, collection_id: "1",
-                                               client_id: "pod-client",
-                                               client_secret: "pod-secret" }.to_json,
+                           storage_delegation: delegation,
                            reachable!: true)
     allow(fake).to receive(:create_object).and_return("4711")
     allow(fake).to receive(:write_payload) { |_id, doc| @written = doc; true }
@@ -51,7 +55,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
   end
 
   before do
-    allow(PodStorage).to receive(:from_jwt).and_return(pod)
+    allow(PodStorage).to receive(:from_header).and_return(pod)
     allow(PodStorage).to receive(:for).and_return(pod)
     allow(DidOyd).to receive(:mint).and_return(minted)
   end
@@ -88,15 +92,15 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       expect(upi.length).to be <= 50
     end
 
-    it "stores the pod credentials encrypted and never returns them" do
+    it "stores the delegation and keeps it out of the response" do
       post "/dpp/v1/dpps", params: document.to_json, headers: headers
 
       dpp = Dpp.find(minted[:did])
-      expect(dpp.storage_credentials_enc).to be_present
-      expect(dpp.storage_credentials_enc).not_to include("pod-secret")
-      expect(KeyVault.decrypt(dpp.storage_credentials_enc)).to include("pod-secret")
-      expect(response.body).not_to include("pod-secret")
-      expect(response.body).not_to include("storage_credentials")
+      # In the clear on purpose (§9): without the private key of the service DID
+      # the delegation is useless, so there is no secret left to encrypt.
+      expect(dpp.storage_delegation).to eq(delegation)
+      expect(response.body).not_to include(delegation)
+      expect(response.body).not_to include("storage_delegation")
     end
 
     it "stores locally when no storage token is supplied" do
@@ -108,16 +112,16 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
     end
   end
 
-  describe "validation of the storage token" do
-    before { allow(PodStorage).to receive(:from_jwt).and_call_original }
+  describe "validation of the storage configuration" do
+    before { allow(PodStorage).to receive(:from_header).and_call_original }
 
     def post_with(payload)
       post "/dpp/v1/dpps", params: document.to_json,
-           headers: headers.merge("X-DPP-Storage" => JWT.encode(payload, nil, "none"))
+           headers: headers.merge("X-DPP-Storage" => payload.to_json)
     end
 
     let(:valid) do
-      { base_url: base_url, collection_id: "1", client_id: "c", client_secret: "s" }
+      { base_url: base_url, collection_id: "1", delegation: delegation }
     end
 
     it "rejects a base_url that would break the Registry's 50-character limit" do
@@ -132,14 +136,14 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       expect(response).to have_http_status(:bad_request)
     end
 
-    it "rejects an incomplete storage token" do
-      post_with(valid.except(:client_secret))
+    it "rejects a configuration without a delegation" do
+      post_with(valid.except(:delegation))
       expect(response).to have_http_status(:bad_request)
     end
 
-    it "rejects a malformed storage token" do
+    it "rejects a malformed header" do
       post "/dpp/v1/dpps", params: document.to_json,
-           headers: headers.merge("X-DPP-Storage" => "not-a-jwt")
+           headers: headers.merge("X-DPP-Storage" => "not-json-at-all")
       expect(response).to have_http_status(:bad_request)
     end
   end

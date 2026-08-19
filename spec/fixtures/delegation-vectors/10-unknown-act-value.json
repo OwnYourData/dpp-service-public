@@ -1,0 +1,69 @@
+{
+  "id": "10-unknown-act-value",
+  "description": "act contains 'read'. Reserved by decision D3 but not issued today, so it must be refused \u2014 and refused without the verifier having to know a closed enum of values.",
+  "checks": "decision D3 \u2014 act is extensible, unknown values fail closed",
+  "now": 1786960000,
+  "resolver": {
+    "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+          "publicKeyMultibase": "z6MkkZL5DNyWL1qjkuwtYCMuJUYvGDjthr2xmuQL9PEq63tt"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc"
+      ]
+    },
+    "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+          "publicKeyMultibase": "z6MkqhbZy41bYSGxYx2P2JvTyHadnE5f5J43yjea2C9yqJwk"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc"
+      ]
+    }
+  },
+  "collection": {
+    "id": "4",
+    "controller_did": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+    "allowed_act": [
+      "create",
+      "update",
+      "delete"
+    ],
+    "revoked_delegation_jti": []
+  },
+  "preconditions": [],
+  "request": {
+    "method": "POST",
+    "url": "https://dpp.go-data.at/oauth/token",
+    "headers": {
+      "DPoP": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InB4ekRXQUVwS1hwVXgwQUpLUUJnQWJEbWp2T0JGbjRnQ0xDVWdILUM5Z3MifSwidHlwIjoiZHBvcCtqd3QifQ.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9kcHAuZ28tZGF0YS5hdC9vYXV0aC90b2tlbiIsImlhdCI6MTc4Njk2MDAwMCwianRpIjoiYTU4ZjA3MTQ5ZjkxNDBmYiJ9.NfTjmAtP8wVM_LNAqnyP8ZdHoqj2R22jSknec7XA1sgdB4yOkRD-6sdBx4fttSMIUzziHWuWDjLgvWE5JzciAQ",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "form": {
+      "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWjh0bVdkMmNRampMcVV6cnJ4OFNBdjJKVTJDNW5HbWlvaXZpaXNZZEFXUlcja2V5LWRvYyIsInR5cCI6ImRwcC1kZWxlZ2F0aW9uK2p3dCJ9.eyJhY3QiOlsiY3JlYXRlIiwicmVhZCJdLCJhdWQiOiJodHRwczovL2RwcC5nby1kYXRhLmF0IiwiY29sbGVjdGlvbiI6IjQiLCJleHAiOjE3OTQ3MzYwMDAsImlhdCI6MTc4Njk2MDAwMCwiaXNzIjoiZGlkOm95ZDp6UW1aOHRtV2QyY1FqakxxVXpycng4U0F2MkpVMkM1bkdtaW9pdmlpc1lkQVdSVyIsImp0aSI6Ijc4NTZjMjhmMzkxY2M4MzYiLCJuYmYiOjE3ODY5NjAwMDAsInByb2R1Y3RfaWQiOiJodHRwczovL2lkLmx1bWluYS5leGFtcGxlLzAxLzA5NTIwMTIzNDU2NzkxIiwicHVycG9zZSI6ImRwcC1ob3N0aW5nIiwic3ViIjoiZGlkOm95ZDp6UW1ZTDZKN1BzejljMlh5RDlSR1NNZHRiYzZMb0pIYUV0clhwYVdyd21rdXhHdSJ9.5mbK6cDX6g0hFZvwix2TWKLY6VheOH5vMCRH_L-tL7zmOgwi0l8w7z0-YsmCb1tSLa_0j4m8-O0hfMhzmqQLBA",
+      "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      "client_assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWUw2SjdQc3o5YzJYeUQ5UkdTTWR0YmM2TG9KSGFFdHJYcGFXcndta3V4R3Uja2V5LWRvYyIsInR5cCI6ImNsaWVudC1hc3NlcnRpb24rand0In0.eyJhdWQiOiJodHRwczovL2RwcC5nby1kYXRhLmF0L29hdXRoL3Rva2VuIiwiZXhwIjoxNzg2OTYwMDYwLCJpYXQiOjE3ODY5NjAwMDAsImlzcyI6ImRpZDpveWQ6elFtWUw2SjdQc3o5YzJYeUQ5UkdTTWR0YmM2TG9KSGFFdHJYcGFXcndta3V4R3UiLCJqdGkiOiI3NDcyZmUwMGRjYWIyZjc1Iiwic3ViIjoiZGlkOm95ZDp6UW1ZTDZKN1BzejljMlh5RDlSR1NNZHRiYzZMb0pIYUV0clhwYVdyd21rdXhHdSJ9.5MqWDL5ouVrN84MJTslD3SnvH1fIraXbhkQpPIWkKJC8gUR7kYrfLxsN2UTvilERfckR4zV25GTwLw6RTgIXDg"
+    }
+  },
+  "expect": {
+    "http_status": 400,
+    "error": "insufficient_scope",
+    "log_reason": "act contains a reserved value that is not issued",
+    "note": "the reason belongs in the log, never in the response body"
+  }
+}

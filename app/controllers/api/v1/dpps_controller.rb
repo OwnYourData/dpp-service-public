@@ -164,13 +164,20 @@ module Api
         @dpp = Dpp.find(params[:dpp_id])
       end
 
-      # Storage token from the X-DPP-Storage header, or nil for local storage.
-      # Raises PodStorage::ConfigError (-> 400) if the token is malformed.
+      # Storage configuration from the X-DPP-Storage header, or nil for local
+      # storage. The header carries { base_url, collection_id, delegation }
+      # (docs/Delegation.md §9); the delegation is verified on the way in, so a
+      # mandate for another service, another pod or another collection is
+      # refused here rather than at the first write.
+      #
+      # Raises PodStorage::ConfigError (-> 400) if the header is malformed and
+      # PodStorage::DelegationError (-> 401/403 per §14) if the mandate does not
+      # hold.
       def pod_storage_param
         raw = request.headers["X-DPP-Storage"].presence
         return nil if raw.nil?
 
-        PodStorage.from_jwt(raw)
+        PodStorage.from_header(raw)
       end
 
       # CreateDPP failed while talking to the pod: undo what we already did so

@@ -1,0 +1,70 @@
+{
+  "id": "01-valid",
+  "description": "A complete, well-formed request. The only vector that has to succeed.",
+  "checks": "all ten rules of section 8",
+  "now": 1786960000,
+  "resolver": {
+    "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+          "publicKeyMultibase": "z6MkkZL5DNyWL1qjkuwtYCMuJUYvGDjthr2xmuQL9PEq63tt"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW#key-doc"
+      ]
+    },
+    "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu": {
+      "@context": "https://www.w3.org/ns/did/v1",
+      "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+      "verificationMethod": [
+        {
+          "id": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc",
+          "type": "Ed25519VerificationKey2020",
+          "controller": "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu",
+          "publicKeyMultibase": "z6MkqhbZy41bYSGxYx2P2JvTyHadnE5f5J43yjea2C9yqJwk"
+        }
+      ],
+      "authentication": [
+        "did:oyd:zQmYL6J7Psz9c2XyD9RGSMdtbc6LoJHaEtrXpaWrwmkuxGu#key-doc"
+      ]
+    }
+  },
+  "collection": {
+    "id": "4",
+    "controller_did": "did:oyd:zQmZ8tmWd2cQjjLqUzrrx8SAv2JU2C5nGmioiviisYdAWRW",
+    "allowed_act": [
+      "create",
+      "update",
+      "delete"
+    ],
+    "revoked_delegation_jti": []
+  },
+  "preconditions": [],
+  "request": {
+    "method": "POST",
+    "url": "https://dpp.go-data.at/oauth/token",
+    "headers": {
+      "DPoP": "eyJhbGciOiJFZERTQSIsImp3ayI6eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6InB4ekRXQUVwS1hwVXgwQUpLUUJnQWJEbWp2T0JGbjRnQ0xDVWdILUM5Z3MifSwidHlwIjoiZHBvcCtqd3QifQ.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9kcHAuZ28tZGF0YS5hdC9vYXV0aC90b2tlbiIsImlhdCI6MTc4Njk2MDAwMCwianRpIjoiMzVhNjQ4YWFkYTZhMjY1MiJ9.avosxPfDkKwS6k6oO8wUbEGeYWwX1liqZrD_s-JrdOvyUoq9q_9y34D8t3b3CI4b_WTXpPnXpe_8MAZicbbsDg",
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    "form": {
+      "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      "assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWjh0bVdkMmNRampMcVV6cnJ4OFNBdjJKVTJDNW5HbWlvaXZpaXNZZEFXUlcja2V5LWRvYyIsInR5cCI6ImRwcC1kZWxlZ2F0aW9uK2p3dCJ9.eyJhY3QiOlsiY3JlYXRlIiwidXBkYXRlIiwiZGVsZXRlIl0sImF1ZCI6Imh0dHBzOi8vZHBwLmdvLWRhdGEuYXQiLCJjb2xsZWN0aW9uIjoiNCIsImV4cCI6MTc5NDczNjAwMCwiaWF0IjoxNzg2OTYwMDAwLCJpc3MiOiJkaWQ6b3lkOnpRbVo4dG1XZDJjUWpqTHFVenJyeDhTQXYySlUyQzVuR21pb2l2aWlzWWRBV1JXIiwianRpIjoiZmEzMWI1ZDI3YTZkMjJjYiIsIm5iZiI6MTc4Njk2MDAwMCwicHJvZHVjdF9pZCI6Imh0dHBzOi8vaWQubHVtaW5hLmV4YW1wbGUvMDEvMDk1MjAxMjM0NTY3OTEiLCJwdXJwb3NlIjoiZHBwLWhvc3RpbmciLCJzdWIiOiJkaWQ6b3lkOnpRbVlMNko3UHN6OWMyWHlEOVJHU01kdGJjNkxvSkhhRXRyWHBhV3J3bWt1eEd1In0.4WEiyqg4y6ukcNuU7xUCjxI0eUKP1FBkfwhrulDhHKMXRh-Rsnvu_aHsW7maA6pXhCafuAT_GRNOy2dv1C2BBw",
+      "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      "client_assertion": "eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFtWUw2SjdQc3o5YzJYeUQ5UkdTTWR0YmM2TG9KSGFFdHJYcGFXcndta3V4R3Uja2V5LWRvYyIsInR5cCI6ImNsaWVudC1hc3NlcnRpb24rand0In0.eyJhdWQiOiJodHRwczovL2RwcC5nby1kYXRhLmF0L29hdXRoL3Rva2VuIiwiZXhwIjoxNzg2OTYwMDYwLCJpYXQiOjE3ODY5NjAwMDAsImlzcyI6ImRpZDpveWQ6elFtWUw2SjdQc3o5YzJYeUQ5UkdTTWR0YmM2TG9KSGFFdHJYcGFXcndta3V4R3UiLCJqdGkiOiIyMDkyMDI2NzllN2ZkZjA2Iiwic3ViIjoiZGlkOm95ZDp6UW1ZTDZKN1BzejljMlh5RDlSR1NNZHRiYzZMb0pIYUV0clhwYVdyd21rdXhHdSJ9._B35GENh436Ey4QTIqc0Svq5cKyXeF4PGMUe1dyHc5FCLQSnVelNLgGYbb9WNXEPC9cKtSjR5RhvShpQwipjDA"
+    }
+  },
+  "expect": {
+    "http_status": 200,
+    "error": null,
+    "token_type": "DPoP",
+    "expires_in": 600,
+    "cnf_jkt": "-zZb4AMOEaUBGzLLxhQew8IBSlrgIos7ADEj82Fpjjk"
+  }
+}

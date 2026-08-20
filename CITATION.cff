@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+title: "DPP Service — custody-delegation reference implementation"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: Fabianek
+    given-names: Christoph
+    affiliation: "DID Daten-Intermediär-Dienste FlexCo / OwnYourData"
+  - family-names: Klikovits
+    given-names: Christoph
+    affiliation: "DID Daten-Intermediär-Dienste FlexCo / Forschung Burgenland GmbH"
+  - family-names: Waxnegger
+    given-names: Kerstin
+    affiliation: "DID Daten-Intermediär-Dienste FlexCo"
+  - family-names: Gnam
+    given-names: Lukas
+    affiliation: "Forschung Burgenland GmbH"
+abstract: >-
+  Reference implementation of a custody-delegation architecture for
+  standards-based Digital Product Passports: a DPP service provider applies
+  lifecycle operations under EN 18222/18223, while a legally separate data
+  intermediation service provider stores and publicly delivers the passport.
+  Custody is delegated per passport by a statement the data holder signs;
+  no shared secret exists anywhere in the flow. Includes the delegation
+  profile and a set of signed conformance vectors with an independent
+  reference verifier.
+keywords:
+  - digital product passport
+  - data intermediary
+  - Data Governance Act
+  - decentralized identifiers
+  - delegation
+  - ESPR
+license: Apache-2.0
+repository-code: "https://github.com/OwnYourData/dpp-service-public"

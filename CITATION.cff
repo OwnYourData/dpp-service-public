@@ -6,15 +6,6 @@ authors:
   - family-names: Fabianek
     given-names: Christoph
     affiliation: "DID Daten-Intermediär-Dienste FlexCo / OwnYourData"
-  - family-names: Klikovits
-    given-names: Christoph
-    affiliation: "DID Daten-Intermediär-Dienste FlexCo / Forschung Burgenland GmbH"
-  - family-names: Waxnegger
-    given-names: Kerstin
-    affiliation: "DID Daten-Intermediär-Dienste FlexCo"
-  - family-names: Gnam
-    given-names: Lukas
-    affiliation: "Forschung Burgenland GmbH"
 abstract: >-
   Reference implementation of a custody-delegation architecture for
   standards-based Digital Product Passports: a DPP service provider applies

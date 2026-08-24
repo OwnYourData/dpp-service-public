@@ -5,8 +5,8 @@ module Api
     # prEN 18222 Clause 4 — Life Cycle API (Main Methods).
     class DppsController < ApplicationController
       # Reads of public data are unauthenticated; writes require an actor.
-      before_action :authenticate_actor!, only: %i[create update destroy]
-      before_action :find_dpp, only: %i[show update destroy]
+      before_action :authenticate_actor!, only: %i[create update destroy move_custody]
+      before_action :find_dpp, only: %i[show update destroy move_custody]
 
       # POST /dpp/v1/dpps  — CreateDPP (§4.6, Table 5)
       #
@@ -33,6 +33,19 @@ module Api
         storage&.reachable!
 
         dpp = Dpp.from_document(dpp_document_param)
+
+        # The ProductID is the identifier the carrier bears (prEN 18219 §3.22,
+        # §4.5.2 (1)), so it is checked before anything permanent happens:
+        # minting first and failing validation afterwards would leave an orphan
+        # DID behind. Granularity is checked against the path rather than
+        # trusted (prEN 18223 Table 1).
+        if dpp.product_id.present?
+          begin
+            ProductIdentifier.parse!(dpp.product_id).assert_granularity!(dpp.granularity)
+          rescue ProductIdentifier::InvalidError => e
+            return render_result("ClientErrorBadRequest", text: e.message)
+          end
+        end
         # Owner comes from the verified token, never from the payload; nil in
         # permissive mode, where there is no verified identity to record.
         dpp.owner_did = actor_did if DidTokenVerifier.enabled?
@@ -103,6 +116,67 @@ module Api
 
         @dpp.destroy!
         render_dpp(nil, status_code: "SuccessNoContent")
+      end
+
+      # POST /dpp/v1/dpps/:dpp_id/custody  — change the custodian.
+      #
+      # Not part of prEN 18222: the standard describes what a service does with
+      # a passport, not where it keeps it. This is the operation the exit claim
+      # rests on. Custody is delegated per passport, so moving it is the same
+      # kind of act as granting it: the new mandate arrives in X-DPP-Storage
+      # exactly as at CreateDPP, and a delegation issued for the old custodian
+      # does not hold at the new pod -- that is the property, not an obstacle.
+      #
+      # The previous custodian keeps serving unless +release_previous+ is set.
+      # Three reasons: the overlap is the rollback path while a printed carrier
+      # may still resolve to the old host; withdrawing custody is a declaration
+      # of the holder and should look like one; and the version history lives in
+      # the pod, so releasing before the new custodian has been seen to answer
+      # would discard what prEN 18221, 4.3 requires to be retained.
+      #
+      # What "release" can and cannot be: a delegated token soft-deletes the
+      # object -- the public paths answer 404, the payload versions remain.
+      # Erasure needs admin rights at that pod and is a matter between holder
+      # and custodian, outside the mandate. The architecture can enforce exit;
+      # it cannot enforce forgetting.
+      def move_custody
+        return unless authorize_owner!(@dpp)
+
+        unless @dpp.pod?
+          return render_result("ClientErrorBadRequest",
+                               text: "This passport is not held by a custodian")
+        end
+
+        storage = pod_storage_param
+        if storage.nil?
+          return render_result(
+            "ClientErrorBadRequest",
+            text: "X-DPP-Storage carrying the new custodian's delegation is required"
+          )
+        end
+
+        if storage.base_url.to_s == @dpp.storage_base_url.to_s &&
+           storage.collection_id.to_s == @dpp.storage_collection_id.to_s
+          return render_result("ClientErrorBadRequest",
+                               text: "The passport is already held there")
+        end
+
+        # Both checks happen before anything permanent: a mandate that does not
+        # cover creation, or a pod that cannot be reached, must not leave the
+        # passport pointing at a custodian that never received it.
+        storage.ensure_covers!("create")
+        storage.reachable!
+
+        previous = @dpp.move_to_pod!(storage)
+        released = release_previous? ? release_custody(previous) : false
+
+        Rails.logger.info(
+          "[custody] #{@dpp.dpp_id} moved from #{previous[:base_url]} " \
+          "collection #{previous[:collection_id]} to #{storage.base_url} " \
+          "collection #{storage.collection_id}, previous released=#{released}"
+        )
+
+        render_dpp(@dpp.to_document)
       end
 
       # GET /dpp/v1/dppsByProductId/:product_id  — ReadDPPByProductId (§4.3, Table 2)
@@ -178,6 +252,29 @@ module Api
         return nil if raw.nil?
 
         PodStorage.from_header(raw)
+      end
+
+      # Opt-in: end custody at the previous pod in the same call. Off by
+      # default, because it removes the rollback path and is a declaration in
+      # its own right.
+      def release_previous?
+        ActiveModel::Type::Boolean.new.cast(params[:release_previous]) == true
+      end
+
+      # Soft-delete at the previous custodian, under the mandate that was
+      # issued for it. A failure here is logged and reported, but does not undo
+      # the move: the passport has already arrived at the new custodian, and
+      # leaving it in limbo would be worse than leaving a copy behind.
+      def release_custody(previous)
+        object_id = previous[:object_id]
+        return false if object_id.blank?
+
+        previous[:storage].ensure_covers!("delete")
+        previous[:storage].delete_object(object_id)
+        true
+      rescue PodStorage::Error => e
+        Rails.logger.error("[custody] previous custodian not released: #{e.message}")
+        false
       end
 
       # CreateDPP failed while talking to the pod: undo what we already did so

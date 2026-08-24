@@ -60,19 +60,14 @@ RSpec.describe PodStorage do
   end
 
   describe "validation of the storage configuration" do
-    it "derives the base_url limit from the Registry's 50-character rule" do
-      expect(described_class::MAX_BASE_URL_LENGTH).to eq(50 - 3 - Dpp::SHORT_ID_LENGTH)
-      expect(described_class::MAX_BASE_URL_LENGTH).to eq(35)
-    end
-
-    it "accepts a base_url that leaves room for the short link" do
-      expect { described_class.new(**config) }.not_to raise_error
-      expect("#{base_url}/p/#{'x' * Dpp::SHORT_ID_LENGTH}".length).to be <= 50
-    end
-
-    it "rejects a base_url that is too long" do
-      expect { described_class.new(**config.merge(base_url: "https://#{'a' * 40}.example.org")) }
-        .to raise_error(described_class::ConfigError, /50-character limit/)
+    # No length rule any more. Since the carrier redesign the identifier the
+    # carrier bears is the ProductID under a host of the operator's own, and
+    # this base_url is the custodian's own address, which never gets printed.
+    # The 50-character budget therefore lives in ProductIdentifier.
+    it "accepts a base_url of any length, since it never reaches a carrier" do
+      long = "https://#{'a' * 40}.example.org"
+      expect { described_class.new(**config.merge(base_url: long, verify: false)) }
+        .not_to raise_error
     end
 
     it "rejects plain http (prEN 18216 §6.2 requires TLS)" do

@@ -84,12 +84,15 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       expect(row["content"].to_s).not_to include("lumina.example")
     end
 
-    it "serves the UPI from the pod, not from the service's own short-link host" do
+    # The custodian's host is no longer what the carrier bears, so it no longer
+    # appears in the identifier. What the custodian does get is the
+    # host-independent lookup key, which is what lets one store answer for
+    # every operator hostname pointed at it by CNAME.
+    it "passes the host-independent lookup key to the pod" do
       post "/dpp/v1/dpps", params: document.to_json, headers: headers
 
-      upi = JSON.parse(response.body)["UPI"]
-      expect(upi).to start_with("#{base_url}/p/")
-      expect(upi.length).to be <= 50
+      expect(JSON.parse(response.body)["ProductID"]).to eq(product_id)
+      expect(Dpp.find(minted[:did]).product_key).to eq("/01/09520123456788")
     end
 
     it "stores the delegation and keeps it out of the response" do
@@ -124,11 +127,13 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       { base_url: base_url, collection_id: "1", delegation: delegation }
     end
 
-    it "rejects a base_url that would break the Registry's 50-character limit" do
+    # The Registry's budget constrains the ProductID, not this address: the
+    # custodian's host is internal and never printed. See upi_resolver_spec for
+    # the identifier that is subject to the limit.
+    it "accepts a long base_url, which no longer has to fit on a carrier" do
       post_with(valid.merge(base_url: "https://a-rather-long-pod-hostname.example.org"))
 
-      expect(response).to have_http_status(:bad_request)
-      expect(JSON.parse(response.body)["message"].first["text"]).to include("50-character")
+      expect(response).not_to have_http_status(:bad_request)
     end
 
     it "rejects a base_url that is not https (prEN 18216 §6.2)" do

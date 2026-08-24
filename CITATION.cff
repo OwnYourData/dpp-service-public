@@ -12,9 +12,11 @@ abstract: >-
   lifecycle operations under EN 18222/18223, while a legally separate data
   intermediation service provider stores and publicly delivers the passport.
   Custody is delegated per passport by a statement the data holder signs;
-  no shared secret exists anywhere in the flow. Includes the delegation
-  profile and a set of signed conformance vectors with an independent
-  reference verifier.
+  no shared secret exists anywhere in the flow. A passport can be moved to a
+  different custodian without changing any identifier, so the data carrier is
+  never reprinted. Includes the delegation profile, a set of signed conformance
+  vectors with an independent reference verifier, and the record of a run that
+  moved a live passport between two custodians.
 keywords:
   - digital product passport
   - data intermediary
@@ -22,5 +24,10 @@ keywords:
   - decentralized identifiers
   - delegation
   - ESPR
+  - unique product identifier
+  - data portability
 license: Apache-2.0
 repository-code: "https://github.com/OwnYourData/dpp-service-public"
+version: 2.0.0
+date-released: "2026-08-24"
+doi: 10.5281/zenodo.22029770

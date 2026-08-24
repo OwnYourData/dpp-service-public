@@ -1,0 +1,94 @@
+Variante B2: selbstzertifizierende Trägerkennung — 2026-08-23
+
+Gegenstand
+  Produkt-DID    did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm      (blake2b-18)
+  Datentraeger   https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                 = 8 + 13 + 1 + 28 = 50 Zeichen, die Obergrenze der Registry
+  Pass-DID       did:oyd:zQmSPHjWjTvADKxd9V1wiFAwDpR2WcA864zsrS3fQichvwS
+  Verwahrer      dpp.data-vault.eu, Collection 4
+
+  Der Pfad des Traegers ist der Multibase-Multihash der Produkt-DID, ohne das
+  Praefix did:oyd:. Das Weglassen ist verlustfrei, solange die DID kein
+  Location-Suffix traegt; geprueft, keines vorhanden.
+
+  Der Inhalt der Produkt-DID enthaelt NICHT die Traeger-URL. Er kann es nicht:
+  der Pfad ist der Hash ueber genau dieses Dokument, eine enthaltene Adresse mit
+  dem Hash waere Teil ihrer eigenen Berechnung. Dieselbe Zirkularitaet, aus der
+  folgt, dass der serviceEndpoint ueber die ProductID laeuft.
+
+1 — Selbstzertifizierung
+  oydid read did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm --show-verification
+
+  bestaetigt Schritt fuer Schritt:
+      identifier ist der Hash des DID-Dokuments
+      log-Referenz im Dokument ist der Hash des TERMINATE-Log-Eintrags
+      kein Widerrufseintrag auffindbar
+
+  Der aufgedruckte String bindet damit ein Dokument, statt es nur zu
+  adressieren -- ohne Ledger und ohne externen Vertrauensanker.
+
+2 — Dieselbe Zeichenkette, zwei Lesarten
+  als Web-Adresse   https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                    -> HTTP 200, der Produktpass
+
+  als DID           did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                    -> id = did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                       payload = {name: Lumina LED 806lm, model: L-806-E27,
+                                  manufacturer: Lumina}
+
+  Wer die Kennung als DID behandeln will, stellt acht Zeichen voran; wer sie als
+  Adresse behandelt, ruft sie auf. Der Verbraucherpfad braucht keine zusaetzliche
+  Software (prEN 18219, 4.6.2 (2)), die DID-Semantik steht trotzdem zur
+  Verfuegung.
+
+3 — Die Pruefungen wie bei Variante A
+  Traeger, ohne Token, ohne Weiterleitung   HTTP/2 200, kein 3xx
+  kein UPI-Feld in der Antwort              bestaetigt
+  ProductID in der Antwort                  unveraendert
+  gleicher Pfad unter dem Verwahrer-Host    404
+  Langform bei B                            200
+  Langform bei A                            404 (A hat diesen Pass nie gehalten)
+
+4 — Was B2 kostet, gegenueber Variante A
+  Die Granularitaet musste DEKLARIERT werden. Bei Variante A leitet der Dienst
+  sie aus dem Pfad ab (/21/ = item) und weist eine widersprechende Angabe zurueck;
+  hier sagt der Pfad nichts, und der Dienst muss die Angabe glauben. prEN 18223,
+  Tab. 1 verlangt die Angabe, sagt aber nicht, dass sie stimmen muss -- bei A
+  wird sie geprueft, bei B2 nicht.
+
+  Ebenso faellt weg, was Abschnitt 3 der Evidenz zu Variante A zeigt: aus dem
+  Scan allein GTIN und Seriennummer zu gewinnen. Die Kennung identifiziert, sie
+  beschreibt nicht.
+
+5 — Und die Grenze, die das Verfahren nicht ueberschreiten kann
+  blake2b-18 sind 144 Bit, also 2^72 Aufwand fuer eine Kollision. Das
+  Bedrohungsmodell ist eng, aber nicht akademisch: nur wer BEIDE Dokumente
+  erzeugt, kann es ausnutzen -- beim DPP ist das der Hersteller, und genau gegen
+  dessen nachtraegliche Umdeutung soll ein selbstzertifizierender Identifier
+  schuetzen. Ein Dritter braeuchte 2^144.
+
+  2^72 blake2b-Auswertungen liegen fuer staatliche oder grossindustrielle Akteure
+  im Bereich des Machbaren und werden ueber eine Produktlebensdauer billiger. Der
+  Langfrist-Richtwert von BSI und NIST sind 128 Bit.
+
+  128 Bit sind unter der 50-Zeichen-Grenze der Registry NICHT erreichbar: dafuer
+  braeuchte es 32 Byte Digest, also ueber 45 Zeichen Pfad. Die Grenze der
+  Registry erzwingt den Kompromiss, nicht die Architektur.
+
+  Der einzige Hebel ist der Hostname; ein Label weniger bringt Faktor 4096:
+      dpp.oydapp.eu   13 Zeichen   Pfad 28   blake2b-18   2^72
+      oydapp.eu        9 Zeichen   Pfad 32   blake2b-21   2^84
+      pace.eu          7 Zeichen   Pfad 34   blake2b-22   2^88
+      dpp.eu           6 Zeichen   Pfad 35   blake2b-23   2^92
+
+  Abfederung ohne laengeren Aufdruck: den vollstaendigen sha2-256-Hash des
+  DID-Dokuments zusaetzlich im Registry-Eintrag hinterlegen. Der kurze
+  Identifier ist dann der Zeiger, die 128-Bit-Bindung existiert trotzdem, und
+  ein spaeterer Tausch faellt beim Abgleich auf.
+
+Werkzeugstand
+  oydid CLI 0.8.3 auf Gem 0.8.2. Die Laengen sind deterministisch, nicht
+  "hoechstens": das fuehrende Codebyte ist klein und konstant, die Stellenzahl
+  kippt nicht. blake2b-18 ergibt genau 28 Zeichen, blake2b-19 genau 29.
+
+Rohdaten: 09-b2-roh.txt

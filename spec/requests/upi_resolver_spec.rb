@@ -2,56 +2,126 @@
 
 require "rails_helper"
 
-# Short-link UPI for the EU DPP Registry: each DPP gets a short id and a
-# resolvable https URL (<= 50 chars, direct 200, no auth).
-RSpec.describe "UPI short-link resolver", type: :request do
+# The identifier the data carrier bears.
+#
+# prEN 18219 §3.22 makes the unique product identifier one string that both
+# identifies the product and enables the web link to the passport, and
+# §4.5.2 (1) requires that same string to be retrievable from the carrier.
+# There is therefore no separate short link to derive: the UPI *is* the
+# ProductID. The opaque /p/:short_id path survives only for carriers printed
+# before the change (docs/Identifiers.md).
+RSpec.describe "Carrier identifier", type: :request do
   let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:auth)  { { "Content-Type" => "application/json", "Authorization" => token } }
 
+  # 49 characters: 8 + len("dpp.oydapp.eu") + len("/01/") + 14 + len("/21/") + 6.
+  # The host belongs to the economic operator and is pointed at the custodian
+  # by CNAME, which is what keeps a printed carrier alive across a change of
+  # custodian (§4.6.2 (3), §4.5.2 (4), §3.12).
+  let(:product_id) { "https://dpp.oydapp.eu/01/09520123456791/21/000123" }
+
   let(:dpp_document) do
     {
-      "DigitalProductPassportID" => "https://dpp-service.ownyourdata.eu/01/09520123456788/0001",
-      "ProductID" => "https://id.lumina.example/01/09520123456788",
-      "Granularity" => "model",
+      "DigitalProductPassportID" => "did:oyd:zQmWVzyTPZ19ebpw2Dm9doEDP4qw9rVcs6M4v3iQMo7vpVS",
+      "ProductID" => product_id,
+      "Granularity" => "item",
       "DPPSchemaVersion" => "prEN 18223:2025",
       "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
     }
   end
 
-  def create_dpp!
-    post "/dpp/v1/dpps", params: dpp_document.to_json, headers: auth
-    expect(response).to have_http_status(:created)
+  def create_dpp!(doc = dpp_document)
+    post "/dpp/v1/dpps", params: doc.to_json, headers: auth
     JSON.parse(response.body)
   end
 
-  it "assigns a short_id and exposes a UPI in the document" do
-    body = create_dpp!
-    expect(body["UPI"]).to match(%r{\Ahttps://r\.oydapp\.eu/p/[A-Za-z0-9]{12}\z})
+  describe "the identifier itself" do
+    it "is the ProductID, and stays within the Registry's 50-character limit" do
+      body = create_dpp!
+      expect(response).to have_http_status(:created)
+      expect(body["ProductID"]).to eq(product_id)
+      expect(product_id.length).to be <= 50
+    end
+
+    it "carries no separate UPI attribute, which prEN 18223 Table 1 does not define" do
+      body = create_dpp!
+      expect(body).not_to have_key("UPI")
+    end
+
+    it "records the host-independent path as the lookup key for the custodian" do
+      create_dpp!
+      expect(Dpp.find_by(product_id: product_id).product_key)
+        .to eq("/01/09520123456791/21/000123")
+    end
   end
 
-  it "keeps the UPI within the Registry's 50-character limit" do
-    body = create_dpp!
-    expect(body["UPI"].length).to be <= 50
+  describe "refusals at creation" do
+    it "refuses an identifier that would not fit on the carrier" do
+      long = "https://dpp.a-rather-long-operator-domain.example/01/09520123456791/21/000123"
+      create_dpp!(dpp_document.merge("ProductID" => long))
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response.body).to match(/over the 50-character limit/)
+    end
+
+    it "refuses a Granularity the path contradicts" do
+      create_dpp!(dpp_document.merge("Granularity" => "model"))
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response.body).to match(/contradicts the ProductID path/)
+    end
+
+    it "refuses a malformed Digital Link rather than reading it as free text" do
+      create_dpp!(dpp_document.merge("ProductID" => "https://dpp.oydapp.eu/01/952012345679"))
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response.body).to match(/Digital Link/)
+    end
+
+    it "refuses a path with characters a carrier cannot bear unencoded" do
+      create_dpp!(dpp_document.merge("ProductID" => "https://dpp.oydapp.eu/ABC 4711"))
+
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    it "refuses plain http" do
+      create_dpp!(dpp_document.merge("ProductID" => "http://dpp.oydapp.eu/01/09520123456791"))
+
+      expect(response).to have_http_status(:bad_request)
+    end
   end
 
-  it "resolves the UPI short link with a direct 200 (no redirect, no auth)" do
-    body = create_dpp!
-    short = body["UPI"].split("/").last
+  # prEN 18219 §5.2: an operator with no GS1 membership can issue its own
+  # identifier under a domain it controls. Supporting only §5.1 would make the
+  # architecture's freedom from lock-in stop at the domain name and continue as
+  # a dependency on an annually licensed prefix.
+  describe "identification links (prEN 18219 §5.2)" do
+    let(:self_issued) { "https://dpp.oydapp.eu/ABC-4711" }
 
-    get "/p/#{short}"
-    expect(response).to have_http_status(:ok)
-    expect(JSON.parse(response.body)["DigitalProductPassportID"]).to eq(dpp_document["DigitalProductPassportID"])
+    it "is accepted with a declared granularity" do
+      body = create_dpp!(dpp_document.merge("ProductID" => self_issued,
+                                            "Granularity" => "batch"))
+
+      expect(response).to have_http_status(:created)
+      expect(body["ProductID"]).to eq(self_issued)
+      expect(Dpp.find_by(product_id: self_issued).product_key).to eq("/ABC-4711")
+    end
   end
 
-  it "returns 404 for an unknown short id" do
-    get "/p/doesnotexist1"
-    expect(response).to have_http_status(:not_found)
-  end
+  describe "the legacy short link" do
+    it "keeps resolving, because a printed carrier cannot be recalled" do
+      create_dpp!
+      short = Dpp.find_by(product_id: product_id).short_id
+      expect(short).to be_present
 
-  it "gives each DPP a distinct short id" do
-    a = create_dpp!
-    dpp_document["DigitalProductPassportID"] = "https://dpp-service.ownyourdata.eu/01/09520123456788/0002"
-    b = create_dpp!
-    expect(a["UPI"]).not_to eq(b["UPI"])
+      get "/p/#{short}"
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["ProductID"]).to eq(product_id)
+    end
+
+    it "returns 404 for an unknown short id" do
+      get "/p/doesnotexist1"
+      expect(response).to have_http_status(:not_found)
+    end
   end
 end

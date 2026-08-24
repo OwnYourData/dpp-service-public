@@ -1,11 +1,12 @@
 # Identifiers in the DPP ecosystem
 
-At least nine different things in the DPP context are called an "identifier".
+At least six different things in the DPP context are called an "identifier".
 This document sorts them out, shows how they relate using one running example,
 and names the traps.
 
-References: EN 18219 (identifiers), EN 18220 (data carriers), EN 18222 (API),
-EN 18223 (data model), DPP Registry User Guide.
+References: EN 18219 (identifiers), EN 18220 (data carriers), EN 18221
+(persistence), EN 18222 (API), EN 18223 (data model), EN 18246 (integrity),
+DPP Registry User Guide.
 
 ---
 
@@ -16,162 +17,193 @@ hosting pod of the data intermediary.
 
 | Role | Value |
 |---|---|
-| Economic operator's identity DID | `did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS` |
-| the same, as `did:web` | `did:web:oydid.ownyourdata.eu:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS` |
-| Product identifier | `https://id.lumina.example/01/09520123456791` |
-| Facility identifier | `https://id.lumina.example/414/0952012345002` |
-| Passport identifier | `did:oyd:zQmWVzyTPZ19ebpw2Dm9doEDP4qw9rVcs6M4v3iQMo7vpVS` |
-| Short identifier | `cmodBSyBMVHP` |
-| UPI (carrier + registry) | `https://dpp.go-data.at/p/cmodBSyBMVHP` |
-| Long form (`serviceEndpoint`) | `https://dpp.go-data.at/dpp/v1/dppsByProductId/https%3A%2F%2Fid.lumina.example%2F01%2F09520123456791` |
-| Storage location | `base_url` = `https://dpp.go-data.at`, `collection_id` = `4` |
-| Payload hash | `z4Fu…` (multibase, sha256) |
+| Economic operator's identity DID | `did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6` |
+| Product identifier = carrier string | `https://p.lumina.at/01/09520123456791/21/000123` (47 characters) |
+| Facility identifier | `https://p.lumina.at/414/0952012345002` |
+| Passport identifier | `did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W` |
+| Long form (`serviceEndpoint`) | `https://dpp.data-vault.eu/dpp/v1/dppsByProductId/https%3A%2F%2Fp.lumina.at%2F01%2F09520123456791%2F21%2F000123` |
+| Backup identifier | identifier of the backup service provider — still open |
 | Registration identifier | assigned by the registry, format unspecified |
-| DPP service provider's DID | `did:oyd:zQmS…` (once delegation is in place) |
+| DPP service provider's DID | `did:oyd:zQmZBWgKreVE9VK4fxxU9RrkQ6LzcryfU15tFgDvtgtBbZd` |
+
+`p.lumina.at` belongs to the **economic operator** and is pointed at the
+custodian by a DNS record. That is what makes a change of custodian a change in
+the operator's own zone rather than a reprint.
 
 ## 2. Overview
 
 | # | Identifier | Identifies | Assigned by | Appears in | Standard |
 |---|---|---|---|---|---|
-| 1 | **Product ID** (`ProductID`) | the product (model, batch or item) | economic operator | passport document, `serviceEndpoint` | EN 18219 cl. 5 |
+| 1 | **Product ID = UPI** (`ProductID`) | the product **and** the access path | economic operator | data carrier, registry, passport document | EN 18219 cl. 5, 3.22, 4.5.2 (1) |
 | 2 | **Facility ID** (`FacilityID`) | a production site | economic operator | passport document | EN 18219 cl. 6 |
-| 3 | **Operator ID** (`EconomicOperatorID`) | the economic operator | economic operator | passport document | EN 18219 cl. 6 |
+| 3 | **Operator ID** (`EconomicOperatorID`) | the economic operator | economic operator | passport document, `registerDPP` | EN 18219 cl. 6 |
 | 4 | **Passport ID** (`DigitalProductPassportID`) | the passport document | service provider (var. A) or holder (var. B) | passport document, VDR | EN 18223 |
-| 5 | **Short ID** (`short_id`) | the passport, locally at the custodian | DPP service | internal only | — |
-| 6 | **UPI** | the access path to the passport | derived from 5 | data carrier, registry | registry rule |
-| 7 | **Registration identifier** | the registry record | EU registry | registry response | registry rule |
-| 8 | **Storage location** (`base_url` + `collection_id`) | where the passport is kept | data intermediary | delegation, service index | — |
-| 9 | **Payload hash** | one version of the passport content | computed | DID document, pod log | EN 18246 |
+| 5 | **Backup ID** | the backup service provider | operator / contract | `registerDPP` | EN 18221 3.3.2, EN 18222 Tab. 8 |
+| 6 | **Registration identifier** (`registryIdentifier`) | the registry record | EU registry | registry response | EN 18222 cl. 5.2 |
 
 Alongside these sit the holder's **identity DID** and the service provider's
 **service DID** — actor identities that appear only in tokens and delegations,
 never inside the passport.
 
+There is **no separate carrier token**. EN 18219 cl. 3.22 defines the unique
+product identifier as *one* string that identifies the product and also enables
+the web link to the passport, and cl. 4.5.2 (1) requires that very string to be
+retrievable from the carrier. Product ID and UPI are the same value.
+
 ## 3. How they connect
 
 ```
-   Data carrier (QR)
-        │  contains
+   Data carrier (QR, NFC)
+        │   encodes exactly ONE string
         ▼
-   UPI  https://dpp.go-data.at/p/cmodBSyBMVHP        ← also filed with the registry
-        │  resolves directly (200, no redirect)
+   ProductID = UPI     https://p.lumina.at/01/09520123456791/21/000123
+        │                      └─ host: economic operator
+        │                                   └─ path: scheme A or B
+        │   DNS record, no redirect
         ▼
-   Passport document  ──────────────────────────────────────────┐
-        │  contains                                             │
-        ├── ProductID   https://id.lumina.example/01/0952…      │
-        ├── EconomicOperatorID  did:oyd:zQmPPw…                 │
-        └── DigitalProductPassportID  did:oyd:zQmWVz…           │
-                 │  resolve                                     │
-                 ▼                                              │
-        DID document (replayed from the signed log)             │
-                 ├── service.serviceEndpoint ──▶ long form ─────┘
-                 │        {base_url}/dpp/v1/dppsByProductId/{ProductID}
-                 ├── service.payloadHash  z4Fu…  ──▶ compare with sha256(served bytes)
-                 └── publicKeyMultibase   z6Mk…  ──▶ verify signature
+   Custodian           dpp.data-vault.eu
+        ▼
+   Passport document   ProductID · DigitalProductPassportID ──▶ ①
+        │              EconomicOperatorID ──▶ ②  ·  FacilityID
+        │              Granularity · DPPSchemaVersion · DPPStatus · LastUpdate
+        │   DID resolution
+        ▼
+   DID documents       ① passport: serviceEndpoint, publicKeyMultibase
+                       ② operator: publicKeyMultibase
 ```
 
-Two ways into the same passport:
+Two ways into the same passport. **From the carrier:** one scan, no prior
+knowledge, no resolver, one request — covered by EN 18219 cl. 4.4.1. Resolution
+happens in DNS; nothing is redirected, so the registry's redirect tolerance is
+never relied upon. **From the product identifier:** `ReadDPPByProductId`, which
+is also the path the `serviceEndpoint` takes. The path segment
+`dppsByProductId/{productId}` is taken verbatim from EN 18222 cl. 8.2 Tab. 17.
 
-- **From the carrier:** `UPI` → passport. One scan, no prior knowledge, no
-  resolver needed.
-- **From the product identifier:** `ReadDPPByProductId` → passport. This is also
-  the path the `serviceEndpoint` in the DID document takes.
+Neither replaces the three mandatory methods of EN 18222 cl. 4.1 — the carrier
+path is an additional entry point, not an API.
 
 ## 4. Why the `serviceEndpoint` goes through the product identifier
 
-The passport identifier is the hash of the DID document. The `serviceEndpoint`
-sits inside that very document. An address containing the passport identifier
-would therefore be part of the input to its own computation — circular. The
-product identifier is known at minting time, is stable, and already serves as the
-public read path.
+The passport identifier is the hash over the DID document. The `serviceEndpoint`
+sits inside that document. An address containing the passport identifier would
+therefore be part of the input to its own computation — circular. The product
+identifier is known at minting time, stable, and is the public read path anyway.
 
-## 5. Why the carrier bears a short link and not a DID
+The same circularity applies to a self-certifying **product** identifier: the
+document behind it cannot contain the carrier URL either.
 
-The registry caps the UPI at **50 characters**, requires `https`, and tolerates
-only limited redirection:
+## 5. What the carrier bears
 
-| | Characters |
-|---|---|
-| `did:oyd:` + 47-character hash | 55 |
-| EN 18219 Table B.12 example: `https://resolver.io/did:web:abc.com:model4TR/?service=item-dpp` | 62 |
-| our UPI `https://dpp.go-data.at/p/cmodBSyBMVHP` | 37 |
+The carrier bears the product identifier itself. Two schemes are admissible
+here, and they trade differently.
 
-A bare DID does not fit, and neither does the resolver URL the standard itself
-shows. Hence the 35-character ceiling on `base_url`:
-`len(base_url) + len("/p/") + 12 ≤ 50`.
+**A — GS1 Digital Link** (EN 18219 cl. 5.1.2.1)
 
-**EN 18219 itself separates identifier from locator.** Table B.12 lists
-`did:web:abc.com:model4TR` as the product identifier and the resolver URL as what
-goes on the carrier. Our construction does the same thing with a shorter locator.
+```
+https://p.lumina.at/01/09520123456791/21/000123     47 characters
+```
+
+Descriptive: a scanner reads GTIN and serial number from the path without a
+network call, and the service checks the declared `Granularity` against the path
+instead of trusting it. Price: the prefix is licensed annually from an issuing
+agency registered under ISO/IEC 15459-2.
+
+**B — identification link with a self-certifying path** (EN 18219 cl. 5.2,
+EN IEC 61406-1)
+
+```
+https://p.lumina.at/zAkk4XNgY3rjJLXvWgRraEM4Nmfm    48 characters
+```
+
+The path is the multibase multihash of a product `did:oyd`, without the
+`did:oyd:` prefix. Dropping the prefix is lossless, so the same string has two
+readings: call it as a web address, or prepend `did:oyd:` and resolve it as a
+DID. No issuing agency, and the string commits to a document rather than merely
+addressing one. Price: the path describes nothing, and `Granularity` has to be
+believed.
+
+**The character budget.** The registry limits the identifier to 50 characters
+over HTTPS. Usable path = 41 − length of host. A 144-bit BLAKE2b digest yields
+28 characters, so scheme B needs a host of at most 13 characters. The digest
+size is a one-way decision: it is fixed with the first carrier printed, and
+increasing it later would require a shorter host — which changes every carrier
+already in the field.
+
+**Not admissible on the carrier: a bare DID.** It is not an https URL, and
+EN 18219 cl. 3.16 note 1 records that DID resolution normally needs additional
+software, which cl. 4.6.2 (2) forbids for the consumer path. The multihash form
+above avoids exactly that: it resolves in any browser.
 
 ## 6. Mapping to the standard's ID schemes
 
-EN 18219 clause 5 (products): 5.1 web-enabled structured path/query · 5.2
-Identification Link (IEC 61406) · 5.3 DIDs · 5.4 product and group identification
-· 5.5 DOI.
-Clause 6 (economic operators and facilities): 6.1 structured path · 6.2 LEI ·
-6.3 DIDs · 6.4 DOI.
+EN 18219 cl. 5 lists five schemes for products, and **none of them is unusable
+by the standard's own terms** — cl. 4.3.2 (2) only requires URL form or a
+defined conversion into one. Two remain here because of constraints from
+outside the standard:
 
-In our deployment:
+| Scheme | What it is | Here |
+|---|---|---|
+| 5.1.2.1 structured path | GS1 application identifiers | **A** |
+| 5.1.2.2 query string | ASC MH10 data identifiers | out — we admit no query strings |
+| 5.2 identification link | EN IEC 61406-1, self-issuing | **B** |
+| 5.3 DID | W3C DID | out — carrier-capable only behind a web resolver |
+| 5.4 product/group ID | binary encoding in an RFID tag | out — different carrier type |
+| 5.5 DOI | ISO 26324 | out — foreign resolver, too long |
 
-- **Product ID** → scheme 5.1 or 5.2 (HTTPS path in digital-link style).
-- **Operator ID** → scheme 6.3 (DIDs for organizations).
-- **Passport ID** → **no** scheme from EN 18219.
+The three external constraints: the **registry** requires https and at most 50
+characters; **cl. 4.6.2 (2)** forbids requiring software downloads on the
+consumer path; and our own **anti-lock-in criterion** admits no third party's
+resolver in the access path. The standard permits the latter explicitly
+(cl. 4.4.3 (2)) — we simply do not want it.
 
-> **Important clarification.** The scope of EN 18219 is expressly limited to
-> *"unique product identifiers, unique economic operator identifiers, and unique
-> facility identifiers"*. The identifier of the **passport document** does not
-> appear there at all — it is an attribute of the EN 18223 data model. Scheme 5.3
-> ("DIDs for products") therefore describes a DID used as a **product**
-> identifier, not as a passport identifier.
->
-> It follows that the recommendation in 5.3.2 to use `did:web`, `did:ethr` or
-> `did:ebsi` applies to the product identifier and does not reach our passport
-> identifier at all. That every `did:oyd` is additionally addressable as
-> `did:web` is therefore a voluntary bonus, not a conformance requirement.
+Query strings are excluded by our own decision: `…/01/0952…` and
+`…/01/0952…?17=271231` would otherwise yield the same lookup key.
 
 ## 7. The three confusions that keep recurring
 
-**Product ID ≠ passport ID.** A product may have several passports over time
-(reissue, refurbishment); a passport belongs to exactly one product. This is why
-`ReadDPPByProductId` returns the *active* passport.
+**Product ID versus passport ID.** The product identifier names the product and
+survives re-minting. The passport identifier names one document; mint the
+passport again and it changes. That is why the carrier bears the product
+identifier, never the passport identifier.
 
-**UPI ≠ identifier in the strict sense.** The registry calls the field "Unique
-Product Identifier" but requires a directly resolvable URL — it conflates
-identifier and locator. In our design the UPI is a *derived access path*, not the
-product identifier.
+**Carrier host versus custodian host.** The carrier bears a host belonging to
+the *economic operator*. The custodian's host appears only in the
+`serviceEndpoint` — deliberately, because that is the signed statement about who
+holds the passport. The carrier moves by DNS; custody moves only by a signed log
+entry.
 
-**UPI ≠ registration identifier.** The UPI goes *in*; the registration identifier
-comes *out* and denotes the registry record. The user guide puts it this way: the
-registration identifier "connects to an existing DPP Data via an UPI".
-
-**Identity DID ≠ passport DID.** Delegations and write tokens are signed with the
-holder's *identity* DID. In variant A the passport DID does not yet exist at
-`CreateDPP` time.
+**Identifier versus integrity proof.** A payload hash names nothing; it binds a
+version of the content. It is computed, not assigned, and is therefore not an
+identifier — even though the passport identifier happens to be a hash too.
 
 ## 8. Stability and mutability
 
-| Identifier | Stable for | Changeable by |
+| Value | Changes when | Consequence |
 |---|---|---|
-| Product ID | the product's life | not at all (a change means a different product) |
-| Passport ID | the passport's life | not at all — it is the hash of the initial document |
-| DID document | — | a signed log entry by the key holder |
-| `serviceEndpoint` | until the custodian changes | a log entry (but see below) |
-| Payload hash | one version | every change produces a new one |
-| UPI | the carrier's life | **not without reprinting** |
+| Product ID | never, once printed | the carrier depends on it |
+| Passport ID | on re-minting | never put it on a carrier |
+| `serviceEndpoint` | on a change of custodian | a signed log entry, no reprint |
+| carrier host in DNS | on a change of custodian | a record in the operator's own zone |
+| storage location | on a change of custodian | internal, not in the document |
 
-The last row is the known asymmetry: changing the **DPP service provider** costs
-nothing, whereas changing the **custodian** breaks printed carriers, because the
-UPI encodes the custodian's host.
+A `did:oyd` is the hash over its own DID document, so **every update produces a
+new identifier** while the earlier ones stay resolvable through the log chain.
+The resolver returns the requested DID in `id`; `canonicalId` names the version
+the log resolves to, and `equivalentId` lists the others. The identifier that
+was issued therefore keeps resolving as its document evolves.
 
 ## 9. Open points
 
-1. Format of the registration identifier — the user guide gives none; our
-   `registerDPP` returns a synthetic identifier for the time being.
-2. The relationship between product identifier and UPI where the registry wants
-   both: ours is derived and not equal to the product identifier. Whether the
-   registry expects otherwise is not documented.
-3. Carrier-level portability — a short, neutral redirecting host would decouple
-   the UPI from the custodian. Per the user guide the registry rejects only
-   "excessive redirects" but does not quantify the tolerance. Worth asking the
-   helpdesk.
+* The **backup service provider** required by EN 18221 cl. 4.3 is not yet
+  appointed. The standard makes the backup copy mandatory and the primary
+  provider optional — the reverse of what one might assume.
+* The **payload hash** in the DID log and the detached payload signature are
+  planned, not deployed. Until both exist, the public key in the DID document
+  secures the log chain but not the payload.
+* **Retiring a previous custodian** waits for the DNS time-to-live of the
+  operator's record. That value is often set by the operator's DNS provider and
+  not configurable; removing the host earlier breaks access for every client
+  whose resolver still holds the old record.
+* A **certificate** for the operator's name has to reach the new custodian
+  before the name points there. An ACME HTTP-01 challenge goes wherever the name
+  resolves, which is still the old custodian at that moment.

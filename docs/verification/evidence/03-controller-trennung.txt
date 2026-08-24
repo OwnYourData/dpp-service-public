@@ -1,0 +1,27 @@
+Nachweis der Ingress-Trennung — 2026-08-22, nach Ausrollen von Controller B
+
+Aufbau
+  Controller A   ingress-nginx        IngressClass nginx     externalIPs 89.58.20.114, 152.53.94.38, 152.53.95.183
+  Controller B   ingress-nginx-b      IngressClass nginx-b   externalIPs 152.53.34.232
+  152.53.34.232 wurde A entnommen und B zugewiesen; auf diese Adresse zeigt kein DNS-Name.
+
+Messung vom Rechner des Betreibers, ausserhalb des Clusters
+
+  curl -k https://152.53.34.232/                                        -> 404
+      Controller B lebt und kennt keinen Host.
+
+  curl --resolve dpp.go-data.at:443:152.53.34.232 https://dpp.go-data.at/
+                                                                        -> 404, tls=20
+      Derselbe Hostname, an Controller B gerichtet: keine Regel, kein Zertifikat.
+      tls=20 = unable to get local issuer certificate, also das Default-Zertifikat
+      von B statt des Let's-Encrypt-Zertifikats von A.
+
+  curl https://dpp.go-data.at/                                          -> 200, tls=0
+      Unveraendert ueber Controller A.
+
+Schlussfolgerung
+  Die beiden Controller haben getrennte Konfigurationen. Ein Hostname wird nur von
+  demjenigen Controller bedient, dessen IngressClass ihn beansprucht. Damit
+  entscheidet der A-Record in der Zone des Wirtschaftsteilnehmers, welcher Verwahrer
+  antwortet — nicht eine Ingress-Regel bei uns. Das ist die Voraussetzung dafuer,
+  dass der Verwahrerwechsel als Handlung des Betreibers gemessen werden kann.

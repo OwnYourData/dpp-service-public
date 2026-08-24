@@ -56,7 +56,8 @@ where the signature is not checked — see [docs/Standalone.md](docs/Standalone.
 | [docs/Guide.md](docs/Guide.md) | the full picture: sequence diagrams, storage variants, authentication, and a walkthrough of every endpoint |
 | [docs/EXAMPLES.md](docs/EXAMPLES.md) | the same walkthrough condensed to copy-paste `curl` calls |
 | [docs/examples-lightbulb.md](docs/examples-lightbulb.md) | one complete worked example (an LED lamp) with full request and response payloads |
-| [docs/Identifiers.md](docs/Identifiers.md) | the nine things called "identifier" in the DPP context, and how they relate |
+| [docs/Identifiers.md](docs/Identifiers.md) | the six things called "identifier" in the DPP context, how they relate, and which of them ends up on the data carrier |
+| [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
 | [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract |
 
 ## Endpoints (prEN 18222, Tables 17–19)
@@ -75,7 +76,24 @@ where the signature is not checked — see [docs/Standalone.md](docs/Standalone.
 | UpdateDataElementCollection | PATCH | `/dpp/v1/dpps/:dpp_id/collections/:element_id` |
 | ReadDataElement | GET | `/dpp/v1/dpps/:dpp_id/elements/*element_path` |
 | UpdateDataElement | PATCH | `/dpp/v1/dpps/:dpp_id/elements/*element_path` |
-| UPI short link | GET | `/p/:short_id` |
+
+Beyond the standard's methods:
+
+| | HTTP | Path |
+|---|---|---|
+| change of custodian | POST | `/dpp/v1/dpps/:dpp_id/custody` |
+| short link, superseded | GET | `/p/:short_id` |
+
+`custody` moves a pod-backed passport to the custodian named by a new
+`X-DPP-Storage` mandate. The identifiers do not change, which is the point: the
+product identifier is what was printed. The previous custodian keeps serving
+unless `release_previous=true` is passed, because retiring it is bounded by the
+DNS time-to-live in the operator's zone. `docs/verification/` records a run of
+this against two live deployments.
+
+The short link is the carrier form of an earlier design. It still resolves,
+because a printed carrier cannot be recalled, but it is no longer issued as a
+unique product identifier.
 
 Identifiers used as a single path segment (`:dpp_id`, `:product_id`) must be
 URL-encoded by the client. `*element_path` is a glob holding an absolute
@@ -121,6 +139,12 @@ bundle exec rspec
    dictionary.
 5. **Data integrity (prEN 18246).** Signing and electronic attestation of
    attributes (EAA) are not implemented.
+
+## Citing this
+
+`CITATION.cff` in the repository root carries the metadata; each release is
+archived on Zenodo under a concept DOI that always resolves to the latest
+version.
 
 ## License
 

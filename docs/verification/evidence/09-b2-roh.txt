@@ -1,0 +1,23 @@
+=== B2-7  Traeger lesen, ohne Token ===
+HTTP/1.1 200 Connection Established
+HTTP/2 200 
+    DigitalProductPassportID = did:oyd:zQmSPHjWjTvADKxd9V1wiFAwDpR2WcA864zsrS3fQichvwS
+    ProductID = https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+    Granularity = model
+    DPPStatus = Active
+    UPI-Feld vorhanden: False
+
+=== Dieselbe Zeichenkette, zwei Lesarten ===
+    als Web-Adresse : https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                     -> HTTP 200
+    als DID        : did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                     -> id = did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                        payload = {'name': 'Lumina LED 806lm', 'model': 'L-806-E27', 'manufacturer': 'Lumina'}
+
+=== Negativtest und Langform ===
+    gleicher Pfad bei B : 404
+    Langform bei B      : 200
+    Langform bei A      : 404
+
+=== Laenge ===
+    50 Zeichen

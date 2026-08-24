@@ -2,7 +2,9 @@
 
 # Example DPP for a battery cell (attributes illustrative of DIN DKE SPEC 99100).
 Dpp.find_or_create_by!(dpp_id: "https://dpp.example.org/01/09520123456788/21/0001") do |dpp|
-  dpp.product_id           = "https://id.example.org/01/09520123456788"
+  # The ProductID is the identifier the carrier bears (prEN 18219 3.22, 4.5.2 (1)):
+  # a GS1 Digital Link under a host of the operator's own, 49 characters.
+  dpp.product_id           = "https://dpp.example.org/01/09520123456788/21/0001"
   dpp.granularity          = "item"
   dpp.dpp_schema_version   = "prEN18223:2025"
   dpp.dpp_status           = "Active"

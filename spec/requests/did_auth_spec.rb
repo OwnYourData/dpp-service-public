@@ -111,7 +111,8 @@ RSpec.describe "DID-based authorization", type: :request do
 
   describe "a passport created before verification was switched on" do
     before do
-      Dpp.create!(dpp_id: dpp_id, product_id: product_id, dpp_schema_version: "prEN 18223:2025",
+      Dpp.create!(dpp_id: dpp_id, product_id: product_id, granularity: "model",
+                  dpp_schema_version: "prEN 18223:2025",
                   economic_operator_id: "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS", last_update: Time.now.utc,
                   content: {}, owner_did: nil)
     end

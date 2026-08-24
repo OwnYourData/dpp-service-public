@@ -28,6 +28,11 @@ Rails.application.routes.draw do
       patch  "dpps/:dpp_id", to: "api/v1/dpps#update"  # UpdateDPP  (RFC 7396)
       delete "dpps/:dpp_id", to: "api/v1/dpps#destroy" # DeleteDPPById
 
+      # Not in prEN 18222: the standard says what a service does with a
+      # passport, not where it keeps it. This is the operation the exit claim
+      # rests on.
+      post "dpps/:dpp_id/custody", to: "api/v1/dpps#move_custody"
+
       # --- 6  Fine Granular Life Cycle API — Table 19 ---------------------
       get   "dpps/:dpp_id/collections/:element_id",
             to: "api/v1/data_element_collections#show"   # ReadDataElementCollection

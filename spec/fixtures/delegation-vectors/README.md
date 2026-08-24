@@ -11,6 +11,7 @@ existing; the DPP Service checks that its own signing code reproduces
 named `collection` on one side and `collection_id` on the other — the fixtures
 fail immediately instead of at the first joint end-to-end run.
 
+
 ## Format
 
 Every file is one JSON object:

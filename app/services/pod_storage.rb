@@ -49,9 +49,11 @@ class PodStorage
   # or an operation it does not cover. +status_code+ carries the §14 answer.
   class DelegationError < Error; end
 
-  # The EU Registry requires an https URL of at most 50 characters for the UPI:
-  # len(base_url) + len("/p/") + len(short_id) <= 50.
-  MAX_BASE_URL_LENGTH = 50 - "/p/".length - Dpp::SHORT_ID_LENGTH
+  # The Registry's 50-character budget no longer constrains this value. Since
+  # the carrier redesign the UPI is the ProductID under a host of the economic
+  # operator's own (see ProductIdentifier), while this base_url is the
+  # custodian's own address and never reaches a carrier. The length check moved
+  # to ProductIdentifier, where the string that actually gets printed lives.
 
   OPEN_TIMEOUT = Integer(ENV.fetch("POD_OPEN_TIMEOUT", 5))
   READ_TIMEOUT = Integer(ENV.fetch("POD_READ_TIMEOUT", 15))
@@ -169,7 +171,10 @@ class PodStorage
       "type"                     => "DigitalProductPassport",
       "short_id"                 => dpp.short_id,
       "DigitalProductPassportID" => dpp.dpp_id,
-      "ProductID"                => dpp.product_id
+      "ProductID"                => dpp.product_id,
+      # Host-independent lookup key: it is what lets this one store answer for
+      # every operator hostname pointed at it by CNAME (docs/Identifiers.md).
+      "product_key"              => dpp.product_key
     }
     response = request(:post, "/object", body: body, auth: true)
     id = response["object-id"] || response[:"object-id"]
@@ -311,12 +316,6 @@ class PodStorage
 
     unless base_url.start_with?("https://")
       raise ConfigError, "storage configuration: base_url must use https (prEN 18216 §6.2)"
-    end
-
-    if base_url.length > MAX_BASE_URL_LENGTH
-      raise ConfigError,
-            "storage configuration: base_url must not exceed #{MAX_BASE_URL_LENGTH} characters " \
-            "so that the UPI stays within the Registry's 50-character limit"
     end
 
     URI.parse(base_url)

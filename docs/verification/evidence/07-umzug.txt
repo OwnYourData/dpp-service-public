@@ -1,0 +1,130 @@
+Umzug des Passes zwischen zwei Verwahrern — 2026-08-23
+
+Gegenstand
+  Datentraeger   https://dpp.oydapp.eu/01/09520123456791/21/000123   (49 Zeichen)
+  Pass           did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
+  Verwahrer A    dpp.go-data.at      89.58.20.114     Namespace dpp,   Collection 36
+  Verwahrer B    dpp.data-vault.eu   152.53.34.232    Namespace dpp-b, Collection 4
+                 eigene DID: did:oyd:zQmRMGnN1QoTqGWjHG3QsuR4zKJ8pCz1RaxMB9gSvvtQoh4
+
+
+1 — Custody-Wechsel im Dienst
+
+  POST /dpp/v1/dpps/{dpp_id}/custody mit einer Delegation, deren aud auf
+  https://dpp.data-vault.eu lautet. Die fuer A ausgestellte Delegation gilt dort
+  nicht; der Wechsel ist also ein eigener, vom Inhaber signierter Akt.
+
+  Antwort 200. ProductID unveraendert, DigitalProductPassportID unveraendert,
+  DPPStatus Active. Der alte Verwahrer wurde NICHT freigegeben (Standard).
+
+  Danach hielten beide Verwahrer denselben Pass:
+      GET dpp.data-vault.eu/dpp/v1/dppsByProductId/{ProductID}   200
+      GET dpp.go-data.at/dpp/v1/dppsByProductId/{ProductID}      200
+      GET https://dpp.oydapp.eu/01/09520123456791/21/000123      200
+
+
+2 — Zertifikat vor dem Umschalten
+
+  Verwahrer B konnte fuer dpp.oydapp.eu kein eigenes Zertifikat erhalten: die
+  ACME-HTTP-01-Challenge geht dorthin, wohin der Name aufloest, und das war noch
+  Verwahrer A. A bedient die IngressClass von B nicht, findet die Challenge
+  nicht, Let's Encrypt stellt nichts aus. Henne-Ei.
+
+  Geloest durch Uebertragung des bestehenden Zertifikats: der Name gehoert dem
+  Wirtschaftsteilnehmer, das Zertifikat ist sein Material. SAN: dpp.go-data.at,
+  dpp.oydapp.eu, gueltig bis 2026-11-20.
+
+  Probe VOR dem Umschalten, gegen die Adresse von B, waehrend die Welt noch A sah:
+      curl --resolve dpp.oydapp.eu:443:152.53.34.232 https://dpp.oydapp.eu/01/...
+      -> 200, ssl_verify_result 0
+
+  Damit war die Lueckenlosigkeit belegt, bevor sie eintrat.
+
+
+3 — Der Umschaltmoment, gemessen von ausserhalb beider Cluster
+
+  Fuenf-Sekunden-Takt auf den unveraenderten Datentraeger:
+
+      2026-08-23T12:29:05Z  dns=89.58.20.114    http=200  tls=0  0.560 s
+      2026-08-23T12:29:11Z  dns=152.53.34.232   http=200  tls=0  0.559 s
+
+  Der Wechsel des Verwahrers ist im Protokoll ein einziger Schritt zwischen zwei
+  Messpunkten. Kein Fehlschlag, kein Zertifikatsfehler, keine Aenderung der
+  Antwortzeit. Vorlauf: 131 Messpunkte ueber A, alle 200.
+
+  Was der Wechsel gekostet hat: eine Delegation, die B benennt (signiert), ein
+  Schreibvorgang in den Speicher von B, ein A-Record in der Zone des
+  Wirtschaftsteilnehmers. Kein Neudruck, keine neue Registrierung, keine
+  geaenderte Kennung in irgendeinem nachgelagerten System.
+
+
+4 — Der abschliessende Nachweis: A kann nicht mehr geantwortet haben
+
+  Der Hostname wurde aus dem Ingress von Verwahrer A entfernt. Danach, vom
+  Rechner des Betreibers aus, mit aktuellem Resolver (ueber Mobilfunk statt ueber
+  den Provider-Resolver):
+
+      curl --resolve dpp.oydapp.eu:443:89.58.20.114 https://dpp.oydapp.eu/01/...
+          -> 404      Verwahrer A bedient den Namen nicht mehr
+
+      curl https://dpp.oydapp.eu/01/09520123456791/21/000123
+          -> 200      der unveraenderte gedruckte String liefert den Pass
+
+  Das ist der Kern. Die zweite Antwort kann nicht von A stammen, weil A denselben
+  Namen unter derselben Adresse mit 404 beantwortet. Sie kam von Verwahrer B,
+  unter derselben Zeichenkette, die auf dem Datentraeger steht.
+
+  Zusammen mit Abschnitt 3: derselbe gedruckte String, vorher von A beantwortet,
+  nachher von B, ohne Fehlschlag beim Uebergang, mit dem Beleg, dass der alte
+  Verwahrer nicht mehr antworten konnte.
+
+
+5 — Was das Stilllegen des alten Verwahrers kostet
+
+  Waehrend derselben zwei Minuten wurde von einem dritten Standort aus gemessen,
+  dessen Resolver den alten Eintrag noch hielt: 22 Messpunkte, davon 16 mit 404.
+  Eine Anfrage direkt an die Adresse von B lieferte gleichzeitig 200 mit
+  gueltigem Zertifikat -- der Verwahrer funktionierte also, die Aufloesung nicht.
+
+  Die autoritativen Nameserver (ns5/ns6.kasserver.com) lieferten zu diesem
+  Zeitpunkt beide die neue Adresse, ebenso 1.1.1.1 und 8.8.8.8. Trotzdem hielten
+  einzelne Resolver den alten Eintrag: die TTL des A-Records betraegt 7200
+  Sekunden und ist beim DNS-Anbieter des Betreibers nicht konfigurierbar.
+
+  Der Hostname wurde bei A daraufhin wieder aufgenommen; die endgueltige
+  Stilllegung erfolgt nach Ablauf der TTL und braucht keine Messung mehr.
+
+  Schlussfolgerung: der Wechsel des Verwahrers ist augenblicklich und
+  verlustfrei, weil beide gleichzeitig ausliefern koennen. Die Stilllegung des
+  alten ist ein eigener Schritt, dessen Kosten nicht die Architektur bestimmt,
+  sondern die TTL in der Zone des Wirtschaftsteilnehmers. Die Ueberlappung ist
+  deshalb keine Bequemlichkeit, sondern konstruktive Notwendigkeit -- und der
+  Grund, warum die Custody-Operation den alten Verwahrer standardmaessig nicht
+  freigibt.
+
+
+Anmerkung zur Messung
+
+  Im ersten Beobachtungsabschnitt steht um 12:07:36Z ein fehlgeschlagener
+  Messpunkt (http=000). Er stammt daher, dass der Beobachterprozess in dieser
+  Sekunde in der Namensaufloesung blockierte und danach stillstand, bis er neu
+  gestartet wurde. Drei Kontrollabfragen unmittelbar danach lieferten 200. Es
+  handelt sich um ein Artefakt der Messung, nicht um einen Ausfall des gemessenen
+  Systems. Die Schleife wurde anschliessend mit Zeitgrenzen fuer Aufloesung und
+  Abruf versehen.
+
+  In abschluss.txt sind Aufloesung und Abruf getrennte Vorgaenge: die notierte
+  Adressliste und die Adresse, die curl tatsaechlich verwendet hat, koennen
+  auseinanderfallen. Die Statuscodes dieses Protokolls sind daher als Anteil
+  fehlgeschlagener Anfragen aussagekraeftig, nicht als Zuordnung zu einer
+  bestimmten Adresse. Die Zuordnung leistet Abschnitt 4, wo die Adresse mit
+  --resolve festgelegt ist.
+
+
+Rohdaten
+
+  switch-teil1.txt   131 Messpunkte, 11:55:30Z bis 12:07:36Z, Ausgangszustand
+  switch.txt           5 Messpunkte, 12:28:48Z bis 12:29:11Z, mit dem Uebergang
+  abschluss.txt       22 Messpunkte, 13:21:27Z bis 13:23:25Z, waehrend der
+                      vorzeitigen Stilllegung, von einem Standort mit veraltetem
+                      Resolver-Cache

@@ -101,4 +101,99 @@ RSpec.describe DidOyd do
         .to eq("did:oyd:zABC@https://oydid.example")
     end
   end
+
+  # Checking an identifier the client minted itself. The service holds no key
+  # for such a DID, so a wrong service endpoint can never be corrected here --
+  # creation is the only moment at which it is cheap to refuse.
+  describe ".service_endpoint" do
+    def read_returns(payload)
+      allow(oydid).to receive(:read).and_return([payload, ""])
+    end
+
+    it "reads the endpoint out of the document oydid publishes" do
+      read_returns("error" => 0, "doc" => { "key" => "zPub:zRev", "doc" => {
+        "service" => [{ "type" => "DigitalProductPassport",
+                        "serviceEndpoint" => "https://pod.example/dpp/v1/dppsByProductId/x" }]
+      } })
+
+      expect(DidOyd.service_endpoint("did:oyd:zABC"))
+        .to eq("https://pod.example/dpp/v1/dppsByProductId/x")
+    end
+
+    it "also accepts a document with the service array at the top level" do
+      read_returns("error" => 0, "doc" => {
+        "service" => [{ "type" => "DigitalProductPassport",
+                        "serviceEndpoint" => "https://pod.example/x" }]
+      })
+
+      expect(DidOyd.service_endpoint("did:oyd:zABC")).to eq("https://pod.example/x")
+    end
+
+    it "raises when the DID does not resolve" do
+      read_returns("error" => 1, "message" => "not found")
+
+      expect { DidOyd.service_endpoint("did:oyd:zGONE") }
+        .to raise_error(DidOyd::DidError, /does not resolve/)
+    end
+
+    it "raises when oydid answers with nothing at all" do
+      allow(oydid).to receive(:read).and_return([nil, "boom"])
+
+      expect { DidOyd.service_endpoint("did:oyd:zGONE") }
+        .to raise_error(DidOyd::DidError, /does not resolve/)
+    end
+
+    it "returns nil when the document carries no service entry" do
+      read_returns("error" => 0, "doc" => { "doc" => {} })
+
+      expect(DidOyd.service_endpoint("did:oyd:zABC")).to be_nil
+    end
+  end
+
+  describe ".assert_endpoint_host!" do
+    def endpoint(value)
+      allow(DidOyd).to receive(:service_endpoint).and_return(value)
+    end
+
+    it "accepts an endpoint on the host that will serve the passport" do
+      endpoint("https://pod.example/dpp/v1/dppsByProductId/x")
+
+      expect(DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example")).to be(true)
+    end
+
+    it "ignores case in the host, since DNS does" do
+      endpoint("https://POD.example/x")
+
+      expect(DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example")).to be(true)
+    end
+
+    # The path may legitimately differ -- it carries the ProductID, and the
+    # check is about where a reader is sent, not about what they ask for.
+    it "does not compare the path" do
+      endpoint("https://pod.example/somewhere/else")
+
+      expect(DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example/dpp/v1")).to be(true)
+    end
+
+    it "names both hosts when they differ" do
+      endpoint("https://other.example/x")
+
+      expect { DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example") }
+        .to raise_error(DidOyd::DidError, /other\.example.*pod\.example/)
+    end
+
+    it "refuses a DID whose document points nowhere" do
+      endpoint(nil)
+
+      expect { DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example") }
+        .to raise_error(DidOyd::DidError, /no DigitalProductPassport service endpoint/)
+    end
+
+    it "refuses an endpoint that is not a URL rather than guessing" do
+      endpoint("not a url")
+
+      expect { DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example") }
+        .to raise_error(DidOyd::DidError, /no host/)
+    end
+  end
 end

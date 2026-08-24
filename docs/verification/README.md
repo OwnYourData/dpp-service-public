@@ -41,6 +41,7 @@ surveillance authority would occupy, and therefore the harder evidence.
 | `08-serviceendpoint.txt` | the `serviceEndpoint` in the passport's DID document brought to the new custodian — a signed log entry, separate from the DNS change |
 | `09-variante-b2.txt` | the second carrier scheme: a self-certifying path, the multihash of a product `did:oyd`, resolving both as a web address and as a DID |
 | `09-b2-roh.txt` | raw responses for that scheme |
+| `10-did-pruefung.txt` | a passport identifier the operator minted itself, checked at creation: refused when it does not resolve, refused when its `serviceEndpoint` names a different host, accepted when it names the right one |
 
 Raw sampling logs, one line per request, `timestamp dns=… http=… tls=… seconds`:
 
@@ -50,7 +51,7 @@ Raw sampling logs, one line per request, `timestamp dns=… http=… tls=… sec
 | `switch.txt` | 12:28:48Z–12:29:11Z | 5, containing the transition |
 | `abschluss.txt` | 13:21:27Z–13:23:25Z | 22, during the premature retirement of A, from a location whose resolver still held the old record |
 
-## The two results the paper rests on
+## The three results the paper rests on
 
 **The move is instantaneous and lossless.** 12:29:05Z the carrier string was
 answered from 89.58.20.114, 12:29:11Z from 152.53.34.232. No failure, no
@@ -67,6 +68,15 @@ switched. The binding constraint is the time-to-live of the operator's A record
 — 7200 seconds, and not configurable at the operator's DNS provider. This is why
 the custody operation leaves the previous custodian serving by default and
 releases it only when explicitly asked.
+
+**A self-minted identifier is checked before it is accepted.** The service holds
+no key for a `did:oyd` it did not mint, so it can never correct such a document
+afterwards; the only cheap moment is creation. Measured against the running
+deployment: an identifier that resolves nowhere is refused, one whose
+`serviceEndpoint` names another host is refused with both hostnames in the
+answer, and one that names the right host is accepted unchanged. The third case
+is what makes the first two mean anything — a check that refused everything
+would pass them too.
 
 ## Reading the numbers honestly
 

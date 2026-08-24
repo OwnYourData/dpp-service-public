@@ -30,6 +30,11 @@ RSpec.describe "Carrier identifier", type: :request do
     }
   end
 
+  # The documents here carry a client-supplied did:oyd. Resolving it is checked
+  # in dpp_did_spec; what is under test here is the carrier identifier, so the
+  # resolution is stubbed away rather than reached over the network.
+  before { allow(DidOyd).to receive(:assert_endpoint_host!).and_return(true) }
+
   def create_dpp!(doc = dpp_document)
     post "/dpp/v1/dpps", params: doc.to_json, headers: auth
     JSON.parse(response.body)

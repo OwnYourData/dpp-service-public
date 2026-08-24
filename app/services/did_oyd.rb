@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "cgi"
+require "timeout"
+require "uri"
 
 # Thin wrapper around the oydid gem for the did:oyd operations the DPP Service
 # needs in Variante A. Keeping oydid behind this seam lets specs stub it, so the
@@ -12,6 +14,13 @@ class DidOyd
   class DidError < StandardError; end
 
   DEFAULT_LOCATION = "https://oydid.ownyourdata.eu"
+
+  # The service entry a passport DID carries (prEN 18220 discovery).
+  SERVICE_TYPE = "DigitalProductPassport"
+
+  # Resolving goes over the network. A client-supplied identifier is checked
+  # once, at CreateDPP, so this is not on a hot path -- but it must not hang.
+  RESOLVE_TIMEOUT = ENV.fetch("DID_RESOLVE_TIMEOUT", 10).to_i
 
   # oydid >= 0.5 supports several key types and no longer defaults to ed25519;
   # without this Oydid.create raises NoMethodError (nil + "-priv") inside
@@ -59,7 +68,7 @@ class DidOyd
     base = endpoint_base.presence || self.endpoint_base
     content = {
       "service" => [{
-        "type" => "DigitalProductPassport",
+        "type" => SERVICE_TYPE,
         "serviceEndpoint" => "#{base}/dpp/v1/dppsByProductId/#{CGI.escape(product_id.to_s)}"
       }]
     }
@@ -102,4 +111,58 @@ class DidOyd
     raise DidError, msg if msg.to_s != ""
     true
   end
+
+  # Resolve a DID and return the serviceEndpoint of its DigitalProductPassport
+  # service entry, or nil when the document carries none.
+  #
+  # Raises DidError when the DID does not resolve at all. oydid returns the
+  # published document as { "doc" => <content>, "key" => ..., "log" => ... },
+  # so the content this service minted sits one level in; older documents put
+  # the service array at the top level, and both shapes are accepted.
+  def self.service_endpoint(did)
+    require "oydid"
+
+    info = Timeout.timeout(RESOLVE_TIMEOUT) { Oydid.read(did.to_s, {}).first }
+    raise DidError, "#{did} does not resolve" if info.nil? || info["error"].to_i != 0
+
+    services = info.dig("doc", "doc", "service") || info.dig("doc", "service")
+    entry = Array(services).find { |e| e.is_a?(Hash) && e["type"].to_s == SERVICE_TYPE }
+    entry ||= Array(services).find { |e| e.is_a?(Hash) && e["serviceEndpoint"].present? }
+    entry && entry["serviceEndpoint"].to_s.presence
+  rescue Timeout::Error
+    raise DidError, "#{did} did not resolve within #{RESOLVE_TIMEOUT}s"
+  end
+
+  # Check an identifier the client minted itself (Variante B) before the
+  # passport is created with it.
+  #
+  # Two things have to hold. The DID must be live -- a passport under a DID
+  # nobody can resolve is unreachable through the discovery path prEN 18220
+  # describes. And its serviceEndpoint must name the host that will actually
+  # hold the passport, because a reader who resolves the DID is sent there.
+  #
+  # Neither is repairable afterwards: this service holds no key for a DID it
+  # did not mint, so it cannot perform the DID update that would move the
+  # endpoint. Refusing at creation is the only point at which it is cheap.
+  def self.assert_endpoint_host!(did, expected_base)
+    endpoint = service_endpoint(did)
+    if endpoint.blank?
+      raise DidError, "#{did} carries no #{SERVICE_TYPE} service endpoint"
+    end
+
+    actual = uri_host(endpoint)
+    wanted = uri_host(expected_base)
+    return true if actual.present? && actual == wanted
+
+    raise DidError,
+          "DigitalProductPassportID resolves to #{actual.presence || 'no host'}, " \
+          "but this passport is served from #{wanted}"
+  end
+
+  def self.uri_host(value)
+    URI.parse(value.to_s).host.to_s.downcase
+  rescue URI::InvalidURIError
+    ""
+  end
+  private_class_method :uri_host
 end

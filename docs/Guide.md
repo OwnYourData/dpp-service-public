@@ -43,8 +43,8 @@ The following overview shows which standard is used for what:
     (`did:oyd`, [CMSM](https://hackmd.io/0ikx7mLwQW2om-hZXTU1hg?view))
 * **prEN 18220**: data carriers
   * ProductID as a resolvable web link to the DPP (the relation to the data carrier/QR code)
-  * the UPI short link is the form that goes onto the data carrier
-    (creating the data carrier itself is not part of the API service)
+  * the ProductID is the form that goes onto the data carrier — it is itself
+    the unique product identifier (creating the carrier is not part of the API)
 * **DIN DKE SPEC 99100**: requirements for the data attributes of the battery passport
   * example battery passport attributes as DPP content
 
@@ -99,7 +99,7 @@ actor "Consumer" as consumer
 
 note over db
   always local:
-  - index (dpp_id, ProductID, short_id)
+  - index (dpp_id, ProductID, product_key)
   - key material, encrypted
   - storage configuration
   additionally without a pod:
@@ -124,14 +124,14 @@ end
 svc -> svc : Oydid.create()\ncreate key pair (doc + revocation),\ncompute did:oyd,\nserviceEndpoint into the DID doc:\n{base}/dpp/v1/dppsByProductId/{ProductID}
 svc -> vdr : publish DID document (POST /doc)
 vdr --> svc : DID confirmed
-svc -> db : store index, short_id and keys encrypted
+svc -> db : store index and keys encrypted
 alt without pod (default)
   svc -> db : store DPP document
 else with pod
   svc -> pod : create index card + write document
   pod --> svc : object-id
 end
-svc --> client : 201 SuccessCreated\n{ dpp ID = did:oyd:..., UPI = short link }
+svc --> client : 201 SuccessCreated\n{ dpp ID = did:oyd:..., ProductID unchanged }
 
 == ReadDPP (consumer, DID-first discovery) ==
 consumer -> resolver : resolve DID (any DID resolver)
@@ -236,10 +236,10 @@ group planned
   reg --> svc : DID document (public key, serviceEndpoint)
   svc -> svc : DID valid? serviceEndpoint pointing here?
 end
-note right of svc : currently the supplied DID\nis accepted unchecked
+note right of svc : refused if it does not resolve\nor points at another host
 svc -> store : store public DPP data (NO keys)
 store --> svc : ok
-svc --> agent : 201 SuccessCreated { dpp ID = did:oyd, UPI }
+svc --> agent : 201 SuccessCreated { dpp ID = did:oyd, ProductID }
 agent --> client : DPP created { dpp ID = did:oyd }
 
 == ReadDPP (consumer, DID-first discovery) ==
@@ -289,33 +289,45 @@ note over agent, reg : Only the client (SE) can revoke the DID\n-> no lock-in at
 @enduml
 ```
 
-## The UPI short link
+## What goes onto the data carrier
 
-Every response to `CreateDPP`, `ReadDPPById` and `ReadDPPByProductId` contains a
-field `UPI` — the Unique Product Identifier that is reported to the EU DPP
-registry and printed onto the data carrier.
+The `ProductID` — nothing else. prEN 18219 §3.22 defines the unique product
+identifier as *one* string that identifies the product and enables the web link
+to the passport, and §4.5.2 (1) requires that same string to be retrievable from
+the carrier. There is no second token to derive, and no `UPI` field in the
+document: prEN 18223 Table 1 defines none.
 
-The registry limits it to **50 characters** and requires a direct `200` without a
-redirect. It is therefore a short link of the form `{base}/p/{short_id}` with a
-twelve-character `short_id`. The base is either that of the DPP Service or — in
-case of storage in the hosting pod — its `base_url`; it follows that a `base_url`
-may be at most 35 characters long.
+The registry limits the identifier to **50 characters** over `https` and requires
+a direct `200` without a redirect. `CreateDPP` therefore validates the `ProductID`
+before anything permanent happens and says how many characters are over.
+
+The host belongs to the **economic operator** and is pointed at the custodian by
+a DNS record. That is what lets the passport change custodian without a reprint:
+what is printed names the operator, not whoever holds the data.
+
+Two schemes may be borne (see [Identifiers.md](Identifiers.md)): a GS1 Digital
+Link, whose path expresses granularity and can therefore be checked instead of
+believed, or a self-issued identification link per §5.2 / EN IEC 61406-1, which
+needs no issuing agency but says nothing about granularity.
+
+```bash
+curl -sS -D - -o /dev/null https://dpp.oydapp.eu/01/09520123456791/21/000123
+```
+
+Public, without a token, served by whichever custodian the operator's host
+currently points at.
+
+### The legacy short link
+
+Passports created before this design bear an opaque `{base}/p/{short_id}`. Those
+links still resolve, because a printed carrier cannot be recalled, but no new
+one is issued as a unique product identifier.
 
 ```bash
 curl -sS -D - -o /dev/null https://r.oydapp.eu/p/cmodBSyBMVHP
 ```
 
-Public, without a token, with `ETag` and `Cache-Control` for caching.
-
 ## Storage in a hosting pod (header `X-DPP-Storage`)
-
-> **Not live yet.** What this section describes is implemented in this
-> repository and covered by tests, but the hosted instance at
-> `dpp-service.ownyourdata.eu` still runs the previous mechanism, in which the
-> intermediary handed over a `client_id` and a `client_secret`. The changeover
-> happens on both sides at once — pod and service — and this box goes away with
-> it. Local storage, which is the default and everything else in this guide, is
-> unaffected.
 
 The data intermediary provides pod and collection and records the economic
 operator's identity DID as the collection's controller. What is handed over
@@ -380,7 +392,7 @@ What changes as a result:
 |---|---|---|
 | DPP document and history | database of the DPP Service | in the pod, which archives itself |
 | stays local | everything | index, storage configuration, keys |
-| `UPI` | `{DPP_UPI_BASE_URL}/p/{short_id}` | `{base_url}/p/{short_id}` |
+| carrier host | the operator's own, pointed here by DNS | the operator's own, pointed at the pod |
 | DID `serviceEndpoint` | this service | `{base_url}/dpp/v1/dppsByProductId/{ProductID}` |
 | public reading | this service | the pod |
 
@@ -660,9 +672,9 @@ echo "$RESP" | jq .
 
 DID=$(echo "$RESP" | jq -r '.DigitalProductPassportID')
 ENC=$(enc "$DID")
-UPI=$(echo "$RESP" | jq -r '.UPI')
+PID=$(echo "$RESP" | jq -r '.ProductID')
 echo "DID = $DID"
-echo "UPI = $UPI"
+echo "ProductID = $PID"
 ```
 
 * expected response (`201 Created`)
@@ -675,7 +687,6 @@ echo "UPI = $UPI"
     "DPPStatus": "Active",
     "LastUpdate": "2026-08-16T21:01:58Z",
     "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-    "UPI": "https://r.oydapp.eu/p/cmodBSyBMVHP",
     "dataElementCollections": [ "… as submitted …" ]
   }
   ```
@@ -729,28 +740,30 @@ curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d "{
   \"Granularity\": \"model\",
   \"DPPSchemaVersion\": \"prEN 18223:2025\",
   \"EconomicOperatorID\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"
-}" | jq -c '{DigitalProductPassportID, DPPStatus, UPI}'
+}" | jq -c '{DigitalProductPassportID, DPPStatus, ProductID}'
 ```
 
 * expected response (`201 Created`)
   ```json
-  {"DigitalProductPassportID":"did:oyd:zQmdoKmooThp5eYU5a89nSZ6u4veSwJtepykzeY8mcRK9PA","DPPStatus":"Active","UPI":"https://r.oydapp.eu/p/dNFPtQU5qfg3"}
+  {"DigitalProductPassportID":"did:oyd:zQmdoKmooThp5eYU5a89nSZ6u4veSwJtepykzeY8mcRK9PA","DPPStatus":"Active","ProductID":"https://id.lumina.example/01/09520123456789"}
   ```
 
-The consequence shows up at deletion: the service cannot revoke a DID it has no
+A supplied `did:oyd` is checked before it is accepted: it has to resolve, and
+the `serviceEndpoint` in its document has to name the host that will serve this
+passport. Both are refused with `ClientErrorBadRequest`, and nothing is created.
+Neither could be repaired later — the service holds no key for a DID it did not
+mint, so it cannot perform the DID update that would move the endpoint.
+
+The same fact shows up at deletion: the service cannot revoke a DID it has no
 key for, so the identifier stays valid until the holder revokes it. See step 15.
 
 ### 2c. Create a DPP — Variant B with the intermediary's hosting pod
 
 Same as 2b, plus the `X-DPP-Storage` header. The document then lives in the pod,
 which also serves the public read paths — so the `serviceEndpoint` of the DID
-and the `UPI` must both point at the pod. Because the `serviceEndpoint` is
-frozen when the DID is minted, **the header has to exist before the identifier
-is created**.
-
-> **Not live yet**, like the section *Storage in a hosting pod* above: the
-> hosted instance still expects the previous header, which carried a
-> `client_secret`. Steps 2a and 2b are unaffected.
+must point at the pod, and the check above compares it against exactly that
+host. Because the `serviceEndpoint` is frozen when the DID is minted, **the
+header has to exist before the identifier is created**.
 
 ```bash=
 PIDC="https://id.lumina.example/01/09520123456790"
@@ -814,18 +827,24 @@ curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" \
   \"Granularity\": \"model\",
   \"DPPSchemaVersion\": \"prEN 18223:2025\",
   \"EconomicOperatorID\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"
-}" | jq -c '{DigitalProductPassportID, DPPStatus, UPI}'
+}" | jq -c '{DigitalProductPassportID, DPPStatus, ProductID}'
 ```
 
 * expected response (`201 Created`)
   ```json
-  {"DigitalProductPassportID":"did:oyd:zQmWdUVpUGY8LdE1PVZUwz8gS7iwa1SfsWVoKx8CsDMFGeD","DPPStatus":"Active","UPI":"https://dpp.go-data.at/p/mtL3AQmIobGB"}
+  {"DigitalProductPassportID":"did:oyd:zQmWdUVpUGY8LdE1PVZUwz8gS7iwa1SfsWVoKx8CsDMFGeD","DPPStatus":"Active","ProductID":"https://id.lumina.example/01/09520123456790"}
   ```
 
-Note the `UPI`: it is served by `dpp.go-data.at`, not by the DPP Service. Before
-minting anything the service fetches a token from the pod and checks that it is
-reachable — an unreachable pod fails the call with `ServerErrorBadGateway`
-instead of leaving a passport that points nowhere.
+The `ProductID` is unchanged by the choice of custodian — that is the point of
+it. What differs is who answers it: the operator points `id.lumina.example` at
+`dpp.go-data.at` by DNS, and the pod serves the passport under the path the
+carrier bears.
+
+Before minting anything the service fetches a token from the pod and checks that
+it is reachable — an unreachable pod fails the call with `ServerErrorBadGateway`
+instead of leaving a passport that points nowhere. With a client-supplied DID it
+additionally resolves that DID and refuses it unless its `serviceEndpoint` names
+`dpp.go-data.at`.
 
 ### 3. Read a DPP by ID (`ReadDPPById`)
 
@@ -849,15 +868,28 @@ PENC=$(enc "$PID")
 curl -sS "$BASE/dppsByProductId/$PENC" | jq '.DigitalProductPassportID'
 ```
 
-### 5. Resolve the UPI short link
+### 5. Read over the data carrier
 
-Direct `200`, no redirect, no token — the form printed on the data carrier.
+The string on the carrier is the `ProductID` itself. Reading it is one request,
+no token, no redirect and no resolver — the operator's host is pointed at the
+custodian by DNS, and the custodian serves the passport under the path.
+
+`id.lumina.example` in this walkthrough is fictional and resolves nowhere, so
+the equivalent call through the API is step 4. Against the deployment recorded
+in [verification/](verification/README.md) the carrier read is:
 
 ```bash=
-curl -sS -D - -o /dev/null "$UPI"
+curl -sS -D - -o /dev/null https://dpp.oydapp.eu/01/09520123456791/21/000123
 ```
 
 * expected: `HTTP/2 200` plus `ETag` and `Cache-Control` headers.
+
+Carriers printed before this design bear an opaque short link instead. They keep
+resolving:
+
+```bash=
+curl -sS -D - -o /dev/null https://r.oydapp.eu/p/cmodBSyBMVHP
+```
 
 ### 6. Read straight from the pod (variant 2c only)
 
@@ -868,14 +900,17 @@ DID document never touches the DPP Service. All four paths are public:
 POD="https://dpp.go-data.at"
 ENCC=$(enc "$DIDC"); PENCC=$(enc "$PIDC")
 
-curl -sS "$POD/p/mtL3AQmIobGB" | jq -c '{DigitalProductPassportID, DPPStatus}'
+curl -sS "$POD/p/mtL3AQmIobGB" | jq -c '{DigitalProductPassportID, DPPStatus}'   # legacy short link
 curl -sS "$POD/dpp/v1/dppsByProductId/$PENCC" | jq -c '.DigitalProductPassportID'
 curl -sS "$POD/dpp/v1/dpps/$ENCC" | jq -c '.DPPStatus'
 curl -sS "$POD/dpp/v1/dpps/$ENCC/collections/EnergyPerformance" | jq -c '{ElementId, Name}'
 ```
 
-All four answer `200`. The same passport read through the DPP Service returns the
-identical document — with the `UPI` still pointing at the pod.
+All four answer `200`. The same passport read through the DPP Service returns
+the identical document. The carrier path (`/01/…`) is served by the pod too, but
+only under the operator's own hostname: the pod compares the request host
+against the one recorded with the passport, so asking `dpp.go-data.at` for a
+carrier path registered to `id.lumina.example` gives `404`.
 
 ### 7. Resolve several Product IDs to DPP IDs (`ReadDPPIdsByProductIds`)
 
@@ -993,7 +1028,8 @@ Without a token the same call returns `401`.
 
 Client-facing registration method (prEN 18222 Clause 5). The connection to the
 EU DPP Registry is currently a placeholder; the call returns a registry
-identifier. What gets reported is the `UPI` short link.
+identifier. What gets reported as the unique product identifier is the
+`ProductID` itself.
 
 ```bash=
 curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" "${AUTH[@]}" -d '{
@@ -1041,6 +1077,46 @@ Revoking a client-held DID is the holder's job:
 oydid revoke "$DIDB"
 ```
 
+### 16. Change the custodian (`POST /dpps/{id}/custody`)
+
+Beyond the standard's method set. Moves a pod-backed passport to the custodian
+named by a new `X-DPP-Storage` mandate: the service reads the document from the
+custodian that still holds it, writes it to the new one, and repoints the
+passport. No identifier changes — not the `DigitalProductPassportID`, and above
+all not the `ProductID`, which is what was printed.
+
+The mandate for the old custodian does not work at the new one: its `aud` is the
+old pod's base URL. The move is therefore a separate act, signed by the holder.
+
+```bash=
+DELEGATION_B="$(ruby mint_delegation.rb)"
+STORAGE_B="{\"base_url\":\"https://dpp.data-vault.eu\",\"collection_id\":\"4\",\"delegation\":\"$DELEGATION_B\"}"
+
+curl -sS -X POST "$BASE/dpps/$ENCC/custody" "${AUTH[@]}" \
+  -H "X-DPP-Storage: $STORAGE_B" | jq -c '{DigitalProductPassportID, ProductID, DPPStatus}'
+```
+
+* expected: `200`, all three values unchanged.
+
+The previous custodian keeps serving. Releasing it is a second, explicit act
+carried out under its own mandate:
+
+```bash=
+curl -sS -X POST "$BASE/dpps/$ENCC/custody?release_previous=true" "${AUTH[@]}" \
+  -H "X-DPP-Storage: $STORAGE_B" -o /dev/null -w "%{http_code}\n"
+```
+
+The overlap is a requirement, not a convenience. What still points at the old
+custodian is the operator's DNS record, and it keeps pointing there until its
+time-to-live expires everywhere — measured in
+[verification/](verification/README.md), where removing the old host too early
+failed for 16 of 22 requests from a location with a stale resolver cache.
+
+Two things this does not do. The `serviceEndpoint` in the DID document still
+names the old custodian; moving it is a DID update, which only the key holder
+can perform. And a delegated mandate can soft-delete but not erase — the
+architecture can enforce exit, not forgetting.
+
 ## Appendix — Generic status codes (prEN 18222, Table 16)
 
 | Generic code | HTTP |
@@ -1079,7 +1155,6 @@ Failed calls return a Result object (prEN 18222, Table 13), e.g.:
 | Topic | State |
 |---|---|
 | Role model and data classes (prEN 18239) | signature verification and owner binding are implemented; authority/refurbisher/consumer and controlled data are missing |
-| Validation of supplied DIDs (variant B) | `Oydid.read` at `CreateDPP` is intended, currently it is accepted unchecked |
 | DID update per DPP change | the version chain lives in `dpp_versions` or in the pod, not in the OYDID log |
 | Signatures over the DPP data (prEN 18246) | the DID is the anchor, no proof is delivered with it |
 | W3C Verifiable Credentials as claims | not implemented |

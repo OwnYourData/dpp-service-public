@@ -105,7 +105,7 @@ hashed. Definition:
 The verification step of a reader is therefore:
 
 ```
-1. scan data carrier           → {base_url}/p/{short_id}
+1. scan data carrier           → the ProductID, an https URL
 2. fetch                       → passport document (bytes B)
 3. DigitalProductPassportID    → take from B
 4. resolve DID                 → document v_n

@@ -14,8 +14,10 @@ module Api
       #   * omitted        -> Variante A: the service mints a did:oyd and keeps
       #                       its keys (prEN 18219 / oydid). Standard-conform:
       #                       CreateDPP returns the assigned dpp ID (Table 5).
-      #   * did:oyd:...     -> client-supplied DID; stored as-is (Variante C
-      #                       validation via Oydid.read is a later increment).
+      #   * did:oyd:...     -> client-supplied DID (Variante B). Resolved
+      #                       before use: it must be live and its
+      #                       serviceEndpoint must name the host that will
+      #                       hold the passport (DidOyd.assert_endpoint_host!).
       #   * other URI/URL   -> stored as-is (unchanged behaviour).
       #
       # Storage backend (S2), keyed off the X-DPP-Storage header — deliberately
@@ -23,8 +25,9 @@ module Api
       # of proprietary attributes (prEN 18223):
       #   * absent  -> the document is stored in this service's database
       #   * present -> the document is stored in the hosting pod named by the
-      #                token; the pod also serves the public read paths, so both
-      #                the UPI and the DID's serviceEndpoint point at it.
+      #                token; the pod also serves the public read paths, so the
+      #                DID's serviceEndpoint points at it. The carrier does not:
+      #                it bears the ProductID, whose host is the operator's.
       def create
         storage = pod_storage_param     # nil unless X-DPP-Storage is present
         # Reachability and credentials are verified BEFORE anything permanent
@@ -46,6 +49,20 @@ module Api
             return render_result("ClientErrorBadRequest", text: e.message)
           end
         end
+        # A client-supplied did:oyd (Variante B) is checked before anything
+        # permanent happens: it has to resolve, and its serviceEndpoint has to
+        # name the host that will actually hold this passport. Both are
+        # unrepairable later, because this service holds no key for a DID it
+        # did not mint and therefore cannot update the endpoint.
+        if dpp.dpp_id.to_s.start_with?("did:oyd:")
+          begin
+            DidOyd.assert_endpoint_host!(dpp.dpp_id,
+                                         storage ? storage.base_url : DidOyd.endpoint_base)
+          rescue DidOyd::DidError => e
+            return render_result("ClientErrorBadRequest", text: e.message)
+          end
+        end
+
         # Owner comes from the verified token, never from the payload; nil in
         # permissive mode, where there is no verified identity to record.
         dpp.owner_did = actor_did if DidTokenVerifier.enabled?

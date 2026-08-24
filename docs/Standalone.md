@@ -23,8 +23,8 @@ serves them itself, and nothing beyond a PostgreSQL server is needed.
 * optionally Docker, if you want to build the bundled image
 
 Why PostgreSQL in production: the passport document is held as JSON in a
-`jsonb` column, and the lookup by `ProductID` and `short_id` runs over
-expression indexes on it.
+`jsonb` column, and the lookup by `ProductID` runs over expression indexes on
+it.
 
 ---
 
@@ -62,7 +62,7 @@ All settings come from environment variables.
 | `DPP_DB_NAME` | `dpp_service_production` | |
 | `DPP_DB_USER` / `DPP_DB_PASSWORD` | — | |
 | `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | public base URL of this instance; written into the `serviceEndpoint` of the DID document |
-| `DPP_UPI_BASE_URL` | `https://r.oydapp.eu/p` | base of the short link for the EU registry |
+| `DPP_UPI_BASE_URL` | `https://r.oydapp.eu` | base of the legacy short link `/p/:short_id`; no longer issued as an identifier |
 | `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | registrar/VDR for `did:oyd` |
 | `DPP_CORS_ORIGINS` | `*` | permitted origins for browser clients |
 | `RAILS_MAX_THREADS` | `5` | |
@@ -100,10 +100,20 @@ production.
 To keep in mind when switching: passports created before have no recorded owner
 and can no longer be changed afterwards.
 
-**Keep `DPP_UPI_BASE_URL` short.** The EU registry limits the Unique Product
-Identifier to 50 characters. The service appends a twelve-character `short_id`,
-so at most 37 characters remain for the base. The base must be `https` and must
-answer with `200` directly, without a redirect.
+**The ProductID is the unique product identifier.** EN 18219 cl. 3.22 defines
+the UPI as *one* string that identifies the product and enables the web link to
+the passport, and cl. 4.5.2 (1) requires that same string to be retrievable from
+the data carrier. The service therefore issues no second token: what you send as
+`ProductID` is what is registered and what goes on the carrier.
+
+The registry limits it to 50 characters over `https`, so the service refuses a
+longer one at creation and says how many characters are over. Its host should
+belong to the economic operator, not to whoever stores the passport — that is
+what lets the passport move without a reprint.
+
+This service does not serve the carrier path itself; `ReadDPPByProductId` is the
+read path. `/p/:short_id` still resolves for carriers printed before the
+redesign, and `DPP_UPI_BASE_URL` is the base of those links.
 
 ---
 
@@ -120,7 +130,7 @@ docker run --rm -p 3000:3000 \
   -e DPP_DB_USER=postgres \
   -e DPP_DB_PASSWORD=postgres \
   -e DPP_SERVICE_ENDPOINT_BASE=https://dpp.example.org \
-  -e DPP_UPI_BASE_URL=https://dpp.example.org/p \
+  -e DPP_UPI_BASE_URL=https://dpp.example.org \
   dpp-service
 ```
 
@@ -149,14 +159,17 @@ PID="https://id.example.org/01/09520123456788"
 ### Create a passport, supplying the identifier yourself
 
 Whoever already owns the identifier passes it along in the document. The
-service then mints nothing and holds no key material:
+service then mints nothing and holds no key material. A `did:oyd` is the hash
+over its own DID document, so the passport identifier and the operator
+identifier below are unrelated values — neither is derived from the other, and
+neither carries a path or suffix:
 
 ```bash
 curl -sS -X POST "$BASE/dpps" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "DigitalProductPassportID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS:dpp:0001",
+    "DigitalProductPassportID": "did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W",
     "ProductID": "https://id.example.org/01/09520123456788",
     "Granularity": "model",
     "DPPSchemaVersion": "prEN 18223:2025",
@@ -170,8 +183,15 @@ curl -sS -X POST "$BASE/dpps" \
     ] }' | jq .
 ```
 
-The response contains `DPPStatus`, `LastUpdate` and `UPI` — the short link that
-is reported to the EU registry.
+A `did:oyd` supplied this way is checked before it is accepted: it has to
+resolve, and the `serviceEndpoint` in its document has to name this instance —
+`DPP_SERVICE_ENDPOINT_BASE`. Neither could be repaired afterwards, because the
+service holds no key for a DID it did not mint. Identifiers that are not
+`did:oyd` are stored as given.
+
+The response contains `DPPStatus`, `LastUpdate` and the `ProductID` it was
+created with. There is no separate `UPI` field: EN 18223 Table 1 defines none,
+and the product identifier already is the unique product identifier.
 
 ### Create a passport, letting the identifier be minted
 
@@ -196,20 +216,21 @@ document.
 ### Reading
 
 ```bash
-DID="did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS:dpp:0001"
+DID="did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W"
 EDID=$(enc "$DID"); EPID=$(enc "$PID")
 
-curl -sS "$BASE/dpps/$EDID" | jq -c '{DigitalProductPassportID, DPPStatus, UPI}'
+curl -sS "$BASE/dpps/$EDID" | jq -c '{DigitalProductPassportID, DPPStatus, ProductID}'
 curl -sS "$BASE/dppsByProductId/$EPID" | jq -r .DigitalProductPassportID
 curl -sS "$BASE/dpps/$EDID/collections/EnergyPerformance" | jq -c '{ElementId, Name}'
 curl -sS "$BASE/dpps/$EDID/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux" | jq -c '{Value, UnitOfMeasure}'
 ```
 
-Reading needs no token. The short link lies outside `/dpp/v1` and answers with
-`200` directly, without a redirect:
+Reading needs no token. Carriers printed before the redesign bear an opaque
+short link, which lies outside `/dpp/v1` and answers with `200` directly,
+without a redirect:
 
 ```bash
-curl -sS http://localhost:3000/p/<short_id>
+curl -sS "http://localhost:3000/p/$SHORT_ID"
 ```
 
 ### Updating

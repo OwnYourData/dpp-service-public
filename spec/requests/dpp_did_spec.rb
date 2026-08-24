@@ -82,15 +82,63 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
     end
   end
 
+  # Variante B: the operator minted the identifier itself. The service holds no
+  # key for it, so whatever is wrong with it at creation stays wrong -- which is
+  # why it is checked here and nowhere later.
   describe "client-supplied identifier" do
+    let(:body) { doc_without_id.merge("DigitalProductPassportID" => "did:oyd:zPREEXISTING") }
+
     it "does NOT mint when a DigitalProductPassportID is provided" do
+      allow(DidOyd).to receive(:assert_endpoint_host!).and_return(true)
       expect(DidOyd).not_to receive(:mint)
-      body = doc_without_id.merge("DigitalProductPassportID" => "did:oyd:zPREEXISTING")
       post "/dpp/v1/dpps", params: body.to_json, headers: auth
 
       expect(response).to have_http_status(:created)
       dpp = Dpp.find("did:oyd:zPREEXISTING")
       expect(dpp.did_managed).to be(false)
+    end
+
+    it "checks it against the host that will serve the passport" do
+      allow(DidOyd).to receive(:assert_endpoint_host!).and_return(true)
+      post "/dpp/v1/dpps", params: body.to_json, headers: auth
+
+      expect(DidOyd).to have_received(:assert_endpoint_host!)
+        .with("did:oyd:zPREEXISTING", DidOyd.endpoint_base)
+    end
+
+    it "refuses an identifier that does not resolve, and creates nothing" do
+      allow(DidOyd).to receive(:assert_endpoint_host!)
+        .and_raise(DidOyd::DidError.new("did:oyd:zPREEXISTING does not resolve"))
+
+      post "/dpp/v1/dpps", params: body.to_json, headers: auth
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response.body).to include("does not resolve")
+      expect(Dpp.exists?("did:oyd:zPREEXISTING")).to be(false)
+    end
+
+    it "refuses one whose serviceEndpoint sends readers elsewhere" do
+      allow(DidOyd).to receive(:assert_endpoint_host!)
+        .and_raise(DidOyd::DidError.new("DigitalProductPassportID resolves to other.example, " \
+                                        "but this passport is served from here.example"))
+
+      post "/dpp/v1/dpps", params: body.to_json, headers: auth
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response.body).to include("other.example")
+      expect(Dpp.exists?("did:oyd:zPREEXISTING")).to be(false)
+    end
+
+    # An identifier that is not a did:oyd cannot be resolved this way and is
+    # stored as before -- the check is about the method we mint with, not a new
+    # restriction on what may identify a passport.
+    it "leaves a non-did:oyd identifier alone" do
+      expect(DidOyd).not_to receive(:assert_endpoint_host!)
+      post "/dpp/v1/dpps",
+           params: doc_without_id.merge("DigitalProductPassportID" => "https://id.example/p/1").to_json,
+           headers: auth
+
+      expect(response).to have_http_status(:created)
     end
   end
 

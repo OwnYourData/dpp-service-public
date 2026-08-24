@@ -30,6 +30,9 @@ RSpec.describe "DID-based authorization", type: :request do
   end
 
   before do
+    # The documents here carry a client-supplied did:oyd; resolving it is
+    # dpp_did_spec's subject, not this file's.
+    allow(DidOyd).to receive(:assert_endpoint_host!).and_return(true)
     allow(DidTokenVerifier).to receive(:enabled?).and_return(true)
     allow(DidTokenVerifier).to receive(:call) do |token|
       claims = begin

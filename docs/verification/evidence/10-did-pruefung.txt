@@ -1,0 +1,83 @@
+Pruefung einer selbst gepraegten Kennung — 2026-08-24
+
+Gegenstand
+  Dienst         https://dpp-service.ownyourdata.eu   Image 260824a
+  rEO            did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6
+  Aufruf         POST /dpp/v1/dpps mit signiertem Token des rEO
+
+  In Variante B praegt der Wirtschaftsteilnehmer die Passkennung selbst. Der
+  Dienst haelt dafuer keinen Schluessel und kann das DID-Dokument nachtraeglich
+  nicht aendern; was bei der Anlage falsch ist, bleibt falsch. Geprueft wird
+  deshalb vor dem Anlegen: loest die Kennung auf, und nennt ihr serviceEndpoint
+  den Host, der den Pass tatsaechlich ausliefern wird.
+
+  Verglichen wird nur der Host, nicht der Pfad. Der Pfad traegt die ProductID;
+  gegenstand der Pruefung ist, wohin ein Leser geschickt wird.
+
+  Drei Faelle, gemessen gegen das laufende System.
+
+
+1 — Die Kennung loest nirgends auf
+
+  DigitalProductPassportID  did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7X
+  ProductID                 https://dpp.oydapp.eu/01/09520123456791/21/000199
+
+      400 ClientErrorBadRequest
+      "did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7X does not resolve"
+      correlationId 480f9c026281d9be2efe5546addbc9d1, 2026-08-24T22:36:55Z
+
+  Es entsteht kein Pass. Ein Pass unter einer Kennung, die niemand aufloesen
+  kann, waere ueber den Discovery-Pfad der EN 18220 unerreichbar.
+
+
+2 — Die Kennung loest auf, zeigt aber woandershin
+
+  DigitalProductPassportID  did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
+                            (die Pass-DID aus dem Durchlauf vom 23.08.; ihr
+                            serviceEndpoint nennt seit dem Umzug Verwahrer B)
+  ProductID                 https://dpp.oydapp.eu/01/09520123456791/21/000198
+  Ohne X-DPP-Storage, der Pass laege also beim Dienst selbst.
+
+      400 ClientErrorBadRequest
+      "DigitalProductPassportID resolves to dpp.data-vault.eu, but this
+       passport is served from dpp-service.ownyourdata.eu"
+      correlationId fb7872f3e1101e8ef6b15276b31711c2, 2026-08-24T22:37:03Z
+
+  Beide Hostnamen stehen im Klartext in der Antwort: der Aufrufer erfaehrt,
+  was nicht zusammenpasst, ohne raten zu muessen.
+
+
+3 — Die Kennung loest auf und zeigt hierher
+
+  Beim Registrar gepraegt mit
+      serviceEndpoint = https://dpp-service.ownyourdata.eu/dpp/v1/
+                        dppsByProductId/https%3A%2F%2Fdpp.oydapp.eu%2F01%2F
+                        09520123456791%2F21%2F000197
+
+  DigitalProductPassportID  did:oyd:zQmSz6SSNQWWytHEMjUjVPESLVPpCH7dda1WZSwXLmMfbPM
+  ProductID                 https://dpp.oydapp.eu/01/09520123456791/21/000197
+
+      201 SuccessCreated
+      {"DigitalProductPassportID":"did:oyd:zQmSz6SSNQWWytHEMjUjVPESLVPpCH7dda1WZSwXLmMfbPM",
+       "ProductID":"https://dpp.oydapp.eu/01/09520123456791/21/000197",
+       "DPPStatus":"Active"}
+
+  Die gelieferte Kennung kommt unveraendert zurueck; der Dienst praegt nichts
+  und haelt kein Schluesselmaterial.
+
+
+4 — Aufgeraeumt
+
+      DELETE /dpp/v1/dpps/{DIDOK}   204
+      GET    /dpp/v1/dpps/{DIDOK}   404
+
+  Die DID selbst bleibt aufloesbar: der Dienst kann nicht widerrufen, wofuer er
+  keinen Schluessel hat. Das ist Variante B und keine Unvollstaendigkeit — der
+  Widerruf ist Sache des Inhabers.
+
+
+Bedeutung
+
+  Ohne Fall 3 waere nichts gezeigt: eine Pruefung, die jede Kennung ablehnt,
+  bestuende die Faelle 1 und 2 ebenso. Erst die Kombination belegt, dass
+  unterschieden wird — und zwar an dem Merkmal, auf das es ankommt.

@@ -35,8 +35,9 @@ Swagger UI at `http://localhost:3000/api-docs`, the machine-readable contract in
 OwnYourData operates a public instance at
 **https://dpp-service.ownyourdata.eu**. That deployment does not keep passport
 documents in its own database: it stores them in a hosting pod operated by the
-data intermediary **DID FlexCo**, which then also serves them publicly. The
-service keeps only an index and the storage configuration.
+data intermediary **[DID FlexCo](https://intermediary.at)**, which then also
+serves them publicly. The service keeps only an index and the storage
+configuration.
 
 That mode is out of scope for this snapshot — it needs a pod provisioned by the
 intermediary and credentials issued by them. Everything documented here is the

@@ -7,10 +7,10 @@ serves them itself, and nothing beyond a PostgreSQL server is needed.
 > OwnYourData operates a public instance at
 > **https://dpp-service.ownyourdata.eu**. That instance does not store passport
 > documents itself, but in a hosting pod of the data intermediary
-> **DID FlexCo**, which then also serves them publicly. That mode of operation
-> needs a pod provided by the intermediary together with credentials and is not
-> documented here. Everything that follows is the stand-alone path — it is
-> fully functional.
+> **[DID FlexCo](https://intermediary.at)**, which then also serves them
+> publicly. That mode of operation needs a pod provided by the intermediary
+> together with credentials and is not documented here. Everything that follows
+> is the stand-alone path — it is fully functional.
 
 ---
 

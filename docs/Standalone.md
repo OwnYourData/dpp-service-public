@@ -62,7 +62,6 @@ All settings come from environment variables.
 | `DPP_DB_NAME` | `dpp_service_production` | |
 | `DPP_DB_USER` / `DPP_DB_PASSWORD` | — | |
 | `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | public base URL of this instance; written into the `serviceEndpoint` of the DID document |
-| `DPP_UPI_BASE_URL` | `https://r.oydapp.eu` | base of the legacy short link `/p/:short_id`; no longer issued as an identifier |
 | `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | registrar/VDR for `did:oyd` |
 | `DPP_CORS_ORIGINS` | `*` | permitted origins for browser clients |
 | `RAILS_MAX_THREADS` | `5` | |
@@ -112,8 +111,8 @@ belong to the economic operator, not to whoever stores the passport — that is
 what lets the passport move without a reprint.
 
 This service does not serve the carrier path itself; `ReadDPPByProductId` is the
-read path. `/p/:short_id` still resolves for carriers printed before the
-redesign, and `DPP_UPI_BASE_URL` is the base of those links.
+read path. Pointing the operator's host at a deployment that does serve it is
+what makes the printed string resolvable.
 
 ---
 
@@ -130,7 +129,6 @@ docker run --rm -p 3000:3000 \
   -e DPP_DB_USER=postgres \
   -e DPP_DB_PASSWORD=postgres \
   -e DPP_SERVICE_ENDPOINT_BASE=https://dpp.example.org \
-  -e DPP_UPI_BASE_URL=https://dpp.example.org \
   dpp-service
 ```
 
@@ -225,13 +223,7 @@ curl -sS "$BASE/dpps/$EDID/collections/EnergyPerformance" | jq -c '{ElementId, N
 curl -sS "$BASE/dpps/$EDID/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux" | jq -c '{Value, UnitOfMeasure}'
 ```
 
-Reading needs no token. Carriers printed before the redesign bear an opaque
-short link, which lies outside `/dpp/v1` and answers with `200` directly,
-without a redirect:
-
-```bash
-curl -sS "http://localhost:3000/p/$SHORT_ID"
-```
+Reading needs no token.
 
 ### Updating
 

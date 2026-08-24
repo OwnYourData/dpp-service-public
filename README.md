@@ -82,7 +82,6 @@ Beyond the standard's methods:
 | | HTTP | Path |
 |---|---|---|
 | change of custodian | POST | `/dpp/v1/dpps/:dpp_id/custody` |
-| short link, superseded | GET | `/p/:short_id` |
 
 `custody` moves a pod-backed passport to the custodian named by a new
 `X-DPP-Storage` mandate. The identifiers do not change, which is the point: the
@@ -90,10 +89,6 @@ product identifier is what was printed. The previous custodian keeps serving
 unless `release_previous=true` is passed, because retiring it is bounded by the
 DNS time-to-live in the operator's zone. `docs/verification/` records a run of
 this against two live deployments.
-
-The short link is the carrier form of an earlier design. It still resolves,
-because a printed carrier cannot be recalled, but it is no longer issued as a
-unique product identifier.
 
 Identifiers used as a single path segment (`:dpp_id`, `:product_id`) must be
 URL-encoded by the client. `*element_path` is a glob holding an absolute

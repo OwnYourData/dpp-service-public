@@ -169,7 +169,6 @@ class PodStorage
     body = {
       "collection-id"            => numeric_collection_id,
       "type"                     => "DigitalProductPassport",
-      "short_id"                 => dpp.short_id,
       "DigitalProductPassportID" => dpp.dpp_id,
       "ProductID"                => dpp.product_id,
       # Host-independent lookup key: it is what lets this one store answer for

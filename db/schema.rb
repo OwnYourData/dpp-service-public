@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_08_21_000008) do
+ActiveRecord::Schema[7.2].define(version: 2026_08_25_000009) do
   create_table "dpp_versions", force: :cascade do |t|
     t.string "dpp_id", null: false
     t.string "product_id", null: false
@@ -41,7 +41,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_21_000008) do
     t.text "did_doc_key_enc"
     t.text "did_rev_key_enc"
     t.text "did_rev_log_enc"
-    t.string "short_id"
     t.string "storage_backend", default: "local", null: false
     t.string "storage_base_url"
     t.string "storage_collection_id"
@@ -54,7 +53,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_21_000008) do
     t.index ["product_id", "dpp_status"], name: "index_dpps_on_product_id_and_dpp_status"
     t.index ["product_id"], name: "index_dpps_on_product_id"
     t.index ["product_key"], name: "index_dpps_on_product_key"
-    t.index ["short_id"], name: "index_dpps_on_short_id", unique: true
     t.index ["storage_backend"], name: "index_dpps_on_storage_backend"
   end
 end

@@ -244,7 +244,7 @@ RSpec.describe PodStorage do
 
   describe "#create_object" do
     let(:dpp) do
-      Dpp.new(dpp_id: "did:oyd:zX", product_id: "https://id.example/01/1", short_id: "abc123DEF456",
+      Dpp.new(dpp_id: "did:oyd:zX", product_id: "https://id.example/01/1",
               dpp_schema_version: "prEN 18223:2025",
               economic_operator_id: "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
               last_update: Time.now.utc)
@@ -260,7 +260,6 @@ RSpec.describe PodStorage do
       expect(card).to include(
         "collection-id"            => 4,          # numeric, as dc-pod expects
         "type"                     => "DigitalProductPassport",
-        "short_id"                 => "abc123DEF456",
         "DigitalProductPassportID" => "did:oyd:zX",
         "ProductID"                => "https://id.example/01/1"
       )

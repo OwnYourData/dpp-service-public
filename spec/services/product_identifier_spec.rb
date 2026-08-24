@@ -100,14 +100,14 @@ RSpec.describe ProductIdentifier do
   end
 
   describe "what is not a Digital Link" do
-    # The opaque short link of the old design is, shape-wise, a perfectly good
-    # identification link: a self-issued path under a domain. What made it
-    # non-conformant was *whose* domain it was, and that is not visible in the
-    # string. §4.6.2 (3) is discharged by pointing an operator-owned name at the
-    # custodian, not by anything checkable here -- worth pinning so the boundary
-    # of what this class can promise stays explicit.
-    it "cannot tell an opaque short link apart by its shape alone" do
-      pi = described_class.parse!("https://dpp.go-data.at/p/k7QvR2nXeTdM")
+    # An opaque path under the custodian's own domain is, shape-wise, a
+    # perfectly good identification link. What would make it non-conformant is
+    # *whose* domain it is, and that is not visible in the string: §4.6.2 (3) is
+    # discharged by pointing an operator-owned name at the custodian, not by
+    # anything checkable here. Worth pinning, so the boundary of what this class
+    # can promise stays explicit.
+    it "cannot tell whose domain an identification link uses" do
+      pi = described_class.parse!("https://dpp.go-data.at/k7QvR2nXeTdM")
       expect(pi.scheme).to eq(described_class::IDENTIFICATION_LINK)
     end
 

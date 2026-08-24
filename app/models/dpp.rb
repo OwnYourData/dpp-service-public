@@ -29,11 +29,6 @@ class Dpp < ApplicationRecord
 
   scope :active, -> { where(dpp_status: "Active") }
 
-  # Legacy short id. Before the carrier redesign this was the UPI; it is kept so
-  # that carriers already printed keep resolving through /p/:short_id.
-  SHORT_ID_LENGTH = 12
-  before_create :assign_short_id
-
   # The Unique Product Identifier registered at the EU Registry.
   #
   # prEN 18219 §3.22 defines it as *one* string that identifies the product and
@@ -47,16 +42,6 @@ class Dpp < ApplicationRecord
   # outside the issuing assigner's control) ask for.
   def upi
     product_id
-  end
-
-  # Legacy: the opaque short link that carriers printed before the redesign
-  # bear. Kept resolvable because a printed carrier cannot be recalled; no
-  # longer issued as the UPI. See docs/Identifiers.md.
-  def legacy_short_link
-    return nil if short_id.blank?
-
-    base = pod? ? storage_base_url : ENV.fetch("DPP_UPI_BASE_URL", "https://r.oydapp.eu")
-    "#{base}/p/#{short_id}"
   end
 
   # --- storage backend (S2: hosting pod of the data intermediary) --------------
@@ -261,20 +246,6 @@ class Dpp < ApplicationRecord
     ProductIdentifier.parse!(product_id).assert_granularity!(granularity)
   rescue ProductIdentifier::InvalidError => e
     errors.add(:product_id, e.message)
-  end
-
-  # Assign a unique, URL-safe short id (retry on the rare collision).
-  def assign_short_id
-    return if short_id.present?
-
-    10.times do
-      candidate = SecureRandom.alphanumeric(SHORT_ID_LENGTH)
-      unless self.class.exists?(short_id: candidate)
-        self.short_id = candidate
-        return
-      end
-    end
-    raise "could not generate a unique short_id"
   end
 
   def assign_from_document(doc)

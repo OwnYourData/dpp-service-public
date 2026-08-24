@@ -317,16 +317,6 @@ curl -sS -D - -o /dev/null https://dpp.oydapp.eu/01/09520123456791/21/000123
 Public, without a token, served by whichever custodian the operator's host
 currently points at.
 
-### The legacy short link
-
-Passports created before this design bear an opaque `{base}/p/{short_id}`. Those
-links still resolve, because a printed carrier cannot be recalled, but no new
-one is issued as a unique product identifier.
-
-```bash
-curl -sS -D - -o /dev/null https://r.oydapp.eu/p/cmodBSyBMVHP
-```
-
 ## Storage in a hosting pod (header `X-DPP-Storage`)
 
 The data intermediary provides pod and collection and records the economic
@@ -884,29 +874,21 @@ curl -sS -D - -o /dev/null https://dpp.oydapp.eu/01/09520123456791/21/000123
 
 * expected: `HTTP/2 200` plus `ETag` and `Cache-Control` headers.
 
-Carriers printed before this design bear an opaque short link instead. They keep
-resolving:
-
-```bash=
-curl -sS -D - -o /dev/null https://r.oydapp.eu/p/cmodBSyBMVHP
-```
-
 ### 6. Read straight from the pod (variant 2c only)
 
 A pod-backed passport is served by the pod itself, so a consumer who follows the
-DID document never touches the DPP Service. All four paths are public:
+DID document never touches the DPP Service. All three paths are public:
 
 ```bash=
 POD="https://dpp.go-data.at"
 ENCC=$(enc "$DIDC"); PENCC=$(enc "$PIDC")
 
-curl -sS "$POD/p/mtL3AQmIobGB" | jq -c '{DigitalProductPassportID, DPPStatus}'   # legacy short link
 curl -sS "$POD/dpp/v1/dppsByProductId/$PENCC" | jq -c '.DigitalProductPassportID'
 curl -sS "$POD/dpp/v1/dpps/$ENCC" | jq -c '.DPPStatus'
 curl -sS "$POD/dpp/v1/dpps/$ENCC/collections/EnergyPerformance" | jq -c '{ElementId, Name}'
 ```
 
-All four answer `200`. The same passport read through the DPP Service returns
+All three answer `200`. The same passport read through the DPP Service returns
 the identical document. The carrier path (`/01/…`) is served by the pod too, but
 only under the operator's own hostname: the pod compares the request host
 against the one recorded with the passport, so asking `dpp.go-data.at` for a

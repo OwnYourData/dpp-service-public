@@ -57,7 +57,7 @@ class DidOyd
   #
   # +endpoint_base+ overrides this service's own public URL. For a pod-backed
   # DPP (S2) it is the pod's base_url, so a consumer following the DID lands at
-  # the pod — the same host that also serves the short-link UPI. The value is
+  # the pod — the same host the operator's carrier name points at. The value is
   # frozen into the DID document at mint time; changing it later requires a DID
   # update, which is why the storage token has to be present at CreateDPP.
   #

@@ -7,9 +7,8 @@ require "rails_helper"
 # prEN 18219 §3.22 makes the unique product identifier one string that both
 # identifies the product and enables the web link to the passport, and
 # §4.5.2 (1) requires that same string to be retrievable from the carrier.
-# There is therefore no separate short link to derive: the UPI *is* the
-# ProductID. The opaque /p/:short_id path survives only for carriers printed
-# before the change (docs/Identifiers.md).
+# There is therefore no separate carrier token to derive: the UPI *is* the
+# ProductID (docs/Identifiers.md).
 RSpec.describe "Carrier identifier", type: :request do
   let(:token) { "Bearer #{JWT.encode({ sub: 'did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS', scope: 'dpp:write' }, nil, 'none')}" }
   let(:auth)  { { "Content-Type" => "application/json", "Authorization" => token } }
@@ -110,23 +109,6 @@ RSpec.describe "Carrier identifier", type: :request do
       expect(response).to have_http_status(:created)
       expect(body["ProductID"]).to eq(self_issued)
       expect(Dpp.find_by(product_id: self_issued).product_key).to eq("/ABC-4711")
-    end
-  end
-
-  describe "the legacy short link" do
-    it "keeps resolving, because a printed carrier cannot be recalled" do
-      create_dpp!
-      short = Dpp.find_by(product_id: product_id).short_id
-      expect(short).to be_present
-
-      get "/p/#{short}"
-      expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["ProductID"]).to eq(product_id)
-    end
-
-    it "returns 404 for an unknown short id" do
-      get "/p/doesnotexist1"
-      expect(response).to have_http_status(:not_found)
     end
   end
 end

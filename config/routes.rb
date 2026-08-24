@@ -59,10 +59,6 @@ Rails.application.routes.draw do
     post "registerDPP", to: "api/v1/registry#create" # PostNewDPPToRegistry
   end
 
-  # Short-link resolver for the EU DPP Registry UPI (<= 50 chars, direct 200).
-  # Served at the root so the URL stays short: https://r.oydapp.eu/p/<short_id>
-  get "p/:short_id", to: "resolver#show", defaults: { format: :json }, format: false
-
   # Discovery for the delegation model (docs/Delegation.md §6): the DID a
   # customer names in the `sub` of their delegation assertion.
   get ".well-known/dpp-service", to: "discovery#dpp_service",

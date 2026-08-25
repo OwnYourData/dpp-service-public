@@ -137,7 +137,12 @@ Expected:
 
 ---
 
-## 2. Create a DPP — Variant A (the service mints the DID)
+## 2a. Create a DPP — the service mints the identifier
+
+Three ways to get a passport identifier, side by side. **2a** lets the service
+mint it, **2b** has the economic operator mint it and keep the key, **2c**
+supplies an identifier that is not a DID at all. They are alternatives, not a
+sequence — from step 3 onwards everything is the same, whichever you chose.
 
 If the request omits `DigitalProductPassportID`, the service mints a `did:oyd`,
 keeps its keys, and returns the DID as the DPP identifier. This is standard-
@@ -206,10 +211,80 @@ when the default repository is used:
 
 ---
 
-## 3. Create a DPP with a client-supplied identifier
+## 2b. Create a DPP — the operator mints the identifier and keeps the key
 
-If `DigitalProductPassportID` is present, the service stores it as-is and does
-**not** mint a DID.
+Here the economic operator mints the passport DID **before** creating the
+passport and keeps both keys. The service stores the identifier and holds no key
+material for it, so it can neither update the DID document nor revoke it. That
+is the point: the identifier belongs to the operator, not to whoever runs the
+service.
+
+Two things have to be right at this moment, because neither can be repaired
+afterwards. The `serviceEndpoint` in the DID document has to name the host that
+will serve this passport — this service, or the custodian's base URL when the
+passport goes into a hosting pod. And the endpoint goes through the `ProductID`,
+percent-encoded, rather than through the DID: a `did:oyd` is the hash over its
+own document, so an address containing the DID would be part of its own
+computation.
+
+```bash
+PIDB="https://id.lumina.example/01/09520123456789"
+ENDPOINT="https://dpp-service.ownyourdata.eu/dpp/v1/dppsByProductId/$(enc "$PIDB")"
+
+RESPB=$(curl -sS -X POST https://oydid.ownyourdata.eu/1.0/create \
+  -H "Content-Type: application/json" \
+  -d "{\"didDocument\":{\"service\":[{\"type\":\"DigitalProductPassport\",\"serviceEndpoint\":\"$ENDPOINT\"}]},\"options\":{\"key_type\":\"ed25519\"}}")
+
+DIDB=$(echo "$RESPB" | jq -r '.didState.did')
+echo "$RESPB" | jq '.didState.secret'
+echo "DIDB = $DIDB"
+```
+
+> ⚠️ `documentKey` and `revocationKey` come back in that one answer and are
+> stored nowhere. They are what makes this variant what it is — keep them, and
+> the passport identifier stays yours. The same `documentKey` can sign the
+> bearer token; see *Issuing a token* above.
+
+Then create the passport with it; nothing else changes:
+
+```bash
+curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d "{
+  \"DigitalProductPassportID\": \"$DIDB\",
+  \"ProductID\": \"$PIDB\",
+  \"Granularity\": \"model\",
+  \"DPPSchemaVersion\": \"prEN 18223:2025\",
+  \"EconomicOperatorID\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"
+}" | jq -c '{DigitalProductPassportID, ProductID, DPPStatus}'
+```
+
+Expected (`201 Created`) — the identifier comes back exactly as supplied:
+
+```json
+{"DigitalProductPassportID":"did:oyd:zQmExampleHashB456","ProductID":"https://id.lumina.example/01/09520123456789","DPPStatus":"Active"}
+```
+
+A supplied `did:oyd` is resolved before anything is created, and refused with
+`400 ClientErrorBadRequest` in two cases:
+
+| What is wrong | What the answer says |
+|---|---|
+| the DID does not resolve | `did:oyd:… does not resolve` |
+| its `serviceEndpoint` names a different host | `DigitalProductPassportID resolves to other.example, but this passport is served from dpp-service.ownyourdata.eu` |
+
+Only the host is compared, never the path — the path carries the `ProductID`,
+and what is being checked is where a reader is sent.
+
+The consequence shows up at deletion: the service cannot revoke a DID it holds
+no key for, so the identifier stays valid until you revoke it yourself with
+`oydid revoke "$DIDB"`. See step 12.
+
+---
+
+## 2c. Create a DPP — an identifier that is not a DID
+
+`DigitalProductPassportID` may also be an ordinary URL. The service stores it
+as-is, mints nothing, and resolves nothing: the check in 2b applies to
+`did:oyd`, which the service can resolve, not to identifiers in general.
 
 ```bash
 curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d '{
@@ -221,9 +296,13 @@ curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d '{
 }' | jq '.DigitalProductPassportID'
 ```
 
+Whatever you supply here is what readers will use. It is not the string on the
+data carrier — that is the `ProductID`, and it stays the same in all three
+variants.
+
 ---
 
-## 4. Read a DPP by ID (ReadDPPById)
+## 3. Read a DPP by ID (ReadDPPById)
 
 Public, no token required. The identifier is percent-encoded into the path.
 
@@ -233,7 +312,7 @@ curl -sS "$BASE/dpps/$ENC" | jq .
 
 ---
 
-## 5. Read a DPP by Product ID (ReadDPPByProductId)
+## 4. Read a DPP by Product ID (ReadDPPByProductId)
 
 Returns the current active DPP for a product.
 
@@ -246,7 +325,7 @@ curl -sS "$BASE/dppsByProductId/$PENC" | jq '.DigitalProductPassportID'
 
 ---
 
-## 6. Resolve several Product IDs to DPP IDs (ReadDPPIdsByProductIds)
+## 5. Resolve several Product IDs to DPP IDs (ReadDPPIdsByProductIds)
 
 Send an array of product identifiers in the body; get the matching DPP IDs back
 (with cursor pagination via `?limit=` / `?cursor=`).
@@ -269,7 +348,7 @@ Expected:
 
 ---
 
-## 7. Update a DPP (UpdateDPP, JSON Merge Patch)
+## 6. Update a DPP (UpdateDPP, JSON Merge Patch)
 
 RFC 7396 semantics: only the supplied fields change, `null` removes a field.
 The previous version is archived automatically (prEN 18221).
@@ -283,7 +362,7 @@ curl -sS -X PATCH "$BASE/dpps/$ENC" \
 
 ---
 
-## 8. Read a Data Element Collection
+## 7. Read a Data Element Collection
 
 Fetch a single collection instead of the whole DPP.
 
@@ -293,7 +372,7 @@ curl -sS "$BASE/dpps/$ENC/collections/EnergyPerformance" | jq .
 
 ---
 
-## 9. Read a single Data Element
+## 8. Read a single Data Element
 
 Address one element by its absolute ElementId path.
 
@@ -310,7 +389,7 @@ Expected:
 
 ---
 
-## 10. Update a single Data Element (UpdateDataElement)
+## 9. Update a single Data Element (UpdateDataElement)
 
 Merge patch on one element — e.g. reclassify the energy efficiency class.
 
@@ -323,7 +402,7 @@ curl -sS -X PATCH \
 
 ---
 
-## 11. Read a historical version by date (ReadDPPVersionByProductIdAndDate)
+## 10. Read a historical version by date (ReadDPPVersionByProductIdAndDate)
 
 Returns the version that was current at the given instant (ISO 8601, UTC).
 
@@ -334,7 +413,7 @@ curl -sS "$BASE/dppsByProductIdAndDate/$PENC?date=$NOW" | jq '{ DPPStatus, LastU
 
 ---
 
-## 12. Register a DPP at the EU Registry (registerDPP)
+## 11. Register a DPP at the EU Registry (registerDPP)
 
 Client-facing registration method (prEN 18222 Clause 5). The connection to the
 EU DPP Registry is currently a placeholder; the call returns a registry
@@ -358,10 +437,11 @@ Expected:
 
 ---
 
-## 13. Delete a DPP (DeleteDPPById)
+## 12. Delete a DPP (DeleteDPPById)
 
 Archives the final version (`DPPStatus: "Archived"`) and removes the active
-passport. For a service-minted DID (Variant A) the DID is **revoked** first.
+passport. For a service-minted DID (2a) the DID is **revoked** first; for one
+you minted yourself (2b) the service holds no key and revokes nothing.
 
 ```bash
 # Delete (expect 204)

@@ -1,13 +1,13 @@
 === 2026-08-22T19:18:07Z ===
-Hersteller (Wurzel)            dns=45.142.176.139   http=000 tls=18 t=0.900178
+Operator (root)                dns=45.142.176.139   http=000 tls=18 t=0.900178
 http=--- unreachable
-Hersteller (Traeger)           dns=45.157.176.15    http=000 tls=18 t=0.803943
+Operator (carrier)             dns=45.157.176.15    http=000 tls=18 t=0.803943
 http=--- unreachable
-Verwahrer A                    dns=89.58.20.114     http=200 tls=0 t=0.785686
-  A: Langform                  dns=89.58.20.114     http=404 tls=0 t=0.910716
-Verwahrer B                    dns=45.157.176.15    http=000 tls=18 t=0.622225
+Custodian A                    dns=89.58.20.114     http=200 tls=0 t=0.785686
+  A: long form                 dns=89.58.20.114     http=404 tls=0 t=0.910716
+Custodian B                    dns=45.157.176.15    http=000 tls=18 t=0.622225
 http=--- unreachable
-  B: Langform                  dns=45.157.176.15    http=000 tls=18 t=0.579359
+  B: long form                 dns=45.157.176.15    http=000 tls=18 t=0.579359
 http=--- unreachable
 DPP Service                    dns=89.58.20.114     http=404 tls=0 t=0.827962
 

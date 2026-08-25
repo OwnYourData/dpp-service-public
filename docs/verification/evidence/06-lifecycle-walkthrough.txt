@@ -1,21 +1,21 @@
-=== B  Lesen ueber den Datentraeger, ohne Token ===
+=== B  Reading over the data carrier, without a token ===
 HTTP/1.1 200 Connection Established
-HTTP/2 200 
---- Inhalt:
+HTTP/2 200
+--- content:
     DigitalProductPassportID = did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
     ProductID = https://dpp.oydapp.eu/01/09520123456791/21/000123
     Granularity = item
     DPPStatus = Active
-    UPI-Feld vorhanden: False
+    UPI field present: False
 
-=== C  Kennung ohne Netzaufruf aus dem Scan ===
+=== C  Identifier taken from the scan, without a network call ===
     GTIN   09520123456791
     Serial 000123
 
-=== D  Negativtest unter dem Verwahrer-Host ===
-    gleicher Pfad bei A : 404
-    Langform bei A      : 200
-    Langform bei B      : curl: (60) SSL certificate problem: self-signed certificate
+=== D  Negative test under the custodian's host ===
+    same path at A      : 404
+    long form at A      : 200
+    long form at B      : curl: (60) SSL certificate problem: self-signed certificate
 More details here: https://curl.se/docs/sslcerts.html
 
 curl failed to verify the legitimacy of the server and therefore could not

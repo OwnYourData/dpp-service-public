@@ -1,27 +1,27 @@
-Nachweis der Ingress-Trennung — 2026-08-22, nach Ausrollen von Controller B
+Proof of ingress separation — 2026-08-22, after rolling out controller B
 
-Aufbau
+Setup
   Controller A   ingress-nginx        IngressClass nginx     externalIPs 89.58.20.114, 152.53.94.38, 152.53.95.183
   Controller B   ingress-nginx-b      IngressClass nginx-b   externalIPs 152.53.34.232
-  152.53.34.232 wurde A entnommen und B zugewiesen; auf diese Adresse zeigt kein DNS-Name.
+  152.53.34.232 was taken from A and given to B; no DNS name points at that address.
 
-Messung vom Rechner des Betreibers, ausserhalb des Clusters
+Measured from the operator's machine, outside the cluster
 
   curl -k https://152.53.34.232/                                        -> 404
-      Controller B lebt und kennt keinen Host.
+      Controller B is alive and knows no host.
 
   curl --resolve dpp.go-data.at:443:152.53.34.232 https://dpp.go-data.at/
                                                                         -> 404, tls=20
-      Derselbe Hostname, an Controller B gerichtet: keine Regel, kein Zertifikat.
-      tls=20 = unable to get local issuer certificate, also das Default-Zertifikat
-      von B statt des Let's-Encrypt-Zertifikats von A.
+      The same hostname, addressed to controller B: no rule, no certificate.
+      tls=20 = unable to get local issuer certificate, so B's default
+      certificate rather than A's Let's Encrypt certificate.
 
   curl https://dpp.go-data.at/                                          -> 200, tls=0
-      Unveraendert ueber Controller A.
+      Unchanged over controller A.
 
-Schlussfolgerung
-  Die beiden Controller haben getrennte Konfigurationen. Ein Hostname wird nur von
-  demjenigen Controller bedient, dessen IngressClass ihn beansprucht. Damit
-  entscheidet der A-Record in der Zone des Wirtschaftsteilnehmers, welcher Verwahrer
-  antwortet — nicht eine Ingress-Regel bei uns. Das ist die Voraussetzung dafuer,
-  dass der Verwahrerwechsel als Handlung des Betreibers gemessen werden kann.
+Conclusion
+  The two controllers have separate configurations. A hostname is served only by
+  the controller whose IngressClass claims it. What decides which custodian
+  answers is therefore the A record in the economic operator's zone -- not an
+  ingress rule of ours. That is the precondition for measuring the change of
+  custodian as an act of the operator.

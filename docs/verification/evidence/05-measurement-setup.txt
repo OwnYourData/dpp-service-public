@@ -1,37 +1,37 @@
-Aufbau der Messumgebung — Stand 2026-08-22, 22:0x UTC
+The measurement setup — as of 2026-08-22, 22:0x UTC
 
-Zwei Verwahrer, getrennt auf jeder Ebene, die fuer den Nachweis zaehlt.
+Two custodians, separate at every level that counts for the proof.
 
-                      Verwahrer A                  Verwahrer B
+                      Custodian A                  Custodian B
   Hostname            dpp.go-data.at               dpp.data-vault.eu
-  Adresse             89.58.20.114                 152.53.34.232
-  Ingress-Controller  ingress-nginx                ingress-nginx-b
+  Address             89.58.20.114                 152.53.34.232
+  Ingress controller  ingress-nginx                ingress-nginx-b
   IngressClass        nginx                        nginx-b
   ClusterIssuer       letsencrypt-prod             letsencrypt-prod-b
   Namespace           dpp                          dpp-b
-  Datenbank           pod-dpp                      pod-dpp-b
-  Identitaet          eigenes Schluesselpaar       did:oyd:zQmRMGnN1QoTqGWjHG3QsuR4zKJ8pCz1RaxMB9gSvvtQoh4
+  Database            pod-dpp                      pod-dpp-b
+  Identity            own key pair                 did:oyd:zQmRMGnN1QoTqGWjHG3QsuR4zKJ8pCz1RaxMB9gSvvtQoh4
                                                    POD_PUBKEY z6MkekYnrqmVFykH7awhgUMUDynrmKrxBtZ2FQ5VXXDEGjvf
 
-  Wirtschaftsteilnehmer  dpp.oydapp.eu -> 89.58.20.114 (zeigt derzeit auf A)
+  Economic operator   dpp.oydapp.eu -> 89.58.20.114 (currently points at A)
 
-Warum die Trennung der Ingress-Controller noetig war
-  Vorher bediente ein einziger Controller alle Adressen. Ein Hostwechsel waere
-  dann eine Aenderung in unserer Ingress-Konfiguration gewesen, nicht im DNS des
-  Betreibers - der Nachweis haette gezeigt, dass WIR umschalten koennen, nicht ER.
-  152.53.34.232 wurde Controller A entzogen und Controller B zugewiesen; auf diese
-  Adresse zeigte zuvor kein Name.
+Why the ingress controllers had to be separated
+  Before, a single controller served every address. A change of host would then
+  have been a change in our ingress configuration rather than in the operator's
+  DNS -- the proof would have shown that WE can switch, not that HE can.
+  152.53.34.232 was withdrawn from controller A and assigned to controller B; no
+  name pointed at that address beforehand.
 
-  Belegt in 03-ingress-separation.txt: derselbe Hostname, an Controller B
-  gerichtet, liefert 404 mit dessen Default-Zertifikat (tls=20), waehrend
-  Controller A ihn mit gueltigem Zertifikat und 200 bedient.
+  Established in 03-ingress-separation.txt: the same hostname, addressed to
+  controller B, answers 404 with B's default certificate (tls=20), while
+  controller A serves it with a valid certificate and 200.
 
-Schluesselverwaltung
-  Das Schluesselpaar von B wurde mit `oydid create` erzeugt und der oeffentliche
-  Teil gegen den privaten geprueft (Oydid.public_key). Der private Schluessel
-  wurde per --from-file in das Secret uebernommen, ohne durch die Shell-History
-  zu laufen, und liegt ausserhalb des Repositories.
+Key handling
+  B's key pair was generated with `oydid create` and the public part checked
+  against the private one (Oydid.public_key). The private key was taken into the
+  secret with --from-file, so that it never passed through the shell history,
+  and it lives outside the repository.
 
-Offen zum Zeitpunkt dieser Notiz
-  dpp.data-vault.eu propagiert noch: 16 von 20 Abfragen liefern 152.53.34.232,
-  der Rest den alten Eintrag. Das Zertifikat fuer B ist bereits READY.
+Open at the time of this note
+  dpp.data-vault.eu is still propagating: 16 of 20 queries return
+  152.53.34.232, the rest the old record. B's certificate is already READY.

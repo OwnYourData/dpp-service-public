@@ -1,23 +1,23 @@
-Pruefung einer selbst gepraegten Kennung — 2026-08-24
+Checking an identifier the operator minted itself — 2026-08-24
 
-Gegenstand
-  Dienst         https://dpp-service.ownyourdata.eu   Image 260824a
-  rEO            did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6
-  Aufruf         POST /dpp/v1/dpps mit signiertem Token des rEO
+Subject
+  Service        https://dpp-service.ownyourdata.eu   image 260824a
+  Operator       did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6
+  Call           POST /dpp/v1/dpps with the operator's signed token
 
-  In Variante B praegt der Wirtschaftsteilnehmer die Passkennung selbst. Der
-  Dienst haelt dafuer keinen Schluessel und kann das DID-Dokument nachtraeglich
-  nicht aendern; was bei der Anlage falsch ist, bleibt falsch. Geprueft wird
-  deshalb vor dem Anlegen: loest die Kennung auf, und nennt ihr serviceEndpoint
-  den Host, der den Pass tatsaechlich ausliefern wird.
+  Under scheme B the economic operator mints the passport identifier itself. The
+  service holds no key for it and cannot alter the DID document afterwards; what
+  is wrong at creation stays wrong. The check therefore runs before anything is
+  created: does the identifier resolve, and does its serviceEndpoint name the
+  host that will actually serve the passport.
 
-  Verglichen wird nur der Host, nicht der Pfad. Der Pfad traegt die ProductID;
-  gegenstand der Pruefung ist, wohin ein Leser geschickt wird.
+  Only the host is compared, never the path. The path carries the ProductID;
+  what is under examination is where a reader is sent.
 
-  Drei Faelle, gemessen gegen das laufende System.
+  Three cases, measured against the running system.
 
 
-1 — Die Kennung loest nirgends auf
+1 — The identifier resolves nowhere
 
   DigitalProductPassportID  did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7X
   ProductID                 https://dpp.oydapp.eu/01/09520123456791/21/000199
@@ -26,30 +26,30 @@ Gegenstand
       "did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7X does not resolve"
       correlationId 480f9c026281d9be2efe5546addbc9d1, 2026-08-24T22:36:55Z
 
-  Es entsteht kein Pass. Ein Pass unter einer Kennung, die niemand aufloesen
-  kann, waere ueber den Discovery-Pfad der EN 18220 unerreichbar.
+  No passport is created. A passport under an identifier nobody can resolve
+  would be unreachable through the discovery path EN 18220 describes.
 
 
-2 — Die Kennung loest auf, zeigt aber woandershin
+2 — The identifier resolves, but points elsewhere
 
   DigitalProductPassportID  did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
-                            (die Pass-DID aus dem Durchlauf vom 23.08.; ihr
-                            serviceEndpoint nennt seit dem Umzug Verwahrer B)
+                            (the passport DID from the run of 23.08.; since the
+                            migration its serviceEndpoint names custodian B)
   ProductID                 https://dpp.oydapp.eu/01/09520123456791/21/000198
-  Ohne X-DPP-Storage, der Pass laege also beim Dienst selbst.
+  Without X-DPP-Storage, so the passport would live at the service itself.
 
       400 ClientErrorBadRequest
       "DigitalProductPassportID resolves to dpp.data-vault.eu, but this
        passport is served from dpp-service.ownyourdata.eu"
       correlationId fb7872f3e1101e8ef6b15276b31711c2, 2026-08-24T22:37:03Z
 
-  Beide Hostnamen stehen im Klartext in der Antwort: der Aufrufer erfaehrt,
-  was nicht zusammenpasst, ohne raten zu muessen.
+  Both hostnames appear in plain text in the answer: the caller learns what does
+  not match without having to guess.
 
 
-3 — Die Kennung loest auf und zeigt hierher
+3 — The identifier resolves and points here
 
-  Beim Registrar gepraegt mit
+  Minted at the registrar with
       serviceEndpoint = https://dpp-service.ownyourdata.eu/dpp/v1/
                         dppsByProductId/https%3A%2F%2Fdpp.oydapp.eu%2F01%2F
                         09520123456791%2F21%2F000197
@@ -62,22 +62,22 @@ Gegenstand
        "ProductID":"https://dpp.oydapp.eu/01/09520123456791/21/000197",
        "DPPStatus":"Active"}
 
-  Die gelieferte Kennung kommt unveraendert zurueck; der Dienst praegt nichts
-  und haelt kein Schluesselmaterial.
+  The supplied identifier comes back unchanged; the service mints nothing and
+  holds no key material.
 
 
-4 — Aufgeraeumt
+4 — Cleaned up
 
       DELETE /dpp/v1/dpps/{DIDOK}   204
       GET    /dpp/v1/dpps/{DIDOK}   404
 
-  Die DID selbst bleibt aufloesbar: der Dienst kann nicht widerrufen, wofuer er
-  keinen Schluessel hat. Das ist Variante B und keine Unvollstaendigkeit — der
-  Widerruf ist Sache des Inhabers.
+  The DID itself stays resolvable: the service cannot revoke what it holds no
+  key for. That is scheme B, not an omission -- revocation is the holder's
+  business.
 
 
-Bedeutung
+What this establishes
 
-  Ohne Fall 3 waere nichts gezeigt: eine Pruefung, die jede Kennung ablehnt,
-  bestuende die Faelle 1 und 2 ebenso. Erst die Kombination belegt, dass
-  unterschieden wird — und zwar an dem Merkmal, auf das es ankommt.
+  Without case 3 nothing would be shown: a check that refused every identifier
+  would pass cases 1 and 2 just as well. Only the combination establishes that a
+  distinction is being made -- and made on the property that matters.

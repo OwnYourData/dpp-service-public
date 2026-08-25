@@ -1,66 +1,67 @@
-serviceEndpoint nachgezogen — 2026-08-23
+serviceEndpoint brought to the new custodian — 2026-08-23
 
-Der Datentraeger ist per DNS zu Verwahrer B umgezogen; das DID-Dokument des
-Passes nannte danach noch A. Das ist Absicht: der Traeger zieht per DNS um, die
-Verwahrung nur ueber einen vom Inhaber signierten Log-Eintrag. Beides sind
-verschiedene Aussagen, und nur die zweite ist beweisbar gewollt.
+The data carrier moved to custodian B by DNS; the passport's DID document still
+named A afterwards. That is deliberate: the carrier moves by DNS, custody only
+through a log entry signed by the holder. They are different statements, and
+only the second is provably intended.
 
-Auflösung der URSPRUENGLICHEN Pass-DID ueber den oeffentlichen Resolver
+Resolution of the ORIGINAL passport DID through the public resolver
 https://oydid.ownyourdata.eu/1.0/identifiers/did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
 
   service.serviceEndpoint
       https://dpp.data-vault.eu/dpp/v1/dppsByProductId/
       https%3A%2F%2Fdpp.oydapp.eu%2F01%2F09520123456791%2F21%2F000123
 
-  Der Endpunkt nennt jetzt Verwahrer B. Die Produktkennung im Pfad ist
-  unveraendert.
+  The endpoint now names custodian B. The product identifier in the path is
+  unchanged.
 
-BEFUND und seine Aufloesung: der Bezeichner wechselt beim Update
+FINDING and its resolution: the identifier changes on update
 
-  Eine did:oyd ist der Hash ueber {doc, key}. Aendert sich der serviceEndpoint,
-  aendert sich der Hash — ein Update ohne neuen Bezeichner gibt es in dieser
-  Methode nicht. Die ausgegebene Kennung bleibt aufloesbar, weil die Aufloesung
-  der Log-Kette bis zum aktuellen Dokument folgt.
+  A did:oyd is the hash over {doc, key}. If the serviceEndpoint changes, the
+  hash changes -- in this method there is no update without a new identifier.
+  The identifier that was issued stays resolvable, because resolution follows
+  the log chain through to the current document.
 
-  ZUNAECHST GEMESSEN (vor dem Rollout): der Resolver lieferte im Dokument die
-  NEUESTE Kennung als id, die angefragte nur unter alsoKnownAs. Das kollidierte
-  mit DID Core v1.0 §6.1, wonach id die aufgeloeste DID sein muss — und
-  prEN 18219 verlangt in 5.3.2 a) und 6.3.2 a) Konformitaet zu DIDs v1.0:2022.
+  MEASURED FIRST (before the rollout): in the document, the resolver returned
+  the NEWEST identifier as id, and the requested one only under alsoKnownAs.
+  That collided with DID Core v1.0 section 6.1, under which id must be the DID
+  that was resolved -- and prEN 18219 requires conformance with DIDs v1.0:2022
+  in 5.3.2 a) and 6.3.2 a).
 
-  BEHOBEN in oydid-gem 0.9.0, ausgerollt am 2026-08-23. Nachgemessen:
+  FIXED in oydid gem 0.9.0, rolled out on 2026-08-23. Measured again:
 
       id            did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
-                    = die angefragte DID
+                    = the DID that was requested
       canonicalId   did:oyd:zQmfEb3KgYZjZUPLTHPmFPdcV6peF5itB5NmJ9N6gaxxE8K
-                    = die Version, auf die das Log aufloest
-      equivalentId  [did:oyd:zQmfEb3Kg...]  enthaelt die kanonische Kennung
-      alsoKnownAs   bleibt aus Kompatibilitaetsgruenden, ist nicht mehr die
-                    massgebliche Aussage
+                    = the version the log resolves to
+      equivalentId  [did:oyd:zQmfEb3Kg...]  contains the canonical identifier
+      alsoKnownAs   stays for compatibility, is no longer the authoritative
+                    statement
 
-  Das vollstaendige DID Resolution Result kommt ueber Inhaltsaushandlung
-  (Accept: application/ld+json;profile="https://w3id.org/did-resolution"), die
-  Antwort traegt Vary: Accept; ohne diesen Header liefert der Endpunkt
-  unveraendert das nackte DID-Dokument. Beides geprueft.
+  The complete DID Resolution Result comes through content negotiation
+  (Accept: application/ld+json;profile="https://w3id.org/did-resolution"); the
+  answer carries Vary: Accept, and without that header the endpoint returns the
+  bare DID document as before. Both checked.
 
-  Zur Frage, ob canonicalId zusaetzlich in equivalentId stehen darf: DID Core
-  regelt das Verhaeltnis der beiden Mengen nicht ausdruecklich, definiert
-  canonicalId aber als "identical to the equivalentId property except: (a) it is
-  associated with a single value rather than a set, and (b) the DID is defined to
-  be the canonical ID for the DID subject". Ein canonicalId IST damit
-  begrifflich ein equivalentId mit einer Zusatzeigenschaft; die Aufnahme in die
-  Menge ist konsistent und nicht untersagt — und die sicherere Variante, weil
-  ein Konsument, der nur equivalentId liest, sonst eine unvollstaendige Liste
-  erhielte.
+  On the question whether canonicalId may additionally appear in equivalentId:
+  DID Core does not expressly govern the relation between the two sets, but it
+  defines canonicalId as "identical to the equivalentId property except: (a) it
+  is associated with a single value rather than a set, and (b) the DID is
+  defined to be the canonical ID for the DID subject". A canonicalId therefore
+  IS, by definition, an equivalentId with an additional property; including it
+  in the set is consistent and not forbidden -- and it is the safer variant,
+  because a consumer reading only equivalentId would otherwise get an
+  incomplete list.
 
-  Damit ist der Punkt KEINE Abweichung mehr. Zwei Anmerkungen bleiben fuer die
-  Methodenspezifikation: equivalentId verpflichtet die METHODE, die logische
-  Aequivalenz zu garantieren — dieser Nachweis gehoert ausgeschrieben, nicht
-  implizit in den Resolver. Und DID Core denkt bei canonicalId an eine STABILE
-  kanonische Form; hier wandert sie mit jedem Update, was der Wortlaut zulaesst
-  ("in the scope of the containing DID document"), aber erklaert werden sollte.
+  The point is therefore NO LONGER a deviation. Two remarks remain for the
+  method specification: equivalentId obliges the METHOD to guarantee logical
+  equivalence -- that argument belongs written out, not left implicit in the
+  resolver. And DID Core has a STABLE canonical form in mind for canonicalId;
+  here it moves with every update, which the wording permits ("in the scope of
+  the containing DID document") but which should be explained.
 
-Stand danach, von aussen geprueft
-  Traeger      https://dpp.oydapp.eu/01/09520123456791/21/000123     200, TLS ok
-  Langform B   dppsByProductId/{ProductID} bei dpp.data-vault.eu     200
-  Langform A   dppsByProductId/{ProductID} bei dpp.go-data.at        200
-               (A haelt den Pass weiterhin; die Freigabe ist ein eigener Akt)
+State afterwards, checked from outside
+  Carrier      https://dpp.oydapp.eu/01/09520123456791/21/000123     200, TLS ok
+  Long form B  dppsByProductId/{ProductID} at dpp.data-vault.eu      200
+  Long form A  dppsByProductId/{ProductID} at dpp.go-data.at         200
+               (A still holds the passport; releasing it is an act of its own)

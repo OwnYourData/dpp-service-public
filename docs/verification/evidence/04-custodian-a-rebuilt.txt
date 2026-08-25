@@ -1,11 +1,11 @@
 === 2026-08-22T21:18:02Z ===
-Hersteller (Wurzel)            dns=89.58.20.114     http=200 tls=0 t=0.882325
-Hersteller (Traeger)           dns=45.157.176.15    http=404 tls=0 t=1.233449
-Verwahrer A                    dns=89.58.20.114     http=200 tls=0 t=0.550065
-  A: Langform                  dns=89.58.20.114     http=404 tls=0 t=0.680140
-Verwahrer B                    dns=89.58.20.114     http=000 tls=18 t=0.657986
-http=--- (TLS oder Verbindung fehlgeschlagen)
-  B: Langform                  dns=152.53.34.232    http=000 tls=18 t=0.403904
-http=--- (TLS oder Verbindung fehlgeschlagen)
+Operator (root)                dns=89.58.20.114     http=200 tls=0 t=0.882325
+Operator (carrier)             dns=45.157.176.15    http=404 tls=0 t=1.233449
+Custodian A                    dns=89.58.20.114     http=200 tls=0 t=0.550065
+  A: long form                 dns=89.58.20.114     http=404 tls=0 t=0.680140
+Custodian B                    dns=89.58.20.114     http=000 tls=18 t=0.657986
+http=--- (TLS or connection failed)
+  B: long form                 dns=152.53.34.232    http=000 tls=18 t=0.403904
+http=--- (TLS or connection failed)
 DPP Service                    dns=89.58.20.114     http=404 tls=0 t=0.778378
 

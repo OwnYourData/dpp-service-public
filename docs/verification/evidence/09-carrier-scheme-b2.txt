@@ -1,94 +1,94 @@
-Variante B2: selbstzertifizierende Trägerkennung — 2026-08-23
+Scheme B2: a self-certifying carrier identifier — 2026-08-23
 
-Gegenstand
-  Produkt-DID    did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm      (blake2b-18)
-  Datentraeger   https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
-                 = 8 + 13 + 1 + 28 = 50 Zeichen, die Obergrenze der Registry
-  Pass-DID       did:oyd:zQmSPHjWjTvADKxd9V1wiFAwDpR2WcA864zsrS3fQichvwS
-  Verwahrer      dpp.data-vault.eu, Collection 4
+Subject
+  Product DID    did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm      (blake2b-18)
+  Data carrier   https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                 = 8 + 13 + 1 + 28 = 50 characters, the registry's upper limit
+  Passport DID   did:oyd:zQmSPHjWjTvADKxd9V1wiFAwDpR2WcA864zsrS3fQichvwS
+  Custodian      dpp.data-vault.eu, collection 4
 
-  Der Pfad des Traegers ist der Multibase-Multihash der Produkt-DID, ohne das
-  Praefix did:oyd:. Das Weglassen ist verlustfrei, solange die DID kein
-  Location-Suffix traegt; geprueft, keines vorhanden.
+  The carrier's path is the multibase multihash of the product DID, without the
+  prefix did:oyd:. Dropping it is lossless as long as the DID carries no
+  location suffix; checked, none present.
 
-  Der Inhalt der Produkt-DID enthaelt NICHT die Traeger-URL. Er kann es nicht:
-  der Pfad ist der Hash ueber genau dieses Dokument, eine enthaltene Adresse mit
-  dem Hash waere Teil ihrer eigenen Berechnung. Dieselbe Zirkularitaet, aus der
-  folgt, dass der serviceEndpoint ueber die ProductID laeuft.
+  The content of the product DID does NOT contain the carrier URL. It cannot:
+  the path is the hash over exactly this document, so an address contained in it
+  would be part of its own computation. The same circularity from which it
+  follows that the serviceEndpoint goes through the ProductID.
 
-1 — Selbstzertifizierung
+1 — Self-certification
   oydid read did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm --show-verification
 
-  bestaetigt Schritt fuer Schritt:
-      identifier ist der Hash des DID-Dokuments
-      log-Referenz im Dokument ist der Hash des TERMINATE-Log-Eintrags
-      kein Widerrufseintrag auffindbar
+  confirms step by step:
+      the identifier is the hash of the DID document
+      the log reference in the document is the hash of the TERMINATE log entry
+      no revocation entry can be found
 
-  Der aufgedruckte String bindet damit ein Dokument, statt es nur zu
-  adressieren -- ohne Ledger und ohne externen Vertrauensanker.
+  The printed string therefore commits to a document rather than merely
+  addressing one -- without a ledger and without an external trust anchor.
 
-2 — Dieselbe Zeichenkette, zwei Lesarten
-  als Web-Adresse   https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
-                    -> HTTP 200, der Produktpass
+2 — The same string, two readings
+  as a web address  https://dpp.oydapp.eu/zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+                    -> HTTP 200, the product passport
 
-  als DID           did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
+  as a DID          did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
                     -> id = did:oyd:zAkk4XNgY3rjJLXvWgRraEM4Nmfm
                        payload = {name: Lumina LED 806lm, model: L-806-E27,
                                   manufacturer: Lumina}
 
-  Wer die Kennung als DID behandeln will, stellt acht Zeichen voran; wer sie als
-  Adresse behandelt, ruft sie auf. Der Verbraucherpfad braucht keine zusaetzliche
-  Software (prEN 18219, 4.6.2 (2)), die DID-Semantik steht trotzdem zur
-  Verfuegung.
+  Whoever wants to treat the identifier as a DID prepends eight characters;
+  whoever treats it as an address calls it. The consumer path needs no
+  additional software (prEN 18219, 4.6.2 (2)), and the DID semantics are
+  available all the same.
 
-3 — Die Pruefungen wie bei Variante A
-  Traeger, ohne Token, ohne Weiterleitung   HTTP/2 200, kein 3xx
-  kein UPI-Feld in der Antwort              bestaetigt
-  ProductID in der Antwort                  unveraendert
-  gleicher Pfad unter dem Verwahrer-Host    404
-  Langform bei B                            200
-  Langform bei A                            404 (A hat diesen Pass nie gehalten)
+3 — The same checks as for scheme A
+  carrier, no token, no redirect             HTTP/2 200, no 3xx
+  no UPI field in the answer                 confirmed
+  ProductID in the answer                    unchanged
+  same path under the custodian's host       404
+  long form at B                             200
+  long form at A                             404 (A never held this passport)
 
-4 — Was B2 kostet, gegenueber Variante A
-  Die Granularitaet musste DEKLARIERT werden. Bei Variante A leitet der Dienst
-  sie aus dem Pfad ab (/21/ = item) und weist eine widersprechende Angabe zurueck;
-  hier sagt der Pfad nichts, und der Dienst muss die Angabe glauben. prEN 18223,
-  Tab. 1 verlangt die Angabe, sagt aber nicht, dass sie stimmen muss -- bei A
-  wird sie geprueft, bei B2 nicht.
+4 — What B2 costs, against scheme A
+  Granularity had to be DECLARED. Under scheme A the service derives it from the
+  path (/21/ = item) and refuses a declaration the path contradicts; here the
+  path says nothing and the service has to believe the declaration. prEN 18223,
+  Table 1 requires the value but does not require it to be true -- under A it is
+  checked, under B2 it is not.
 
-  Ebenso faellt weg, was Abschnitt 3 der Evidenz zu Variante A zeigt: aus dem
-  Scan allein GTIN und Seriennummer zu gewinnen. Die Kennung identifiziert, sie
-  beschreibt nicht.
+  What also falls away is what section 3 of the scheme-A evidence shows: getting
+  GTIN and serial number out of the scan alone. The identifier identifies; it
+  does not describe.
 
-5 — Und die Grenze, die das Verfahren nicht ueberschreiten kann
-  blake2b-18 sind 144 Bit, also 2^72 Aufwand fuer eine Kollision. Das
-  Bedrohungsmodell ist eng, aber nicht akademisch: nur wer BEIDE Dokumente
-  erzeugt, kann es ausnutzen -- beim DPP ist das der Hersteller, und genau gegen
-  dessen nachtraegliche Umdeutung soll ein selbstzertifizierender Identifier
-  schuetzen. Ein Dritter braeuchte 2^144.
+5 — And the limit the method cannot pass
+  blake2b-18 is 144 bits, so 2^72 work for a collision. The threat model is
+  narrow but not academic: only someone who produces BOTH documents can exploit
+  it -- for a DPP that is the manufacturer, and it is precisely against his
+  later reinterpretation that a self-certifying identifier is meant to protect.
+  A third party would need 2^144.
 
-  2^72 blake2b-Auswertungen liegen fuer staatliche oder grossindustrielle Akteure
-  im Bereich des Machbaren und werden ueber eine Produktlebensdauer billiger. Der
-  Langfrist-Richtwert von BSI und NIST sind 128 Bit.
+  2^72 blake2b evaluations are within reach of state or large-industrial actors
+  and get cheaper over a product's lifetime. The long-term guidance from BSI and
+  NIST is 128 bits.
 
-  128 Bit sind unter der 50-Zeichen-Grenze der Registry NICHT erreichbar: dafuer
-  braeuchte es 32 Byte Digest, also ueber 45 Zeichen Pfad. Die Grenze der
-  Registry erzwingt den Kompromiss, nicht die Architektur.
+  128 bits are NOT reachable under the registry's 50-character limit: that would
+  need a 32-byte digest, so more than 45 characters of path. The registry's
+  limit forces the compromise, not the architecture.
 
-  Der einzige Hebel ist der Hostname; ein Label weniger bringt Faktor 4096:
-      dpp.oydapp.eu   13 Zeichen   Pfad 28   blake2b-18   2^72
-      oydapp.eu        9 Zeichen   Pfad 32   blake2b-21   2^84
-      pace.eu          7 Zeichen   Pfad 34   blake2b-22   2^88
-      dpp.eu           6 Zeichen   Pfad 35   blake2b-23   2^92
+  The only lever is the hostname; one label fewer is worth a factor of 4096:
+      dpp.oydapp.eu   13 characters   path 28   blake2b-18   2^72
+      oydapp.eu        9 characters   path 32   blake2b-21   2^84
+      pace.eu          7 characters   path 34   blake2b-22   2^88
+      dpp.eu           6 characters   path 35   blake2b-23   2^92
 
-  Abfederung ohne laengeren Aufdruck: den vollstaendigen sha2-256-Hash des
-  DID-Dokuments zusaetzlich im Registry-Eintrag hinterlegen. Der kurze
-  Identifier ist dann der Zeiger, die 128-Bit-Bindung existiert trotzdem, und
-  ein spaeterer Tausch faellt beim Abgleich auf.
+  Mitigation without a longer printed string: additionally record the full
+  sha2-256 hash of the DID document in the registry entry. The short identifier
+  is then the pointer, the 128-bit commitment exists regardless, and a later
+  substitution shows up on comparison.
 
-Werkzeugstand
-  oydid CLI 0.8.3 auf Gem 0.8.2. Die Laengen sind deterministisch, nicht
-  "hoechstens": das fuehrende Codebyte ist klein und konstant, die Stellenzahl
-  kippt nicht. blake2b-18 ergibt genau 28 Zeichen, blake2b-19 genau 29.
+Tooling
+  oydid CLI 0.8.3 on gem 0.8.2. The lengths are deterministic, not "at most":
+  the leading code byte is small and constant, so the digit count does not tip.
+  blake2b-18 gives exactly 28 characters, blake2b-19 exactly 29.
 
-Rohdaten: 09-carrier-scheme-b2-raw.txt
+Raw data: 09-carrier-scheme-b2-raw.txt

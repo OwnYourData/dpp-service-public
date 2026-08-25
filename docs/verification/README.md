@@ -2,8 +2,12 @@
 
 What this directory holds: the record of the run that produced the measurements
 the paper reports. Everything here was captured while the run happened, against
-the production deployment, and is left as it was written. The individual records
-are in German, the language they were taken in.
+the production deployment.
+
+The records were written in German during the run and translated afterwards.
+Measured values, timestamps, status codes, hostnames and identifiers are
+unchanged; what was translated is the prose around them and the column labels of
+the sampling output.
 
 ## What was under test
 

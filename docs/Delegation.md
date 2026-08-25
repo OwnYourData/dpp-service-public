@@ -303,34 +303,18 @@ Recommendations:
   bound to an identity check outside the system. It belongs in the contract,
   not only in the code.
 
-## 13. Changeover
+## 13. No compatibility mode
 
-No compatibility mode. Order:
-
-1. Pod: `controller_did` on the collection, JWT bearer grant, DID resolution
-   with caching, `jti` store, DPoP.
-2. DPP Service: switch `PodStorage` over to delegation, reuse
-   `DidTokenVerifier` for the signature of the delegation, create the service
-   DID and publish it under `/.well-known/dpp-service`, remove
-   `storage_credentials_enc` by migration.
-3. Delete existing passports, collections and OAuth applications.
-4. Rewrite `docs/Guide.md` and `docs/Walkthrough_Pod_VarianteB.md`.
-
-**What "no compatibility mode" does and does not cover.** It is a statement about
-the **DPP Service**: after the changeover it holds no `client_secret`, so there
-is exactly one way for it into a pod. Two ways would mean the weaker one
-survives, which is the whole point.
+**What that does and does not cover.** It is a statement about the **DPP
+Service**: it holds no `client_secret`, so there is exactly one way for it into
+a pod. Two ways would mean the weaker one survives, which is the whole point.
 
 It is not a statement about dc-pod. The pod platform serves other, domain
 specific applications that legitimately use `client_credentials`, and that grant
 stays: `dc-base` lists `authorization_code` and `client_credentials`
 unconditionally and appends whatever `DC_GRANT_FLOWS` names, so the delegation
-grant is *added* next to them rather than replacing anything. A pod without
+grant sits *next to* them rather than replacing anything. A pod without
 `DC_GRANT_FLOWS=delegation` behaves exactly as before.
-
-Step 3 above is bounded accordingly: what gets deleted are the objects,
-collections and OAuth applications **of the DPP collections**, not every OAuth
-application on the pod.
 
 Worth keeping straight when writing about this: the five problems in §1 remain
 true for anything that still authenticates with a shared secret. The claim this

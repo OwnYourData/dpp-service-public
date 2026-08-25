@@ -14,13 +14,94 @@ model follows **prEN 18223**; identifiers may be W3C DIDs (**prEN 18219**,
 - Reading public DPP data needs no token; **creating, updating and deleting**
   require a bearer token.
 
-> Since 2026-08-17 the hosted instance runs `DPP_AUTH_MODE=did`: the bearer
-> token has to be a self-issued JWT, EdDSA-signed with the document key of the
-> issuer's `did:oyd`, and only the DID that created a passport may update or
-> delete it. `docs/Guide.md`, section *Issuing a token*, shows how to mint the
-> DID and sign the token; keep that snippet as `mint_token.rb`. The unsigned
-> token below is the fallback for your own instance running `permissive`, where
-> the signature is not checked.
+> The hosted instance runs `DPP_AUTH_MODE=did`: the bearer token has to be a
+> self-issued JWT, EdDSA-signed with the document key of the issuer's
+> `did:oyd`, and only the DID that created a passport may update or delete it.
+> *Issuing a token* below shows how to mint the DID and sign the token; keep
+> that snippet as `mint_token.rb`. The unsigned token in the setup block is the
+> fallback for your own instance running `permissive`, where the signature is
+> not checked.
+
+## Issuing a token
+
+In DID mode the economic operator issues the token **itself** and signs it with
+the key of its own `did:oyd`. There is no central identity provider: the service
+resolves the DID, takes the public key from the DID document and verifies the
+signature with it. Once the DID is revoked its tokens stop working on their own,
+as soon as the cached public key expires (`DID_AUTH_CACHE_TTL`, five minutes by
+default).
+
+**Step 1 — create a `did:oyd`.** Most easily over the REST API of the registrar;
+this needs neither Docker nor a local Ruby installation:
+
+```bash
+curl -sS -X POST https://oydid.ownyourdata.eu/1.0/create \
+  -H "Content-Type: application/json" \
+  -d '{"didDocument": {"service": [{"type": "DigitalProductPassport",
+        "serviceEndpoint": "https://dpp-service.ownyourdata.eu/dpp/v1/dppsByProductId/https%3A%2F%2Fid.lumina.example%2F01%2F09520123456788"}]},
+       "options": {"key_type": "ed25519"}}' | jq .
+```
+
+The response contains the identifier and — once only — the private keys:
+
+```json
+{
+  "didState": {
+    "state": "finished",
+    "did": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+    "secret": {
+      "documentKey": "z1S5Vc8QZXjHQvAZ…",
+      "revocationKey": "z1S5SvGY6ctRcNZz…",
+      "revocationLog": { "ts": 1786960055, "op": 1, "doc": "zQm…", "sig": "zUW6…" }
+    }
+  }
+}
+```
+
+> ⚠️ `documentKey` and `revocationKey` are delivered in this response only and are
+> stored nowhere. The `documentKey` signs the tokens, the `revocationKey` revokes
+> the DID — keep both safe.
+
+Alternatively with the CLI, which stores the keys as files in the working
+directory (`<first-10-characters>_private_key.enc`, `…_revocation_key.enc`):
+
+```bash
+echo '{"service":[{
+        "type": "DigitalProductPassport",
+        "serviceEndpoint": "https://dpp-service.ownyourdata.eu/dpp/v1/dppsByProductId/https%3A%2F%2Fid.lumina.example%2F01%2F09520123456788"
+      }]}' | \
+oydid create
+```
+
+**Step 2 — sign the token.** Runnable anywhere the `oydid` gem is installed;
+`doc_key` is the `documentKey` from step 1 (or the content of the
+`_private_key.enc` file):
+
+```ruby
+require "oydid"
+require "jwt"
+require "jwt/eddsa"
+require "securerandom"
+
+did     = "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+doc_key = "z1S5Vc8QZXjHQvAZ…"
+
+_code, _len, digest = Oydid.multi_decode(doc_key).first.unpack("SCa*")
+signing_key = Ed25519::SigningKey.new(digest)
+
+now = Time.now.to_i
+puts JWT.encode({ "iss" => did, "sub" => did,
+                  "aud" => "https://dpp-service.ownyourdata.eu",
+                  "iat" => now, "exp" => now + 600,
+                  "jti" => SecureRandom.hex(8) },
+                signing_key, "EdDSA", { "kid" => "#{did}#key-doc" })
+```
+
+`require "jwt/eddsa"` is not optional — without this line the `jwt` gem does not
+know the EdDSA algorithm and aborts with "Unsupported signing method".
+
+**Step 3 — use it.** The result goes onto every write call as
+`Authorization: Bearer …`, nothing else changes.
 
 ## Setup
 

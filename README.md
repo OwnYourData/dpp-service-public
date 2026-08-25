@@ -27,8 +27,8 @@ bin/rails db:create db:migrate db:seed
 bin/rails server
 ```
 
-Swagger UI at `http://localhost:3000/api-docs`, the machine-readable contract in
-[`docs/openapi.yaml`](docs/openapi.yaml).
+Swagger UI at `http://localhost:3000/api-docs`, rendered from the OpenAPI 3.0
+description in [`docs/openapi.yaml`](docs/openapi.yaml).
 
 ## Hosted instance
 
@@ -54,12 +54,11 @@ where the signature is not checked — see [docs/Standalone.md](docs/Standalone.
 | File | What it covers |
 |---|---|
 | [docs/Standalone.md](docs/Standalone.md) | running the service on your own, without the intermediary's pod |
-| [docs/Guide.md](docs/Guide.md) | the full picture: sequence diagrams, storage variants, authentication, and a walkthrough of every endpoint |
-| [docs/EXAMPLES.md](docs/EXAMPLES.md) | the same walkthrough condensed to copy-paste `curl` calls |
+| [docs/EXAMPLES.md](docs/EXAMPLES.md) | the walkthrough: issuing a token, then every endpoint as copy-paste `curl` calls |
 | [docs/examples-lightbulb.md](docs/examples-lightbulb.md) | one complete worked example (an LED lamp) with full request and response payloads |
 | [docs/Identifiers.md](docs/Identifiers.md) | the six things called "identifier" in the DPP context, how they relate, and which of them ends up on the data carrier |
 | [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
-| [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract |
+| [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract: an OpenAPI 3.0 description of every endpoint, which the service also serves through a Swagger UI at `/api-docs` |
 
 ## Endpoints (prEN 18222, Tables 17–19)
 

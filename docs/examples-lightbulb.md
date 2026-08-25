@@ -47,8 +47,8 @@ and `jti`. An unsigned token (`alg: none`) is refused with `401`. In addition, o
 DID that created a passport may update or delete it; another DID gets `403` with
 statusCode `ClientForbidden`. Reading stays open and needs no token.
 
-How such a token is issued is described in `docs/Guide.md`, section
-"Authentication (prEN 18239)".
+How such a token is issued is described in
+[docs/EXAMPLES.md](EXAMPLES.md), section *Issuing a token*.
 
 The requests below write `Authorization: Bearer <token>`. Substitute a JWT of your
 own with these claims, signed with the document key of your `did:oyd`:

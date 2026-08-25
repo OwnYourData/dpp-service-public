@@ -22,7 +22,7 @@ Warum die Trennung der Ingress-Controller noetig war
   152.53.34.232 wurde Controller A entzogen und Controller B zugewiesen; auf diese
   Adresse zeigte zuvor kein Name.
 
-  Belegt in 03-controller-trennung.txt: derselbe Hostname, an Controller B
+  Belegt in 03-ingress-separation.txt: derselbe Hostname, an Controller B
   gerichtet, liefert 404 mit dessen Default-Zertifikat (tls=20), waehrend
   Controller A ihn mit gueltigem Zertifikat und 200 bedient.
 

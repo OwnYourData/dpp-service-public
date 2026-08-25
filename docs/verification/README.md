@@ -32,24 +32,24 @@ surveillance authority would occupy, and therefore the harder evidence.
 | File | What it shows |
 |---|---|
 | `00-baseline.txt` | starting state, before the operator's name pointed anywhere |
-| `01-dns-auf-A.txt` | the operator's name pointed at custodian A |
-| `03-controller-trennung.txt` | the two ingress controllers are genuinely separate — the precondition for the switch being the operator's act and not ours |
-| `04-verwahrer-a-neu.txt` | custodian A serving the carrier string |
-| `05-aufbau.txt` | the full measurement setup, both custodians side by side |
-| `06-schritt-a-bis-d.txt` | reading the passport over the carrier without a token, and the lifecycle operations behind it |
-| `07-umzug.txt` | **the move.** Certificate before the switch, the switch measured at five-second intervals, and the closing proof that A could no longer have answered |
+| `01-dns-to-custodian-a.txt` | the operator's name pointed at custodian A |
+| `03-ingress-separation.txt` | the two ingress controllers are genuinely separate — the precondition for the switch being the operator's act and not ours |
+| `04-custodian-a-rebuilt.txt` | custodian A serving the carrier string |
+| `05-measurement-setup.txt` | the full measurement setup, both custodians side by side |
+| `06-lifecycle-walkthrough.txt` | reading the passport over the carrier without a token, and the lifecycle operations behind it |
+| `07-custody-migration.txt` | **the move.** Certificate before the switch, the switch measured at five-second intervals, and the closing proof that A could no longer have answered |
 | `08-serviceendpoint.txt` | the `serviceEndpoint` in the passport's DID document brought to the new custodian — a signed log entry, separate from the DNS change |
-| `09-variante-b2.txt` | the second carrier scheme: a self-certifying path, the multihash of a product `did:oyd`, resolving both as a web address and as a DID |
-| `09-b2-roh.txt` | raw responses for that scheme |
-| `10-did-pruefung.txt` | a passport identifier the operator minted itself, checked at creation: refused when it does not resolve, refused when its `serviceEndpoint` names a different host, accepted when it names the right one |
+| `09-carrier-scheme-b2.txt` | the second carrier scheme: a self-certifying path, the multihash of a product `did:oyd`, resolving both as a web address and as a DID |
+| `09-carrier-scheme-b2-raw.txt` | raw responses for that scheme |
+| `10-identifier-check.txt` | a passport identifier the operator minted itself, checked at creation: refused when it does not resolve, refused when its `serviceEndpoint` names a different host, accepted when it names the right one |
 
 Raw sampling logs, one line per request, `timestamp dns=… http=… tls=… seconds`:
 
 | File | Window | Points |
 |---|---|---|
-| `switch-teil1.txt` | 11:55:30Z–12:07:36Z | 131, all served by A |
+| `switch-part1.txt` | 11:55:30Z–12:07:36Z | 131, all served by A |
 | `switch.txt` | 12:28:48Z–12:29:11Z | 5, containing the transition |
-| `abschluss.txt` | 13:21:27Z–13:23:25Z | 22, during the premature retirement of A, from a location whose resolver still held the old record |
+| `retirement.txt` | 13:21:27Z–13:23:25Z | 22, during the premature retirement of A, from a location whose resolver still held the old record |
 
 ## The three results the paper rests on
 
@@ -80,14 +80,14 @@ would pass them too.
 
 ## Reading the numbers honestly
 
-`switch-teil1.txt` contains one failed sample at 12:07:36Z (`http=000`). The
+`switch-part1.txt` contains one failed sample at 12:07:36Z (`http=000`). The
 observer process blocked in name resolution in that second and then stood still
 until it was restarted; three control requests immediately afterwards returned
 200. It is an artefact of the measurement, not an outage of the measured system.
 The loop was given resolution and fetch timeouts afterwards.
 
-In `abschluss.txt`, resolution and fetch are separate operations: the address
+In `retirement.txt`, resolution and fetch are separate operations: the address
 noted on a line and the address curl actually used can diverge. The status codes
 in that log are meaningful as a proportion of failed requests, not as an
 attribution to a particular address. Attribution is done in section 4 of
-`07-umzug.txt`, where the address is pinned with `--resolve`.
+`07-custody-migration.txt`, where the address is pinned with `--resolve`.

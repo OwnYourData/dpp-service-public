@@ -113,7 +113,7 @@ Anmerkung zur Messung
   Systems. Die Schleife wurde anschliessend mit Zeitgrenzen fuer Aufloesung und
   Abruf versehen.
 
-  In abschluss.txt sind Aufloesung und Abruf getrennte Vorgaenge: die notierte
+  In retirement.txt sind Aufloesung und Abruf getrennte Vorgaenge: die notierte
   Adressliste und die Adresse, die curl tatsaechlich verwendet hat, koennen
   auseinanderfallen. Die Statuscodes dieses Protokolls sind daher als Anteil
   fehlgeschlagener Anfragen aussagekraeftig, nicht als Zuordnung zu einer
@@ -123,8 +123,8 @@ Anmerkung zur Messung
 
 Rohdaten
 
-  switch-teil1.txt   131 Messpunkte, 11:55:30Z bis 12:07:36Z, Ausgangszustand
+  switch-part1.txt   131 Messpunkte, 11:55:30Z bis 12:07:36Z, Ausgangszustand
   switch.txt           5 Messpunkte, 12:28:48Z bis 12:29:11Z, mit dem Uebergang
-  abschluss.txt       22 Messpunkte, 13:21:27Z bis 13:23:25Z, waehrend der
+  retirement.txt       22 Messpunkte, 13:21:27Z bis 13:23:25Z, waehrend der
                       vorzeitigen Stilllegung, von einem Standort mit veraltetem
                       Resolver-Cache

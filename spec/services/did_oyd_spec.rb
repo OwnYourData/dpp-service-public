@@ -167,7 +167,7 @@ RSpec.describe DidOyd do
       expect(DidOyd.assert_endpoint_host!("did:oyd:zABC", "https://pod.example")).to be(true)
     end
 
-    # The path may legitimately differ -- it carries the ProductID, and the
+    # The path may legitimately differ -- it carries the uniqueProductIdentifier, and the
     # check is about where a reader is sent, not about what they ask for.
     it "does not compare the path" do
       endpoint("https://pod.example/somewhere/else")

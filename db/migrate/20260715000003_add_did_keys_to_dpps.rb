@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Variante A (prEN 18219 / did:oyd): when the DPP Service mints the DID itself
+# Variante A (EN 18219:2026 / did:oyd): when the DPP Service mints the DID itself
 # it must keep the DID's private keys to update/revoke it later. They are stored
 # encrypted at rest (KeyVault, AES-256-GCM). did_managed distinguishes a
 # service-minted DID (Variante A) from a client-supplied one (Variante C).

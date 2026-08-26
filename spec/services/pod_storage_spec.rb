@@ -5,7 +5,7 @@ require "digest"
 
 # HTTP layer of the pod client. Net::HTTP is stubbed so the specs run without a
 # network; what is checked is which requests the client builds and how it maps
-# the pod's answers onto the generic status codes of prEN 18222 (Table 16) and
+# the pod's answers onto the generic status codes of EN 18222:2026 (Table 16) and
 # the OAuth errors of docs/Delegation.md §14.
 RSpec.describe PodStorage do
   let(:base_url)    { "https://dpp.go-data.at" }
@@ -70,7 +70,7 @@ RSpec.describe PodStorage do
         .not_to raise_error
     end
 
-    it "rejects plain http (prEN 18216 §6.2 requires TLS)" do
+    it "rejects plain http (EN 18216:2026 6.2 requires TLS)" do
       expect { described_class.new(**config.merge(base_url: "http://dpp.go-data.at")) }
         .to raise_error(described_class::ConfigError, /https/)
     end
@@ -245,7 +245,7 @@ RSpec.describe PodStorage do
   describe "#create_object" do
     let(:dpp) do
       Dpp.new(dpp_id: "did:oyd:zX", product_id: "https://id.example/01/1",
-              dpp_schema_version: "prEN 18223:2025",
+              dpp_schema_version: "EN 18223:2026",
               economic_operator_id: "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
               last_update: Time.now.utc)
     end
@@ -260,8 +260,8 @@ RSpec.describe PodStorage do
       expect(card).to include(
         "collection-id"            => 4,          # numeric, as dc-pod expects
         "type"                     => "DigitalProductPassport",
-        "DigitalProductPassportID" => "did:oyd:zX",
-        "ProductID"                => "https://id.example/01/1"
+        "digitalProductPassportId" => "did:oyd:zX",
+        "uniqueProductIdentifier"                => "https://id.example/01/1"
       )
       expect(card).not_to have_key("schema")      # else dc-pod tries a SOyA label
     end
@@ -290,10 +290,10 @@ RSpec.describe PodStorage do
     it "puts the DPP document to the write endpoint" do
       requests = stub_pod([token_response, { status: 200, body: {} }])
 
-      storage.write_payload("4711", { "ProductID" => "https://id.example/01/1" })
+      storage.write_payload("4711", { "uniqueProductIdentifier" => "https://id.example/01/1" })
 
       expect(requests.last.path).to eq("/object/4711/write")
-      expect(JSON.parse(requests.last.body)).to eq("ProductID" => "https://id.example/01/1")
+      expect(JSON.parse(requests.last.body)).to eq("uniqueProductIdentifier" => "https://id.example/01/1")
     end
   end
 
@@ -304,9 +304,9 @@ RSpec.describe PodStorage do
     # one act, and it must never ask for the index card.
     it "reads back without demanding an act of its own" do
       limited = described_class.new(**config.merge(delegation: delegation_jwt("act" => ["create"])))
-      requests = stub_pod([token_response, { status: 200, body: { "ProductID" => "x" } }])
+      requests = stub_pod([token_response, { status: 200, body: { "uniqueProductIdentifier" => "x" } }])
 
-      expect(limited.read_payload("4711")).to eq("ProductID" => "x")
+      expect(limited.read_payload("4711")).to eq("uniqueProductIdentifier" => "x")
       expect(requests.last.path).to eq("/object/4711/read")
     end
 
@@ -321,12 +321,12 @@ RSpec.describe PodStorage do
 
   describe "#version_at" do
     it "asks the pod's public path and needs no token" do
-      requests = stub_pod([{ status: 200, body: { "DPPStatus" => "Active" } }])
+      requests = stub_pod([{ status: 200, body: { "dppStatus" => "Active" } }])
 
-      result = storage.version_at("https://id.example/01/1", Time.utc(2026, 8, 12, 12))
+      result = storage.version_at("did:oyd:zX", Time.utc(2026, 8, 12, 12))
 
-      expect(result).to eq("DPPStatus" => "Active")
-      expect(requests.last.path).to start_with("/dpp/v1/dppsByProductIdAndDate/")
+      expect(result).to eq("dppStatus" => "Active")
+      expect(requests.last.path).to start_with("/dpp/v1/dppsByIdAndDate/")
       expect(requests.last.path).to include(CGI.escape("2026-08-12T12:00:00Z"))
       expect(requests.last["Authorization"]).to be_nil
       expect(requests.last["DPoP"]).to be_nil
@@ -335,11 +335,11 @@ RSpec.describe PodStorage do
     it "returns nil when the pod has no version for that date" do
       stub_pod([{ status: 404, body: { "error" => "DPP not found" } }])
 
-      expect(storage.version_at("https://id.example/01/1", Time.utc(2020))).to be_nil
+      expect(storage.version_at("did:oyd:zX", Time.utc(2020))).to be_nil
     end
   end
 
-  describe "error mapping (prEN 18222 Table 16, docs/Delegation.md §14)" do
+  describe "error mapping (EN 18222:2026 Tables 12-15, docs/Delegation.md §14)" do
     {
       404 => "ClientErrorResourceNotFound",
       500 => "ServerErrorBadGateway",

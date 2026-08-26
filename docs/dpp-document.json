@@ -1,176 +1,155 @@
 {
-  "DigitalProductPassportID": "https://dpp.lumina.example/01/09520123456788/8546",
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "DPPStatus": "Active",
-  "EconomicOperatorID": "did:web:lumina.example",
-  "FacilityID": "https://id.lumina.example/414/0952012345001",
-  "dataElementCollections": [
+  "digitalProductPassportId": "https://dpp.lumina.example/01/09520123456788/8546",
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "economicOperatorId": "did:web:lumina.example",
+  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "elements": [
     {
-      "ElementId": "ProductIdentification",
-      "Name": "Produktidentifikation",
+      "elementId": "ProductIdentification",
       "DictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
-      "DataElements": [
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "ModelIdentifier",
-          "Name": "Modellkennung",
-          "Value": "LUM-A60-827-806",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ModelIdentifier",
+          "value": "LUM-A60-827-806",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "BrandName",
-          "Name": "Marke",
-          "Value": "Lumina",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BrandName",
+          "value": "Lumina",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LightSourceType",
-          "Name": "Art der Lichtquelle",
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LightSourceType",
           "DictionaryReference": "0173-1#02-AAO677#003",
-          "Value": "LED",
-          "ValueDataType": "xs:string"
+          "value": "LED",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "CapType",
-          "Name": "Sockeltyp",
-          "Value": "E27",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CapType",
+          "value": "E27",
+          "valueDataType": "xsd:string"
         }
       ]
     },
     {
-      "ElementId": "EnergyPerformance",
-      "Name": "Energieeffizienz",
+      "elementId": "EnergyPerformance",
       "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
-      "DataElements": [
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "OnModePower",
-          "Name": "Leistungsaufnahme im Ein-Zustand",
-          "Value": 8.5,
-          "ValueDataType": "xs:decimal",
-          "UnitOfMeasure": "W"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "OnModePower",
+          "value": 8.5,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "W"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LuminousFlux",
-          "Name": "Lichtstrom",
-          "Value": 806,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "lm"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousFlux",
+          "value": 806,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "lm"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LuminousEfficacy",
-          "Name": "Lichtausbeute",
-          "Value": 94.8,
-          "ValueDataType": "xs:decimal",
-          "UnitOfMeasure": "lm/W"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousEfficacy",
+          "value": 94.8,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "lm/W"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "EnergyEfficiencyClass",
-          "Name": "Energieeffizienzklasse",
-          "Value": "E",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EnergyEfficiencyClass",
+          "value": "E",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "EprelRegistrationNumber",
-          "Name": "EPREL-Registrierungsnummer",
-          "Value": "1234567",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EprelRegistrationNumber",
+          "value": "1234567",
+          "valueDataType": "xsd:string"
         }
       ]
     },
     {
-      "ElementId": "LightQuality",
-      "Name": "Lichtqualität",
-      "DataElements": [
+      "elementId": "LightQuality",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "CorrelatedColourTemperature",
-          "Name": "Ähnlichste Farbtemperatur",
-          "Value": 2700,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "K"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CorrelatedColourTemperature",
+          "value": 2700,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "K"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "ColourRenderingIndex",
-          "Name": "Farbwiedergabeindex (Ra)",
-          "Value": 80,
-          "ValueDataType": "xs:integer"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ColourRenderingIndex",
+          "value": 80,
+          "valueDataType": "xsd:integer"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "Dimmable",
-          "Name": "Dimmbar",
-          "Value": false,
-          "ValueDataType": "xs:boolean"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "Dimmable",
+          "value": false,
+          "valueDataType": "xsd:boolean"
         }
       ]
     },
     {
-      "ElementId": "Durability",
-      "Name": "Haltbarkeit",
-      "DataElements": [
+      "elementId": "Durability",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "RatedLifetime",
-          "Name": "Bemessungslebensdauer (L70B50)",
-          "Value": 15000,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "h"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RatedLifetime",
+          "value": 15000,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "h"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "SwitchingCycles",
-          "Name": "Schaltzyklen bis Ausfall",
-          "Value": 100000,
-          "ValueDataType": "xs:integer"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SwitchingCycles",
+          "value": 100000,
+          "valueDataType": "xsd:integer"
         }
       ]
     },
     {
-      "ElementId": "SubstancesOfConcern",
-      "Name": "Besorgniserregende Stoffe",
-      "DataElements": [
+      "elementId": "SubstancesOfConcern",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "MercuryContent",
-          "Name": "Quecksilbergehalt",
-          "Value": 0.0,
-          "ValueDataType": "xs:decimal",
-          "UnitOfMeasure": "mg"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "MercuryContent",
+          "value": 0.0,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "mg"
         },
         {
-          "@type": "MultivaluedDataElement",
-          "ElementId": "MaterialComposition",
-          "Name": "Materialzusammensetzung",
+          "objectType": "MultiValuedDataElement",
+          "elementId": "MaterialComposition",
           "ValueList": [
             {
-              "ElementId": "Polycarbonate",
-              "Name": "Polycarbonat",
-              "Value": 42.0,
-              "ValueDataType": "xs:decimal"
+              "elementId": "Polycarbonate",
+              "value": 42.0,
+              "valueDataType": "xsd:decimal"
             },
             {
-              "ElementId": "Aluminium",
-              "Name": "Aluminium",
-              "Value": 31.5,
-              "ValueDataType": "xs:decimal"
+              "elementId": "Aluminium",
+              "value": 31.5,
+              "valueDataType": "xsd:decimal"
             },
             {
-              "ElementId": "Electronics",
-              "Name": "Elektronik",
-              "Value": 26.5,
-              "ValueDataType": "xs:decimal"
+              "elementId": "Electronics",
+              "value": 26.5,
+              "valueDataType": "xsd:decimal"
             }
           ]
         }
@@ -179,11 +158,10 @@
   ],
   "dataElements": [
     {
-      "@type": "SinglevaluedDataElement",
-      "ElementId": "DeclarationOfConformity",
-      "Name": "EU-Konformitätserklärung",
-      "Value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
-      "ValueDataType": "xs:anyURI"
+      "objectType": "SingleValuedDataElement",
+      "elementId": "DeclarationOfConformity",
+      "value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
+      "valueDataType": "xsd:anyURI"
     }
   ]
 }

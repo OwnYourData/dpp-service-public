@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# prEN 18219 §3.22 / §4.5.2 (1): the unique product identifier is one string
+# EN 18219:2026 3.1.25 / §4.5.2 (1): the unique product identifier is one string
 # that identifies the product *and* is retrievable from the data carrier.
 # ProductIdentifier is the only place that decides whether a given string can
 # be that — the custodian reconstructs the lookup key from the request path and
@@ -23,14 +23,14 @@ RSpec.describe ProductIdentifier do
     end
   end
 
-  describe "granularity derived from the path (prEN 18223 Table 1)" do
+  describe "granularity derived from the path (EN 18223:2026 Table 1)" do
     it { expect(described_class.parse!(item).granularity).to eq("item") }
     it { expect(described_class.parse!(batch).granularity).to eq("batch") }
     it { expect(described_class.parse!(model).granularity).to eq("model") }
 
     it "is checked against the declared value rather than trusted" do
       expect { described_class.parse!(item).assert_granularity!("model") }
-        .to raise_error(described_class::InvalidError, /contradicts the ProductID path/)
+        .to raise_error(described_class::InvalidError, /contradicts the identifier path/)
     end
 
     it "accepts a declaration that agrees" do
@@ -55,10 +55,10 @@ RSpec.describe ProductIdentifier do
     end
   end
 
-  # prEN 18219 §5.2 / EN IEC 61406-1: a self-issuing scheme. The operator needs
+  # EN 18219:2026 5.3 / EN IEC 61406-1: a self-issuing scheme. The operator needs
   # a domain it controls and no membership anywhere, which is what keeps the
   # architecture's anti-lock-in argument from stopping at the domain name.
-  describe "identification links (prEN 18219 §5.2)" do
+  describe "identification links (EN 18219:2026 5.3)" do
     let(:link) { "https://dpp.oydapp.eu/ABC-4711" }
 
     it "accepts a self-issued path under the operator's own domain" do
@@ -71,7 +71,7 @@ RSpec.describe ProductIdentifier do
       expect(described_class.parse!(link).granularity).to be_nil
     end
 
-    it "requires Granularity to be declared, since it cannot be checked" do
+    it "requires granularity to be declared, since it cannot be checked" do
       expect { described_class.parse!(link).assert_granularity!("") }
         .to raise_error(described_class::InvalidError, /Granularity is required/)
       expect(described_class.parse!(link).assert_granularity!("item")).to be_a(described_class)
@@ -115,7 +115,7 @@ RSpec.describe ProductIdentifier do
       expect(described_class).not_to be_valid("https://dpp.oydapp.eu/01/952012345679")
     end
 
-    it "refuses a DID, which no carrier may bear (§3.16 note 1, §4.6.2 (2))" do
+    it "refuses a DID, which no carrier may bear (Annex B Table B.10, 4.6.2 (2))" do
       expect(described_class)
         .not_to be_valid("did:oyd:zQmWVzyTPZ19ebpw2Dm9doEDP4qw9rVcs6M4v3iQMo7vpVS")
     end

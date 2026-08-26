@@ -21,7 +21,7 @@ module DppService
     # Autoload app/lib (RFC 7396 merge patch, etc.).
     config.autoload_paths << Rails.root.join("app", "lib")
 
-    # All identifiers/paths are UTF-8; timestamps are UTC (prEN 18223 LastUpdate).
+    # All identifiers/paths are UTF-8; timestamps are UTC (EN 18223:2026 LastUpdate).
     config.time_zone = "UTC"
     config.active_record.default_timezone = :utc
   end

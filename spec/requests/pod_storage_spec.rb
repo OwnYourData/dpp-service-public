@@ -34,10 +34,10 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
   end
 
   let(:document) do
-    { "ProductID" => product_id,
-      "Granularity" => "model",
-      "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }
+    { "uniqueProductIdentifier" => product_id,
+      "granularity" => "model",
+      "dppSchemaVersion" => "EN 18223:2026",
+      "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }
   end
 
   # Fake-Pod: merkt sich das zuletzt geschriebene Dokument.
@@ -72,7 +72,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       post "/dpp/v1/dpps", params: document.to_json, headers: headers
 
       expect(pod).to have_received(:create_object)
-      expect(pod).to have_received(:write_payload).with("4711", hash_including("ProductID" => product_id))
+      expect(pod).to have_received(:write_payload).with("4711", hash_including("uniqueProductIdentifier" => product_id))
       expect(Dpp.find(minted[:did]).storage_object_id).to eq("4711")
     end
 
@@ -91,7 +91,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
     it "passes the host-independent lookup key to the pod" do
       post "/dpp/v1/dpps", params: document.to_json, headers: headers
 
-      expect(JSON.parse(response.body)["ProductID"]).to eq(product_id)
+      expect(JSON.parse(response.body)["uniqueProductIdentifier"]).to eq(product_id)
       expect(Dpp.find(minted[:did]).product_key).to eq("/01/09520123456788")
     end
 
@@ -127,7 +127,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       { base_url: base_url, collection_id: "1", delegation: delegation }
     end
 
-    # The Registry's budget constrains the ProductID, not this address: the
+    # The Registry's budget constrains the uniqueProductIdentifier, not this address: the
     # custodian's host is internal and never printed. See upi_resolver_spec for
     # the identifier that is subject to the limit.
     it "accepts a long base_url, which no longer has to fit on a carrier" do
@@ -136,7 +136,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       expect(response).not_to have_http_status(:bad_request)
     end
 
-    it "rejects a base_url that is not https (prEN 18216 §6.2)" do
+    it "rejects a base_url that is not https (EN 18216:2026 6.2)" do
       post_with(valid.merge(base_url: "http://dpp.go-data.at"))
       expect(response).to have_http_status(:bad_request)
     end
@@ -186,37 +186,37 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       get "/dpp/v1/dpps/#{encoded}"
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["ProductID"]).to eq(product_id)
+      expect(JSON.parse(response.body)["uniqueProductIdentifier"]).to eq(product_id)
       expect(pod).to have_received(:read_payload).at_least(:once)
     end
 
     it "writes an update to the pod and does not archive locally" do
       patch "/dpp/v1/dpps/#{encoded}",
-            params: { "FacilityID" => "https://id.lumina.example/414/0952012345002" }.to_json,
+            params: { "facilityId" => "https://id.lumina.example/414/0952012345002" }.to_json,
             headers: { "Content-Type" => "application/merge-patch+json", "Authorization" => token }
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["FacilityID"]).to eq("https://id.lumina.example/414/0952012345002")
-      # prEN 18221 is satisfied by the pod's own history — no second copy here.
+      expect(JSON.parse(response.body)["facilityId"]).to eq("https://id.lumina.example/414/0952012345002")
+      # EN 18221:2026 is satisfied by the pod's own history — no second copy here.
       expect(DppVersion.count).to eq(0)
       expect(pod).to have_received(:write_payload).twice
     end
 
     it "patches a single data element through the pod" do
       patch "/dpp/v1/dpps/#{encoded}",
-            params: { "dataElementCollections" => [
-              { "ElementId" => "EnergyPerformance",
-                "DataElements" => [{ "ElementId" => "LuminousFlux", "Value" => 806 }] }
+            params: { "elements" => [
+              { "elementId" => "EnergyPerformance",
+                "elements" => [{ "elementId" => "LuminousFlux", "value" => 806 }] }
             ] }.to_json,
             headers: { "Content-Type" => "application/merge-patch+json", "Authorization" => token }
       expect(response).to have_http_status(:ok)
 
-      patch "/dpp/v1/dpps/#{encoded}/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux",
-            params: { "Value" => 900 }.to_json,
+      patch "/dpp/v1/dpps/#{encoded}/elements/EnergyPerformance/LuminousFlux",
+            params: { "value" => 900 }.to_json,
             headers: { "Content-Type" => "application/merge-patch+json", "Authorization" => token }
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["Value"]).to eq(900)
+      expect(JSON.parse(response.body)["value"]).to eq(900)
     end
 
     it "archives the final state in the pod and removes the object on delete" do
@@ -225,25 +225,25 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
       delete "/dpp/v1/dpps/#{encoded}", headers: { "Authorization" => token }
 
       expect(response).to have_http_status(:no_content)
-      expect(@written["DPPStatus"]).to eq("Archived")
+      expect(@written["dppStatus"]).to eq("Archived")
       expect(pod).to have_received(:delete_object).with("4711")
       expect(Dpp.exists?(minted[:did])).to be(false)
     end
 
-    it "delegates ReadDPPVersionByProductIdAndDate to the pod" do
-      allow(pod).to receive(:version_at).and_return({ "DPPStatus" => "Active", "FacilityID" => "F-1" })
+    it "delegates ReadDPPVersionByIdAndDate to the pod" do
+      allow(pod).to receive(:version_at).and_return({ "dppStatus" => "Active", "facilityId" => "F-1" })
 
-      get "/dpp/v1/dppsByProductIdAndDate/#{CGI.escape(product_id)}?date=2026-08-12T12:00:00Z"
+      get "/dpp/v1/dppsByIdAndDate/#{CGI.escape(minted[:did])}?date=2026-08-12T12:00:00Z"
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["FacilityID"]).to eq("F-1")
+      expect(JSON.parse(response.body)["facilityId"]).to eq("F-1")
       expect(pod).to have_received(:version_at)
     end
 
     it "returns 404 when the pod has no version for that date" do
       allow(pod).to receive(:version_at).and_return(nil)
 
-      get "/dpp/v1/dppsByProductIdAndDate/#{CGI.escape(product_id)}?date=2020-01-01T00:00:00Z"
+      get "/dpp/v1/dppsByIdAndDate/#{CGI.escape(minted[:did])}?date=2020-01-01T00:00:00Z"
 
       expect(response).to have_http_status(:not_found)
     end

@@ -9,7 +9,7 @@ require "jwt/eddsa"
 require "timeout"
 
 # Verifies self-issued bearer tokens against the DID of their issuer
-# (prEN 18239 §6.2, on the identifier basis of prEN 18219).
+# (prEN 18239 §6.2, on the identifier basis of EN 18219:2026).
 #
 # The economic operator signs a short-lived JWT with the document key of its own
 # did:oyd. This service resolves the DID, takes the public key out of the DID

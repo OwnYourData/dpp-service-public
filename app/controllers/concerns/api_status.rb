@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# Maps the technology-neutral generic status codes of prEN 18222 (Table 16)
+# Maps the technology-neutral generic status codes of EN 18222:2026 (Table 16)
 # to HTTP status codes, and renders the Result/Message object (Tables 13–15).
 module ApiStatus
   extend ActiveSupport::Concern
 
-  # Generic status code (prEN 18222 Table 16) => HTTP status.
+  # Generic status code (EN 18222:2026 Table 16) => HTTP status.
   STATUS_MAP = {
     "Success"                     => :ok,                    # 200
     "SuccessCreated"              => :created,               # 201
@@ -33,7 +33,7 @@ module ApiStatus
     end
   end
 
-  # Build a Result object (prEN 18222 Table 13) and render it.
+  # Build a Result object (EN 18222:2026 Table 13) and render it.
   def render_result(status_code, text:, message_type: "Error", code: nil)
     result = {
       statusCode: status_code,

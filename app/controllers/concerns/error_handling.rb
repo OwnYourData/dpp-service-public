@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Translates common exceptions into prEN 18222 Result objects with the correct
+# Translates common exceptions into EN 18222:2026 Result objects with the correct
 # generic status code / HTTP status.
 module ErrorHandling
   extend ActiveSupport::Concern
@@ -27,7 +27,7 @@ module ErrorHandling
     end
 
     # did:oyd operation failed (VDR unreachable, invalid keys, ...) — treat as
-    # an upstream failure of the registry/VDR (prEN 18222 Table 16).
+    # an upstream failure of the registry/VDR (EN 18222:2026 Table 16).
     rescue_from DidOyd::DidError do |e|
       render_result("ServerErrorBadGateway", text: "DID operation failed: #{e.message}")
     end

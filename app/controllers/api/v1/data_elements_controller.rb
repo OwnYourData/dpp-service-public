@@ -2,13 +2,22 @@
 
 module Api
   module V1
-    # prEN 18222 Clause 6 — Fine granular operations on individual DataElements
-    # addressed by their absolute ElementId path (e.g. "battery/soh/value").
+    # EN 18222:2026 Clause 6 — fine granular operations on individual
+    # DataElements, addressed by their absolute element path.
+    #
+    # The path is the elementId of each level, separated by "/", e.g.
+    # "performanceMetrics/maxPressure". EN 18223:2026 Table 2 requires an
+    # elementId to be unique within its level and the absolute path to be unique
+    # within the passport, which is what makes this addressable at all.
+    #
+    # DEVIATION: EN 18222:2026 8.1 asks for RFC 9535 JSONPath in elementIdPath.
+    # This is a path of element identifiers instead -- shorter, and all the fine
+    # granular methods need. JSONPath is not implemented.
     class DataElementsController < ApplicationController
       before_action :authenticate_actor!, only: %i[update]
       before_action :find_dpp
 
-      # GET /dpp/v1/dpps/:dpp_id/elements/*element_path  (§6.3, Table 10)
+      # GET /dpp/v1/dpps/:dpp_id/elements/*element_path  (6.2, Table 18)
       def show
         element = resolve_path(@dpp.to_document, path_segments)
         return render_result("ClientErrorResourceNotFound", text: "Element not found") if element.nil?
@@ -16,11 +25,11 @@ module Api
         render_dpp(element)
       end
 
-      # PATCH /dpp/v1/dpps/:dpp_id/elements/*element_path  (§6.5, Table 12) — RFC 7396
+      # PATCH /dpp/v1/dpps/:dpp_id/elements/*element_path  (6.3, Table 18) — RFC 7396
       #
       # The document is deep-duplicated first: +to_document+ shares its nested
       # objects with the persisted +content+, so patching in place would also
-      # corrupt the snapshot written by archive_current_version! (prEN 18221).
+      # corrupt the snapshot written by archive_current_version! (EN 18221:2026).
       def update
         return unless authorize_owner!(@dpp)
 
@@ -39,43 +48,42 @@ module Api
         @dpp = Dpp.find(params[:dpp_id])
       end
 
-      # Path is passed as a glob; split into segments (ElementId path).
+      # Path is passed as a glob; split into element identifiers.
       def path_segments
         params[:element_path].to_s.split("/")
       end
 
-      # Naive nested lookup by ElementId path — replace with a proper
-      # data-dictionary resolver (prEN 18223 §4.3) in production.
+      # Walk down one level per segment. Every level -- the passport itself and
+      # every DataElementCollection or MultiValuedDataElement below it -- holds
+      # its children in "elements" (EN 18223:2026 Annex A), so the descent is
+      # the same at every depth.
+      #
+      # A proper data-dictionary resolver would additionally validate each
+      # elementId against the dictionary its dictionaryReference names; this
+      # walks the document structurally.
       def resolve_path(node, segments)
         segments.reduce(node) do |current, seg|
           break nil if current.nil?
 
-          case current
-          when Hash  then current[seg]
-          when Array then current.find { |e| e.is_a?(Hash) && e["ElementId"] == seg }
-          end
+          children = current.is_a?(Hash) ? current["elements"] : current
+          children.is_a?(Array) ? children.find { |e| e.is_a?(Hash) && e["elementId"] == seg } : nil
         end
       end
 
-      # Writes +value+ at the given ElementId path. Mirrors resolve_path: the
-      # parent may be a Hash (keyed, e.g. "DataElements") or an Array of
-      # DataElements, in which case the entry is located by its ElementId.
+      # Replaces the element at the given path. The parent always holds its
+      # children in "elements", so only the last segment has to be located.
       def assign_path(document, segments, value)
         *head, last = segments
         parent = head.empty? ? document : resolve_path(document, head)
+        return nil unless parent.is_a?(Hash)
 
-        case parent
-        when Hash
-          parent[last] = value
-        when Array
-          index = parent.find_index { |e| e.is_a?(Hash) && e["ElementId"] == last }
-          return nil if index.nil?
+        children = parent["elements"]
+        return nil unless children.is_a?(Array)
 
-          parent[index] = value
-        else
-          return nil
-        end
+        index = children.find_index { |e| e.is_a?(Hash) && e["elementId"] == last }
+        return nil if index.nil?
 
+        children[index] = value
         document
       end
 

@@ -4,19 +4,19 @@ info:
   description: >-
     REST/HTTPS API for the Digital Product Passport, derived from the
     CEN/CENELEC JTC 24 draft standards:
-      * prEN 18222 — APIs for the product passport lifecycle management
+      * EN 18222:2026 — APIs for the product passport lifecycle management
         (endpoints, HTTP verbs, parameters, status codes — Tables 1–19)
-      * prEN 18223 — System interoperability (payload / semantic data model)
-      * prEN 18216 — Data exchange protocols (TLS, JSON/XML/JSON-LD/HTML, error handling)
+      * EN 18223:2026 — System interoperability (payload / semantic data model)
+      * EN 18216:2026 — Data exchange protocols (TLS, JSON/XML/JSON-LD/HTML, error handling)
       * prEN 18239 — Access rights, information security, business confidentiality
-      * prEN 18219 — Unique identifiers (incl. W3C DIDs — relevant for DID FlexCo)
+      * EN 18219:2026 — Unique identifiers (incl. W3C DIDs — relevant for DID FlexCo)
 
     NOTE: The source standards are 2025 drafts (Entwurf / CEN Enquiry) and are
     technology-neutral. This specification is one concrete REST realisation of
     the abstract methods and MUST be re-validated against the final published
     standards. semanticId base URI `https://jtc24/...` is a placeholder from the draft.
 
-    IDENTIFIERS IN PATHS: `dpp_id` and `product_id` are URIs/URLs (prEN 18219)
+    IDENTIFIERS IN PATHS: `dpp_id` and `product_id` are URIs/URLs (EN 18219:2026)
     and contain `:`, `/` and `.`. They MUST be percent-encoded into a single
     path segment, e.g.
     `https://dpp.example.org/01/09520123456788/8546` becomes
@@ -34,14 +34,14 @@ servers:
 
 tags:
   - name: Life Cycle API
-    description: Core methods (prEN 18222, Clause 4) — read/create/update/delete a DPP.
+    description: Core methods (EN 18222:2026, Clause 4) — read/create/update/delete a DPP.
   - name: Registry API
-    description: Registration of a DPP at the EC registry (prEN 18222, Clause 5).
+    description: Registration of a DPP at the EC registry (EN 18222:2026, Clause 5).
   - name: Fine Granular Life Cycle API
-    description: Access to individual data elements / collections (prEN 18222, Clause 6).
+    description: Access to individual data elements / collections (EN 18222:2026, Clause 6).
 
 security:
-  - bearerAuth: []   # Public read data is accessible unauthenticated (prEN 18239, §6.2); controlled data requires a token.
+  - bearerAuth: []   # Public read data is accessible unauthenticated (prEN 18239 6.2); controlled data requires a token.
 
 paths:
   ###########################################################################
@@ -51,7 +51,7 @@ paths:
     post:
       tags: [Life Cycle API]
       summary: CreateDPP
-      description: Creates a new DPP. Access rules control whether creation is allowed (prEN 18222 §4.6, Table 5).
+      description: Creates a new DPP. Access rules control whether creation is allowed (EN 18222:2026 4.6, Table 5).
       operationId: createDPP
       x-semanticId: https://jtc24/dpp/API/CreateDPP/1/0
       requestBody:
@@ -79,7 +79,7 @@ paths:
     get:
       tags: [Life Cycle API]
       summary: ReadDPPById
-      description: Returns the DPP with the specified DPP ID (prEN 18222 §4.2, Table 1).
+      description: Returns the DPP with the specified DPP ID (EN 18222:2026 4.2, Table 1).
       operationId: readDPPById
       x-semanticId: https://jtc24/dpp/API/ReadDPPById/1/0
       responses:
@@ -95,19 +95,19 @@ paths:
             text/html:
               schema:
                 type: string
-                description: Human-readable rendering of the DPP (prEN 18216 §5, W3C HTML).
+                description: Human-readable rendering of the DPP (EN 18216:2026 5, W3C HTML).
         '401': { $ref: '#/components/responses/NotAuthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
     patch:
       tags: [Life Cycle API]
-      summary: UpdateDPP
+      summary: UpdateDPPById
       description: >-
         Partial update of a DPP, conformant to RFC 7396 (JSON Merge Patch).
         The submitted DPP contains only the data that needs to be updated or added.
         If any part fails, the complete update fails and no changes are adopted.
-        All changes are archived per prEN 18221 / Module 6 (prEN 18222 §4.7, Table 6).
+        All changes are archived per EN 18221:2026 4.2 (EN 18222:2026 4.7, Table 6).
       operationId: updateDPPById
       x-semanticId: https://jtc24/dpp/API/UpdateDPPById/1/0
       requestBody:
@@ -117,7 +117,7 @@ paths:
             schema:
               $ref: '#/components/schemas/DigitalProductPassport'
             example:
-              DPPStatus: "Archived"
+              dppStatus: "Archived"
       responses:
         '200':
           description: Success — updated DPP.
@@ -132,7 +132,7 @@ paths:
     delete:
       tags: [Life Cycle API]
       summary: DeleteDPPById
-      description: Removes the DPP with the specified DPP ID (end of life). Access rules apply (prEN 18222 §4.8, Table 7).
+      description: Removes the DPP with the specified DPP ID (end of life). Access rules apply (EN 18222:2026 4.8, Table 7).
       operationId: deleteDPPById
       x-semanticId: https://jtc24/dpp/API/DeleteDPPById/1/0
       responses:
@@ -149,7 +149,7 @@ paths:
     get:
       tags: [Life Cycle API]
       summary: ReadDPPByProductId
-      description: Returns the current active DPP (latest version) for the given product ID (prEN 18222 §4.3, Table 2).
+      description: Returns the current active DPP (latest version) for the given product ID (EN 18222:2026 4.3, Table 2).
       operationId: readDPPByProductId
       x-semanticId: https://jtc24/dpp/API/ReadDPPByProductId/1/0
       responses:
@@ -162,9 +162,9 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
 
-  /dppsByProductIdAndDate/{productId}:
+  /dppsByIdAndDate/{dppId}:
     parameters:
-      - $ref: '#/components/parameters/ProductId'
+      - $ref: '#/components/parameters/DppId'
       - name: date
         in: query
         required: true
@@ -174,10 +174,10 @@ paths:
           format: date-time
     get:
       tags: [Life Cycle API]
-      summary: ReadDPPVersionByProductIdAndDate
-      description: Returns the DPP version valid at the given date (prEN 18222 §4.4, Table 3). Optional for the economic operator.
-      operationId: readDPPVersionByProductIdAndDate
-      x-semanticId: https://jtc24/dpp/API/ReadDPPVersionByProductIdAndDate/1/0
+      summary: ReadDPPVersionByIdAndDate
+      description: Returns the DPP version valid at the given date (EN 18222:2026 4.4, Table 3 and Table 16). Optional for the economic operator.
+      operationId: readDPPVersionByIdAndDate
+      x-semanticId: https://jtc24/dpp/API/ReadDPPVersionByIdAndDate/1/0
       responses:
         '200':
           description: Success — DPP version for the given date.
@@ -194,7 +194,7 @@ paths:
       description: >-
         Returns a list of DPP identifiers matching a set of product identifiers
         (AND-match of the specified product labels). Supports cursor pagination
-        (prEN 18222 §4.5, Table 4).
+        (EN 18222:2026 4.5, Table 4).
       operationId: readDPPIdsByProductIds
       x-semanticId: https://jtc24/dpp/API/ReadDPPIdsByProductIds/1/0
       parameters:
@@ -241,15 +241,15 @@ paths:
   /registerDPP:
     post:
       tags: [Registry API]
-      summary: PostNewDPPToRegistry
+      summary: RegisterProductDPP
       description: >-
-        Registers a new DPP at the EC registry by providing product, backup and
-        operator identifiers. Served by the EC registry server; returns a unique
-        registry identifier (prEN 18222 §5.2, Table 8).
+        Registers a new DPP at the EU registry by supplying a dppRegistryEntry.
+        Served by the registry server; returns a registration identifier
+        (EN 18222:2026 5.2, Table 8 and Table 17).
         NOTE: The concrete EC registry endpoint/schema is defined by EU
         implementing acts — this operation models the client-facing contract.
-      operationId: postNewDPPToRegistry
-      x-semanticId: https://jtc24/dpp/API/PostNewDPPToRegistry/1/0
+      operationId: registerProductDPP
+      x-semanticId: https://jtc24/dpp/API/RegisterProductDPP/1/0
       requestBody:
         required: true
         content:
@@ -262,9 +262,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [registryIdentifier]
+                required: [registrationId]
                 properties:
-                  registryIdentifier: { $ref: '#/components/schemas/Identifier' }
+                  registrationId: { $ref: '#/components/schemas/Identifier' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/NotAuthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -284,7 +284,12 @@ paths:
     get:
       tags: [Fine Granular Life Cycle API]
       summary: ReadDataElementCollection
-      description: Returns a specific DataElementCollection used within a DPP (prEN 18222 §6.2, Table 9).
+      description: >-
+        Returns a specific DataElementCollection used within a DPP. Beyond the
+        published method set: EN 18222:2026 Table 18 defines ReadDataElement and
+        UpdateDataElement only, a collection being a DataElement subclass
+        (EN 18223:2026 4.1.2.4). Kept because addressing a collection directly
+        is what clients asked for.
       operationId: readDataElementCollection
       x-semanticId: https://jtc24/dpp/API/ReadDataElementCollection/1/0
       responses:
@@ -299,7 +304,8 @@ paths:
       summary: UpdateDataElementCollection
       description: >-
         Updates a DataElementCollection (partial, RFC 7396). If any part fails,
-        the complete update fails (prEN 18222 §6.4, Table 11).
+        the complete update fails. Beyond the published method set, see
+        ReadDataElementCollection.
       operationId: updateDataElementCollection
       x-semanticId: https://jtc24/dpp/API/UpdateDataElementCollection/1/0
       requestBody:
@@ -327,7 +333,7 @@ paths:
     get:
       tags: [Fine Granular Life Cycle API]
       summary: ReadDataElement
-      description: Returns a specific data element by its absolute path (prEN 18222 §6.3, Table 10).
+      description: Returns a specific data element by its absolute path (EN 18222:2026 6.2, Table 18).
       operationId: readDataElement
       x-semanticId: https://jtc24/dpp/API/ReadDataElement/1/0
       responses:
@@ -342,7 +348,7 @@ paths:
       summary: UpdateDataElement
       description: >-
         Updates, enhances or removes a specific data element within a DPP
-        (prEN 18222 §6.5, Table 12).
+        (EN 18222:2026 6.3, Table 18).
       operationId: updateDataElement
       x-semanticId: https://jtc24/dpp/API/UpdateDataElement/1/0
       requestBody:
@@ -361,7 +367,7 @@ paths:
 
 components:
   ###########################################################################
-  # Security (prEN 18239 + prEN 18216: OAuth 2.0 / OpenID Connect, JWT bearer)
+  # Security (prEN 18239 + EN 18216:2026: OAuth 2.0 / OpenID Connect, JWT bearer)
   ###########################################################################
   securitySchemes:
     bearerAuth:
@@ -388,7 +394,7 @@ components:
       schema: { $ref: '#/components/schemas/Identifier' }
 
   ###########################################################################
-  # Reusable error responses (prEN 18222 §7, Table 16)
+  # Reusable error responses (EN 18222:2026 7.2, Tables 12-15)
   ###########################################################################
   responses:
     BadRequest:
@@ -433,13 +439,13 @@ components:
   schemas:
     Identifier:
       type: string
-      description: Globally unique identifier; SHOULD be a URI/URL (see prEN 18219, incl. W3C DID schemes).
+      description: Globally unique identifier; SHOULD be a URI/URL (see EN 18219:2026, incl. W3C DID schemes).
       example: "https://dpp.example.org/01/09520123456788/21/12345"
 
-    # ---- prEN 18222 §7: Status / Result / Message ------------------------
+    # ---- EN 18222:2026 7.2: Status / Result / Message --------------------
     StatusCode:
       type: string
-      description: Generic status code of the response (prEN 18222 Table 16).
+      description: Generic status code of the response (EN 18222:2026 Table 15).
       enum:
         - Success
         - SuccessCreated
@@ -456,10 +462,10 @@ components:
     MessageTypeEnum:
       type: string
       enum: [Info, Warning, Error, Exception]
-      description: The message type (prEN 18222 Table 15).
+      description: The message type (EN 18222:2026 Table 14).
     Message:
       type: object
-      description: A message with more information for the requester (prEN 18222 Table 14).
+      description: A message with more information for the requester (EN 18222:2026 Table 13).
       required: [messageType, text]
       properties:
         messageType: { $ref: '#/components/schemas/MessageTypeEnum' }
@@ -475,170 +481,192 @@ components:
           format: date-time
     Result:
       type: object
-      description: Result object returned on failed method execution (prEN 18222 Table 13).
+      description: Result object returned on failed method execution (EN 18222:2026 Table 12).
       properties:
         statusCode: { $ref: '#/components/schemas/StatusCode' }
         message:
           type: array
           items: { $ref: '#/components/schemas/Message' }
 
-    # ---- prEN 18223 §4.1: DPP semantic model -----------------------------
+    # ---- EN 18223:2026 4.1: DPP semantic model ---------------------------
     DigitalProductPassport:
       type: object
-      description: A Digital Product Passport instance (prEN 18223 Table 1 + §4.1.3.1).
+      description: A Digital Product Passport instance (EN 18223:2026 Table 1).
       required:
-        - DigitalProductPassportID
-        - ProductID
-        - Granularity
-        - DPPSchemaVersion
-        - DPPStatus
-        - LastUpdate
-        - EconomicOperatorID
+        - digitalProductPassportId
+        - uniqueProductIdentifier
+        - granularity
+        - dppSchemaVersion
+        - dppStatus
+        - lastUpdated
+        - economicOperatorId
       properties:
-        DigitalProductPassportID:
+        digitalProductPassportId:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
           description: >-
             Unique, globally unique identifier of the DPP instance (URI/URL).
             On CreateDPP this MAY be omitted: the service then mints a did:oyd
-            (prEN 18219) and returns it as the dpp ID (Variante A).
-        ProductID:
+            (EN 18219:2026) and returns it as the dpp ID (Variante A).
+        uniqueProductIdentifier:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
           description: Unique product identifier that enables a web link to the DPP.
-        Granularity:
+        granularity:
           type: string
-          description: Level of granularity of the ProductID as per ESPR.
+          description: Level of granularity of the uniqueProductIdentifier as per ESPR.
           enum: [model, batch, item]
-        DPPSchemaVersion:
+        dppSchemaVersion:
           type: string
           description: Reference standard/schema version the DPP instance refers to.
-        DPPStatus:
+        dppStatus:
           type: string
           description: Status of the DPP instance as a digital resource.
           enum: [Active, Archived]
-        LastUpdate:
+        lastUpdated:
           type: string
           format: date-time
           description: Date and time (UTC) of the latest update to the DPP instance.
-        EconomicOperatorID:
+        economicOperatorId:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
           description: Identifier of an actor involved in the product's life cycle.
-        FacilityID:
+        facilityId:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
           description: Identifier of a location/building in the value chain (optional).
-        dataElementCollections:
+        elements:
           type: array
-          items: { $ref: '#/components/schemas/DataElementCollection' }
-        dataElements:
-          type: array
-          items: { $ref: '#/components/schemas/DataElement' }
-
-    DataElementCollection:
-      type: object
-      description: Collection of DataElements (prEN 18223 §4.1.3.2, Table 2).
-      required: [ElementId, DataElements]
-      properties:
-        ElementId:
-          type: string
-          description: Relative identifier, unique within its location; absolute path unique within the DPP.
-        DictionaryReference:
-          type: string
-          description: Unique identifier of the semantic description of the collection.
-        Name:
-          type: string
-          description: Human-readable name (translatable).
-        DataElements:
-          type: array
-          minItems: 1
+          description: >-
+            The passport content in the expanded form of EN 18223:2026 Annex A:
+            every level holds its children in `elements`.
           items: { $ref: '#/components/schemas/DataElement' }
 
     DataElement:
       description: >-
-        A single data point (prEN 18223 §4.1.3.3). Abstract — realised as a
-        SinglevaluedDataElement or MultivaluedDataElement, discriminated by `@type`.
+        A data element (EN 18223:2026 4.1.2.3). Abstract: realised as one of the
+        concrete subclasses, discriminated by `objectType`. Every subclass
+        inherits `elementId` and `dictionaryReference`.
       oneOf:
-        - $ref: '#/components/schemas/SinglevaluedDataElement'
-        - $ref: '#/components/schemas/MultivaluedDataElement'
+        - $ref: '#/components/schemas/DataElementCollection'
+        - $ref: '#/components/schemas/SingleValuedDataElement'
+        - $ref: '#/components/schemas/MultiValuedDataElement'
+        - $ref: '#/components/schemas/RelatedResource'
       discriminator:
-        propertyName: '@type'
+        propertyName: objectType
         mapping:
-          SinglevaluedDataElement: '#/components/schemas/SinglevaluedDataElement'
-          MultivaluedDataElement: '#/components/schemas/MultivaluedDataElement'
+          DataElementCollection: '#/components/schemas/DataElementCollection'
+          SingleValuedDataElement: '#/components/schemas/SingleValuedDataElement'
+          MultiValuedDataElement: '#/components/schemas/MultiValuedDataElement'
+          RelatedResource: '#/components/schemas/RelatedResource'
 
-    SinglevaluedDataElement:
+    DataElementCollection:
       type: object
-      description: A single data point with one value (prEN 18223 §4.1.3.4, Table 3).
-      required: ['@type', ElementId, Value]
+      description: A collection of DataElements (EN 18223:2026 4.1.2.4).
+      required: [objectType, elementId, elements]
       properties:
-        '@type':
+        objectType:
           type: string
-          enum: [SinglevaluedDataElement]
-        ElementId: { type: string }
-        DictionaryReference: { type: string }
-        Name: { type: string }
-        Value:
-          description: The data value (any JSON datatype).
-          nullable: true
-        ValueDataType:
+          enum: [DataElementCollection]
+        elementId:
           type: string
           description: >-
-            XSD data type of the value (W3C XML Schema), excluding list types
-            (ENTITIES, IDREFS, NMTOKENS), string built-ins and NOTATION/QName.
-        Language:
+            Relative identifier, unique within its location; the absolute path
+            is unique within the passport (EN 18223:2026 Table 2).
+        dictionaryReference:
           type: string
-          description: BCP 47 language tag (e.g. "en-GB"); ignored for translatable strings.
-        UnitOfMeasure:
-          type: string
-          description: >-
-            Optional unit of the value — only for a Product Property
-            (prEN 18223 §4.1.4.1, Table 6), e.g. "lm", "W", "K", "h".
-          example: lm
-        Tolerance:
-          type: string
-          description: Optional tolerance of the value (Product Property, prEN 18223 Table 6).
-
-    MultivaluedDataElement:
-      type: object
-      description: A single data point containing a list of values (prEN 18223 §4.1.3.5, Table 4).
-      required: ['@type', ElementId, ValueList]
-      properties:
-        '@type':
-          type: string
-          enum: [MultivaluedDataElement]
-        ElementId: { type: string }
-        DictionaryReference: { type: string }
-        Name: { type: string }
-        ValueList:
+          description: Reference to the data point specification in the data dictionary.
+        elements:
           type: array
-          items: { $ref: '#/components/schemas/ValueElement' }
+          minItems: 1
+          items: { $ref: '#/components/schemas/DataElement' }
 
-    ValueElement:
+    SingleValuedDataElement:
       type: object
-      description: A value associated to a MultivaluedDataElement (prEN 18223 §4.1.3.6, Table 5).
-      required: [ElementId, Value, ValueDataType]
+      description: A single data point with one value (EN 18223:2026 4.1.2.5, Table 3).
+      required: [objectType, elementId, value]
       properties:
-        ElementId: { type: string }
-        DictionaryReference: { type: string }
-        Name: { type: string }
-        Value:
+        objectType:
+          type: string
+          enum: [SingleValuedDataElement]
+        elementId: { type: string }
+        dictionaryReference: { type: string }
+        value:
           description: The data value (any JSON datatype).
           nullable: true
-        ValueDataType: { type: string }
-        Language: { type: string }
-        UnitOfMeasure:
+        valueDataType:
           type: string
-          description: Optional unit (Product Property, prEN 18223 Table 6).
-        Tolerance:
-          type: string
-          description: Optional tolerance (Product Property, prEN 18223 Table 6).
+          description: XSD data type needed to interpret the value, e.g. "xsd:integer".
+          example: xsd:integer
+      additionalProperties: true
+      # EN 18223:2026 Table 1 admits further content where relevant legal acts
+      # require it. Attributes beyond the ones listed here -- unitOfMeasure in
+      # the examples, for instance -- are the operator's content, not part of
+      # the model.
 
-    # ---- prEN 18222 §5.2: Registry registration payload (DPP header subset)
+    MultiValuedDataElement:
+      type: object
+      description: >-
+        A list of objects of the same data type (EN 18223:2026 4.1.2.6,
+        Table 4). Its members are DataElements, held in `elements` like every
+        other level.
+      required: [objectType, elementId, elements]
+      properties:
+        objectType:
+          type: string
+          enum: [MultiValuedDataElement]
+        elementId: { type: string }
+        dictionaryReference: { type: string }
+        valueDataType: { type: string }
+        elements:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/DataElement' }
+
+    RelatedResource:
+      type: object
+      description: >-
+        A document or certificate included in the passport
+        (EN 18223:2026 4.1.2.7, Table 5).
+      required: [objectType, elementId, contentType, url]
+      properties:
+        objectType:
+          type: string
+          enum: [RelatedResource]
+        elementId: { type: string }
+        dictionaryReference: { type: string }
+        contentType:
+          type: string
+          description: IANA media type.
+          example: application/pdf
+        url:
+          type: string
+          format: uri
+        language:
+          type: string
+          description: Localized language tag, e.g. "en-GB".
+        resourceTitle:
+          type: string
+          description: Human-readable title of the resource.
+
+    # ---- EN 18222:2026 5.2 / 7.1: Registry registration payload ----------
     RegistryRegistration:
       type: object
-      description: Information about the operator, backup operator and product to be registered.
-      required: [ProductID, OperatorID]
+      description: >-
+        Request body of RegisterProductDPP. EN 18222:2026 7.1 Table 11 defines
+        the dppRegistryEntry as the passport header.
+      required: [dppRegistryEntry]
       properties:
-        ProductID: { $ref: '#/components/schemas/Identifier' }
-        BackupID:
+        dppRegistryEntry: { $ref: '#/components/schemas/DppRegistryEntry' }
+
+    DppRegistryEntry:
+      type: object
+      description: Passport header as registered (EN 18222:2026 7.1, Table 11).
+      required: [uniqueProductIdentifier, uniqueEconomicOperatorIdentifier]
+      properties:
+        uniqueProductIdentifier: { $ref: '#/components/schemas/Identifier' }
+        digitalProductPassportId: { $ref: '#/components/schemas/Identifier' }
+        uniqueEconomicOperatorIdentifier: { $ref: '#/components/schemas/Identifier' }
+        backupEconomicOperatorIdentifier:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
-          description: Identifier of the backup operator.
-        OperatorID: { $ref: '#/components/schemas/Identifier' }
+          description: Operator hosting the back-up copy (EN 18221:2026 4.5).
+        dppApiEndpoint:
+          type: string
+          format: uri
+          description: Base URL of the API serving this passport.

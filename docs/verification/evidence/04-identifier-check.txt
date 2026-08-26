@@ -1,0 +1,96 @@
+Checking an identifier the operator minted itself — 2026-08-25
+
+Subject
+  Service        https://dpp-service.ownyourdata.eu   image 260825b
+  Operator       did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6
+  Call           POST /dpp/v1/dpps with the operator's signed token
+
+  In the creation path where the economic operator mints the passport
+  identifier itself, the service holds no key for it and cannot alter the DID
+  document afterwards; what is wrong at creation stays wrong. The check
+  therefore runs before anything is created: does the identifier resolve, and
+  does its serviceEndpoint name the host that will actually serve the passport.
+
+  Only the host is compared, never the path. The path carries the
+  uniqueProductIdentifier; what is under examination is where a reader is sent.
+
+  Three cases, measured against the running system in the attribute names of
+  EN 18223:2026.
+
+
+1 — The identifier resolves nowhere
+
+  digitalProductPassportId  did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7X
+  uniqueProductIdentifier   https://dpp.oydapp.eu/01/09520123456791/21/000201
+
+      HTTP 400 ClientErrorBadRequest
+      "did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7X does not resolve"
+      correlationId fb18608151294155b08d6d68b87493fa, 2026-08-25T21:22:16Z
+
+  No passport is created. A passport under an identifier nobody can resolve
+  would be unreachable through the discovery path EN 18220 describes.
+
+
+2 — The identifier resolves, but points elsewhere
+
+  Minted at the registrar with
+      serviceEndpoint = https://dpp.data-vault.eu/dpp/v1/dppsByProductId/...000202
+
+  digitalProductPassportId  did:oyd:zQmcnDVEiNZhXa5b7QLFrtmTB6E1N9w2DzFLawNi2paYgNv
+  uniqueProductIdentifier   https://dpp.oydapp.eu/01/09520123456791/21/000202
+  Sent without X-DPP-Storage, so the passport would live at the service itself.
+
+      HTTP 400 ClientErrorBadRequest
+      "digitalProductPassportId resolves to dpp.data-vault.eu, but this
+       passport is served from dpp-service.ownyourdata.eu"
+      correlationId f36a504e25ae4c4bbba499982a0a9b75, 2026-08-25T21:22:33Z
+
+  Both hostnames appear in plain text in the answer: the caller learns what does
+  not match without having to guess. The identifier itself is well-formed and
+  resolvable -- it is refused for where it points, not for what it is.
+
+
+3 — The identifier resolves and points here
+
+  Minted at the registrar with
+      serviceEndpoint = https://dpp-service.ownyourdata.eu/dpp/v1/
+                        dppsByProductId/https%3A%2F%2Fdpp.oydapp.eu%2F01%2F
+                        09520123456791%2F21%2F000203
+
+  digitalProductPassportId  did:oyd:zQmX68G2SLZbJy1Zcp5TcYCQiqvwhNEu5t1XQ9euuFn2Gxg
+  uniqueProductIdentifier   https://dpp.oydapp.eu/01/09520123456791/21/000203
+
+      HTTP 201 SuccessCreated
+      {"digitalProductPassportId":"did:oyd:zQmX68G2SLZbJy1Zcp5TcYCQiqvwhNEu5t1XQ9euuFn2Gxg",
+       "uniqueProductIdentifier":"https://dpp.oydapp.eu/01/09520123456791/21/000203",
+       "granularity":"item","dppSchemaVersion":"EN 18223:2026",
+       "economicOperatorId":"did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6",
+       "dppStatus":"Active","lastUpdated":"2026-08-25T21:22:41Z"}
+
+  The supplied identifier comes back unchanged; the service mints nothing and
+  holds no key material for it.
+
+
+4 — Cleaned up
+
+      DELETE /dpp/v1/dpps/{did3}   204
+      GET    /dpp/v1/dpps/{did3}   404
+
+  Both DIDs stay resolvable afterwards, checked at the public resolver:
+
+      did:oyd:zQmX68G2SLZbJy1Zcp5TcYCQiqvwhNEu5t1XQ9euuFn2Gxg   200
+      did:oyd:zQmcnDVEiNZhXa5b7QLFrtmTB6E1N9w2DzFLawNi2paYgNv   200
+
+  The service cannot revoke what it holds no key for. That is the point of this
+  creation path, not an omission -- revocation is the holder's business, and the
+  DID document of the deleted passport still carries its serviceEndpoint,
+  pointing at a service that now answers 404. An identifier outliving the
+  resource it names is the normal condition of a printed carrier.
+
+
+What this establishes
+
+  Without case 3 nothing would be shown: a check that refused every identifier
+  would pass cases 1 and 2 just as well. Only the combination establishes that a
+  distinction is being made -- and made on the property that matters, the host a
+  reader is sent to.

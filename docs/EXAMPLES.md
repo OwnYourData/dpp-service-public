@@ -4,8 +4,8 @@ End-to-end command-line walkthrough of a Digital Product Passport (DPP)
 lifecycle against the DPP Service. Each step is a self-contained section using
 `curl` and `jq`.
 
-The service implements the REST/HTTPS mappings of **prEN 18222**; the payload
-model follows **prEN 18223**; identifiers may be W3C DIDs (**prEN 18219**,
+The service implements the REST/HTTPS mappings of **EN 18222:2026**; the payload
+model follows **EN 18223:2026**; identifiers may be W3C DIDs (**EN 18219:2026**,
 `did:oyd`). All paths are prefixed with `/dpp/v1`.
 
 ## Prerequisites
@@ -144,7 +144,7 @@ mint it, **2b** has the economic operator mint it and keep the key, **2c**
 supplies an identifier that is not a DID at all. They are alternatives, not a
 sequence — from step 3 onwards everything is the same, whichever you chose.
 
-If the request omits `DigitalProductPassportID`, the service mints a `did:oyd`,
+If the request omits `digitalProductPassportId`, the service mints a `did:oyd`,
 keeps its keys, and returns the DID as the DPP identifier. This is standard-
 conformant: `CreateDPP` returns the assigned DPP ID.
 
@@ -152,29 +152,27 @@ Save the request body as `create-dpp.json`:
 
 ```json
 {
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "dataElementCollections": [
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "elements": [
     {
-      "ElementId": "EnergyPerformance",
-      "Name": "Energy performance",
-      "DataElements": [
+      "elementId": "EnergyPerformance",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LuminousFlux",
-          "Name": "Luminous flux",
-          "Value": 806,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "lm"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousFlux",
+          "value": 806,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "lm"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "EnergyEfficiencyClass",
-          "Name": "Energy efficiency class",
-          "Value": "E",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EnergyEfficiencyClass",
+          "value": "E",
+          "valueDataType": "xsd:string"
         }
       ]
     }
@@ -188,7 +186,7 @@ Create the DPP and capture the minted DID:
 RESP=$(curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d @create-dpp.json)
 echo "$RESP" | jq .
 
-DID=$(echo "$RESP" | jq -r '.DigitalProductPassportID')
+DID=$(echo "$RESP" | jq -r '.digitalProductPassportId')
 ENC=$(enc "$DID")
 echo "DID = $DID"
 ```
@@ -198,14 +196,14 @@ when the default repository is used:
 
 ```json
 {
-  "DigitalProductPassportID": "did:oyd:zQmExampleHash123",
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "DPPStatus": "Active",
-  "LastUpdate": "2026-08-03T09:14:02Z",
-  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "dataElementCollections": [ "… as submitted …" ]
+  "digitalProductPassportId": "did:oyd:zQmExampleHash123",
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-08-03T09:14:02Z",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "elements": [ "… as submitted …" ]
 }
 ```
 
@@ -222,7 +220,7 @@ service.
 Two things have to be right at this moment, because neither can be repaired
 afterwards. The `serviceEndpoint` in the DID document has to name the host that
 will serve this passport — this service, or the custodian's base URL when the
-passport goes into a hosting pod. And the endpoint goes through the `ProductID`,
+passport goes into a hosting pod. And the endpoint goes through the `uniqueProductIdentifier`,
 percent-encoded, rather than through the DID: a `did:oyd` is the hash over its
 own document, so an address containing the DID would be part of its own
 computation.
@@ -249,18 +247,18 @@ Then create the passport with it; nothing else changes:
 
 ```bash
 curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d "{
-  \"DigitalProductPassportID\": \"$DIDB\",
-  \"ProductID\": \"$PIDB\",
-  \"Granularity\": \"model\",
-  \"DPPSchemaVersion\": \"prEN 18223:2025\",
-  \"EconomicOperatorID\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"
-}" | jq -c '{DigitalProductPassportID, ProductID, DPPStatus}'
+  \"digitalProductPassportId\": \"$DIDB\",
+  \"uniqueProductIdentifier\": \"$PIDB\",
+  \"granularity\": \"model\",
+  \"dppSchemaVersion\": \"EN 18223:2026\",
+  \"economicOperatorId\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"
+}" | jq -c '{digitalProductPassportId, uniqueProductIdentifier, dppStatus}'
 ```
 
 Expected (`201 Created`) — the identifier comes back exactly as supplied:
 
 ```json
-{"DigitalProductPassportID":"did:oyd:zQmExampleHashB456","ProductID":"https://id.lumina.example/01/09520123456789","DPPStatus":"Active"}
+{"digitalProductPassportId":"did:oyd:zQmExampleHashB456","uniqueProductIdentifier":"https://id.lumina.example/01/09520123456789","dppStatus":"Active"}
 ```
 
 A supplied `did:oyd` is resolved before anything is created, and refused with
@@ -269,9 +267,9 @@ A supplied `did:oyd` is resolved before anything is created, and refused with
 | What is wrong | What the answer says |
 |---|---|
 | the DID does not resolve | `did:oyd:… does not resolve` |
-| its `serviceEndpoint` names a different host | `DigitalProductPassportID resolves to other.example, but this passport is served from dpp-service.ownyourdata.eu` |
+| its `serviceEndpoint` names a different host | `digitalProductPassportId resolves to other.example, but this passport is served from dpp-service.ownyourdata.eu` |
 
-Only the host is compared, never the path — the path carries the `ProductID`,
+Only the host is compared, never the path — the path carries the `uniqueProductIdentifier`,
 and what is being checked is where a reader is sent.
 
 The consequence shows up at deletion: the service cannot revoke a DID it holds
@@ -282,22 +280,22 @@ no key for, so the identifier stays valid until you revoke it yourself with
 
 ## 2c. Create a DPP — an identifier that is not a DID
 
-`DigitalProductPassportID` may also be an ordinary URL. The service stores it
+`digitalProductPassportId` may also be an ordinary URL. The service stores it
 as-is, mints nothing, and resolves nothing: the check in 2b applies to
 `did:oyd`, which the service can resolve, not to identifiers in general.
 
 ```bash
 curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d '{
-  "DigitalProductPassportID": "https://dpp-service.ownyourdata.eu/01/09520123456788/0001",
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
-}' | jq '.DigitalProductPassportID'
+  "digitalProductPassportId": "https://dpp-service.ownyourdata.eu/01/09520123456788/0001",
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+}' | jq '.digitalProductPassportId'
 ```
 
 Whatever you supply here is what readers will use. It is not the string on the
-data carrier — that is the `ProductID`, and it stays the same in all three
+data carrier — that is the `uniqueProductIdentifier`, and it stays the same in all three
 variants.
 
 ---
@@ -320,7 +318,7 @@ Returns the current active DPP for a product.
 PID="https://id.lumina.example/01/09520123456788"
 PENC=$(enc "$PID")
 
-curl -sS "$BASE/dppsByProductId/$PENC" | jq '.DigitalProductPassportID'
+curl -sS "$BASE/dppsByProductId/$PENC" | jq '.digitalProductPassportId'
 ```
 
 ---
@@ -351,13 +349,13 @@ Expected:
 ## 6. Update a DPP (UpdateDPP, JSON Merge Patch)
 
 RFC 7396 semantics: only the supplied fields change, `null` removes a field.
-The previous version is archived automatically (prEN 18221).
+The previous version is archived automatically (EN 18221:2026 4.2).
 
 ```bash
 curl -sS -X PATCH "$BASE/dpps/$ENC" \
   -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
-  -d '{ "FacilityID": "https://id.lumina.example/414/0952012345002" }' \
-  | jq '{ FacilityID, LastUpdate }'
+  -d '{ "facilityId": "https://id.lumina.example/414/0952012345002" }' \
+  | jq '{ facilityId, lastUpdated }'
 ```
 
 ---
@@ -377,14 +375,14 @@ curl -sS "$BASE/dpps/$ENC/collections/EnergyPerformance" | jq .
 Address one element by its absolute ElementId path.
 
 ```bash
-curl -sS "$BASE/dpps/$ENC/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux" \
+curl -sS "$BASE/dpps/$ENC/elements/EnergyPerformance/LuminousFlux" \
   | jq '{ Value, UnitOfMeasure }'
 ```
 
 Expected:
 
 ```json
-{ "Value": 806, "UnitOfMeasure": "lm" }
+{ "value": 806, "unitOfMeasure": "lm" }
 ```
 
 ---
@@ -395,34 +393,36 @@ Merge patch on one element — e.g. reclassify the energy efficiency class.
 
 ```bash
 curl -sS -X PATCH \
-  "$BASE/dpps/$ENC/elements/dataElementCollections/EnergyPerformance/DataElements/EnergyEfficiencyClass" \
+  "$BASE/dpps/$ENC/elements/EnergyPerformance/EnergyEfficiencyClass" \
   -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
-  -d '{ "Value": "D" }' | jq '.Value'
+  -d '{ "value": "D" }' | jq '.Value'
 ```
 
 ---
 
-## 10. Read a historical version by date (ReadDPPVersionByProductIdAndDate)
+## 10. Read a historical version by date (ReadDPPVersionByIdAndDate)
 
 Returns the version that was current at the given instant (ISO 8601, UTC).
 
 ```bash
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-curl -sS "$BASE/dppsByProductIdAndDate/$PENC?date=$NOW" | jq '{ DPPStatus, LastUpdate }'
+curl -sS "$BASE/dppsByIdAndDate/$ENC?date=$NOW" | jq '{ dppStatus, lastUpdated }'
 ```
 
 ---
 
-## 11. Register a DPP at the EU Registry (registerDPP)
+## 11. Register a DPP at the EU Registry (RegisterProductDPP)
 
-Client-facing registration method (prEN 18222 Clause 5). The connection to the
+Client-facing registration method (EN 18222:2026 Clause 5). The connection to the
 EU DPP Registry is currently a placeholder; the call returns a registry
 identifier.
 
 ```bash
 curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" "${AUTH[@]}" -d '{
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "OperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+  "dppRegistryEntry": {
+    "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+    "uniqueEconomicOperatorIdentifier": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+  }
 }' | jq .
 ```
 
@@ -431,7 +431,7 @@ Expected:
 ```json
 {
   "statusCode": "SuccessCreated",
-  "registryIdentifier": "urn:ec:dpp:registry:9f1c8a2e-…"
+  "registrationId": "urn:ec:dpp:registry:9f1c8a2e-…"
 }
 ```
 
@@ -439,7 +439,7 @@ Expected:
 
 ## 12. Delete a DPP (DeleteDPPById)
 
-Archives the final version (`DPPStatus: "Archived"`) and removes the active
+Archives the final version (`dppStatus: "Archived"`) and removes the active
 passport. For a service-minted DID (2a) the DID is **revoked** first; for one
 you minted yourself (2b) the service holds no key and revokes nothing.
 
@@ -451,12 +451,12 @@ curl -sS -o /dev/null -w "delete:      %{http_code}\n" -X DELETE "$BASE/dpps/$EN
 curl -sS -o /dev/null -w "read active: %{http_code}\n" "$BASE/dpps/$ENC"
 
 # The archived version is still retrievable by date
-curl -sS "$BASE/dppsByProductIdAndDate/$PENC?date=$NOW" | jq '.DPPStatus'
+curl -sS "$BASE/dppsByIdAndDate/$ENC?date=$NOW" | jq '.dppStatus'
 ```
 
 ---
 
-## Appendix — Generic status codes (prEN 18222, Table 16)
+## Appendix — Generic status codes (EN 18222:2026, Table 15)
 
 | Generic code | HTTP |
 |---|---|
@@ -471,7 +471,7 @@ curl -sS "$BASE/dppsByProductIdAndDate/$PENC?date=$NOW" | jq '.DPPStatus'
 | `ServerInternalError` | 500 |
 | `ServerErrorBadGateway` | 502 |
 
-Failed calls return a Result object (prEN 18222, Table 13), e.g.:
+Failed calls return a Result object (EN 18222:2026, Table 12), e.g.:
 
 ```json
 {

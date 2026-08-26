@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Bearer-token gate (prEN 18239 + prEN 18216: OAuth 2.0 / OpenID Connect, JWT).
+# Bearer-token gate (prEN 18239 + EN 18216:2026: OAuth 2.0 / OpenID Connect, JWT).
 #
 # Public read data is accessible without a token; write and controlled-data
 # operations require an authenticated actor.

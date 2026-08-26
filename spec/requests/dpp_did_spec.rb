@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# Variante A: the DPP Service mints a did:oyd when no DigitalProductPassportID
+# Variante A: the DPP Service mints a did:oyd when no digitalProductPassportId
 # is supplied. DidOyd is stubbed so these specs need neither libsodium nor
 # network access to the VDR.
 RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
@@ -14,13 +14,13 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
     { did: "did:oyd:zTESThash123456", doc_key: "doc-secret", rev_key: "rev-secret", rev_log: "rev-log" }
   end
 
-  # DPP document WITHOUT DigitalProductPassportID -> triggers minting.
+  # DPP document WITHOUT digitalProductPassportId -> triggers minting.
   let(:doc_without_id) do
     {
-      "ProductID" => product_id,
-      "Granularity" => "model",
-      "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+      "uniqueProductIdentifier" => product_id,
+      "granularity" => "model",
+      "dppSchemaVersion" => "EN 18223:2026",
+      "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
     }
   end
 
@@ -32,7 +32,7 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
 
       expect(response).to have_http_status(:created)
       expect(DidOyd).to have_received(:mint).with(product_id)
-      expect(JSON.parse(response.body)["DigitalProductPassportID"]).to eq(minted[:did])
+      expect(JSON.parse(response.body)["digitalProductPassportId"]).to eq(minted[:did])
     end
 
     it "marks the DPP as did_managed and stores the keys encrypted" do
@@ -55,8 +55,8 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
       expect(response.body).not_to include("rev-secret")
     end
 
-    it "requires a ProductID to mint" do
-      post "/dpp/v1/dpps", params: doc_without_id.except("ProductID").to_json, headers: auth
+    it "requires a product identifier to mint" do
+      post "/dpp/v1/dpps", params: doc_without_id.except("uniqueProductIdentifier").to_json, headers: auth
       expect(response).to have_http_status(:bad_request)
     end
 
@@ -86,9 +86,9 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
   # key for it, so whatever is wrong with it at creation stays wrong -- which is
   # why it is checked here and nowhere later.
   describe "client-supplied identifier" do
-    let(:body) { doc_without_id.merge("DigitalProductPassportID" => "did:oyd:zPREEXISTING") }
+    let(:body) { doc_without_id.merge("digitalProductPassportId" => "did:oyd:zPREEXISTING") }
 
-    it "does NOT mint when a DigitalProductPassportID is provided" do
+    it "does NOT mint when a digitalProductPassportId is provided" do
       allow(DidOyd).to receive(:assert_endpoint_host!).and_return(true)
       expect(DidOyd).not_to receive(:mint)
       post "/dpp/v1/dpps", params: body.to_json, headers: auth
@@ -119,7 +119,7 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
 
     it "refuses one whose serviceEndpoint sends readers elsewhere" do
       allow(DidOyd).to receive(:assert_endpoint_host!)
-        .and_raise(DidOyd::DidError.new("DigitalProductPassportID resolves to other.example, " \
+        .and_raise(DidOyd::DidError.new("digitalProductPassportId resolves to other.example, " \
                                         "but this passport is served from here.example"))
 
       post "/dpp/v1/dpps", params: body.to_json, headers: auth
@@ -135,7 +135,7 @@ RSpec.describe "CreateDPP with did:oyd (Variante A)", type: :request do
     it "leaves a non-did:oyd identifier alone" do
       expect(DidOyd).not_to receive(:assert_endpoint_host!)
       post "/dpp/v1/dpps",
-           params: doc_without_id.merge("DigitalProductPassportID" => "https://id.example/p/1").to_json,
+           params: doc_without_id.merge("digitalProductPassportId" => "https://id.example/p/1").to_json,
            headers: auth
 
       expect(response).to have_http_status(:created)

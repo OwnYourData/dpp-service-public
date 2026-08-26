@@ -1,0 +1,108 @@
+The order of the two acts — 2026-08-25
+
+Subject
+  Data carrier   https://dpp.oydapp.eu/01/09520123456791/21/000123
+  Passport       did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+  Custodian B    dpp.data-vault.eu   152.53.34.232   (holds the passport at the start)
+  Custodian A    dpp.go-data.at      89.58.20.114
+  Sampler        5 s interval, from a remote host outside both clusters;
+                 raw data in 90-sampling-wrong-order.txt
+
+  Moving a passport from one custodian to another is two acts that are not the
+  same statement: the carrier moves by DNS, custody moves by a signed log entry
+  at the service. This record is about the ORDER of the two, and it is written
+  the way it happened rather than the way it was planned: the order was given
+  wrong, the wrong order was measured, and the measurement is the point.
+
+
+1 — What was done, in the order it was done
+
+      17:03:44Z   sampler starts. Name resolves to B, carrier 200.
+      17:05:05Z   first sample in which the local resolver returns A.
+                  The DNS record had been changed to A a moment earlier.
+      17:05:27Z   HTTP 404.
+      <=17:06:16Z custody move B -> A completes; A now serves the passport.
+      17:19:39Z   sampler stops. 173 samples, exactly one of them 404,
+                  no sample without an answer, no gap above 15 s.
+
+  The instruction that produced this said "change the DNS record" and, in the
+  same paragraph, "the passport is at A before the name points there". Those two
+  contradict each other. The DNS record was changed first, and the window
+  between the two acts was therefore real: about 71 seconds in which the name
+  pointed at a custodian that did not yet hold the passport.
+
+
+2 — Why exactly one sample failed, and why that number is too small
+
+  Of the 13 samples inside the window, 12 answered 200 and one answered 404.
+  That ratio is not a failure probability, and this record does not claim to
+  know which custodian answered any individual sample.
+
+      authoritative answer, checked at 17:10Z through two independent public
+      resolvers (dns.google, cloudflare-dns.com):
+
+          dpp.oydapp.eu.   A   89.58.20.114   TTL 7200
+
+  One record, pointing at A. But the observation host used for this sampler sits
+  behind an egress proxy that resolves names itself: the dns= column of the log
+  is what the host's own resolver returned, while the request went wherever the
+  proxy sent it. The two need not agree, and the log cannot attribute an answer
+  to an address. Stated plainly because the earlier draft of this record claimed
+  otherwise.
+
+  What the log does establish is that a gap existed at all: at 17:05:27Z a
+  request over the printed carrier was refused, in the window between the name
+  being repointed and the passport arriving. One refusal is enough to establish
+  the gap and says nothing about its size. A client whose cache already held the
+  new address would have been refused on every request in those 71 seconds.
+
+
+3 — The finding this run actually produced
+
+  The old address remained in circulation long after the record was changed: the
+  sampler's own resolver was still handing out the previous answer minutes
+  later, and the record's lifetime allows it for two hours. The same was visible
+  from outside at 18:12Z, a minute after a later change, when two independent
+  public resolvers gave two different answers for the same name (record 3).
+
+  This is the quantity the overlap has to cover. The previous custodian cannot
+  be released when the DNS record changes; it has to keep serving for at least
+  one time-to-live of the operator's zone -- here 7200 s -- because until then
+  readers keep arriving at the old address holding a perfectly valid cached
+  answer. Leaving the previous custodian in service is therefore not a
+  convenience of the implementation (POST /dpp/v1/dpps/{dppId}/custody releases
+  the previous custodian only when release_previous=true is asked for); it is
+  what the naming system requires.
+
+  The correct order follows from the same fact, in reverse:
+
+      1. move custody, without releasing the previous custodian
+         -> both custodians serve; no cached answer can be wrong
+      2. change the DNS record
+         -> readers arrive at either address, both answer
+      3. after one time-to-live, release the previous custodian
+
+  Between steps 1 and 2 there is no window at all, because the failure mode of
+  step 2 is a reader arriving at the NEW address, and after step 1 the new
+  address answers. The wrong order inverts exactly this.
+
+
+4 — What is measured next
+
+  Record 3 measures the same move in the opposite direction, A -> B, in the
+  order above. It is sampled from the operator's own machine rather than from
+  here, because this observation host is an ephemeral container that is
+  suspended between working steps -- the sampler above covers a continuous
+  window, but it cannot be relied on to span a step taken elsewhere.
+
+  The measurement also no longer waits for DNS to converge -- with a
+  7200-second lifetime that would take hours and would say nothing the zone file
+  does not already say. Instead both addresses are polled directly, pinned with
+  curl --resolve, so the claim under test is the one that matters to a reader:
+
+      at every moment of the transition, BOTH addresses answer 200,
+      so no cache state can produce a failure.
+
+  That is the property the wrong order destroys, and it is the property the
+  paper asserts when it says a change of custodian costs a delegation, a log
+  entry and a DNS record -- and nothing that was printed.

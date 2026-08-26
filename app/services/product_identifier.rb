@@ -2,16 +2,16 @@
 
 require "uri"
 
-# A ProductID, which is at the same time the Unique Product Identifier borne by
+# A uniqueProductIdentifier: the value EN 18223:2026 Table 1 carries and the
 # the data carrier.
 #
-# prEN 18219 §3.22 defines the unique product identifier as *one* string of
+# EN 18219:2026 3.1.25 defines the unique product identifier as *one* string of
 # characters that identifies the product and "also enables a web link to the
 # digital product passport". §4.5.2 (1) then requires that very string to be
 # retrievable from the data carrier. There is therefore no second, separate
-# carrier token: ProductID and UPI are the same value.
+# carrier token: the product identifier and the UPI are the same value.
 #
-#   ProductID = UPI = https://dpp.oydapp.eu/01/09520123456791/21/000123
+#   uniqueProductIdentifier = https://dpp.oydapp.eu/01/09520123456791/21/000123
 #   product_key                            /01/09520123456791/21/000123
 #
 # The +product_key+ is the host-independent remainder. It is the lookup key in
@@ -20,7 +20,7 @@ require "uri"
 #
 # == Two admissible schemes
 #
-# prEN 18219 Section 5 lists the permitted schemes exhaustively. Two of them can
+# EN 18219:2026 Section 5 lists the permitted schemes exhaustively. Two of them can
 # be borne by a carrier as an https URL, and they differ in who issues:
 #
 # [§5.1.2.1 +:digital_link+]
@@ -42,10 +42,14 @@ require "uri"
 # absence of lock-in. Which scheme applies is decided by the path: a leading
 # application identifier means the Digital Link rules apply in full.
 #
-# A DID cannot be borne here, though §5.3 admits it as a scheme: §3.16 note 1
-# records that DID resolution normally requires additional software, and
-# §4.6.2 (2) forbids the consumer path from demanding any. See
-# docs/Identifiers.md for the character budget that settles it.
+# A DID cannot be borne here, though 5.4 admits it as a scheme. It is not an
+# https URL, and Annex B Table B.10 is the only place the published edition says
+# so: for the DID scheme it notes, under 4.6.2 (2) consumer usage, that the
+# identifier has to be "parsed and resolved", where every other scheme reads
+# "no additional software needed". That annex is informative, so this is a
+# reading of the standard rather than a requirement of it -- worth knowing
+# before leaning on it. See docs/Identifiers.md for the character budget that
+# settles the question anyway.
 class ProductIdentifier
   class InvalidError < StandardError; end
 
@@ -117,8 +121,8 @@ class ProductIdentifier
   # "model" | "batch" | "item" for a Digital Link, nil for an identification
   # link, whose path says nothing about granularity.
   #
-  # prEN 18223 Table 1 requires Granularity to state "the level of granularity
-  # of the ProductID as per ESPR". Where the path expresses it, the declared
+  # EN 18223:2026 Table 1 requires Granularity to state "the level of granularity
+  # of the uniqueProductIdentifier as per ESPR". Where the path expresses it,
   # value can be checked instead of trusted; where it does not, the declaration
   # is all there is.
   def granularity
@@ -135,25 +139,25 @@ class ProductIdentifier
   end
 
   def validate!
-    raise InvalidError, "ProductID must be a valid URL" if @uri.nil? || host.nil? || host.empty?
+    raise InvalidError, "uniqueProductIdentifier must be a valid URL" if @uri.nil? || host.nil? || host.empty?
 
     unless value.start_with?("https://")
-      raise InvalidError, "ProductID must use https (DPP Registry User Guide; prEN 18216 §6.2)"
+      raise InvalidError, "uniqueProductIdentifier must use https (DPP Registry User Guide; EN 18216:2026 6.2)"
     end
 
     if length > MAX_LENGTH
       raise InvalidError,
-            "ProductID is #{length} characters, #{length - MAX_LENGTH} over the " \
-            "#{MAX_LENGTH}-character limit of the EU DPP registry; a shorter host " \
+            "uniqueProductIdentifier is #{length} characters, #{length - MAX_LENGTH} " \
+            "over the #{MAX_LENGTH}-character limit of the EU DPP registry; a shorter host " \
             "or a shorter serial is needed"
     end
 
     # A query string would hold GS1 data attributes, not identity. Allowing it
-    # would let two ProductIDs share one product_key and collide in the store,
+    # would let two identifiers share one product_key and collide in the store,
     # so the identifier stays path-only; data attributes belong in the DPP
     # document.
     if @uri.query || @uri.fragment
-      raise InvalidError, "ProductID must not carry a query string or fragment"
+      raise InvalidError, "uniqueProductIdentifier must not carry a query string or fragment"
     end
 
     if product_key.nil?
@@ -167,7 +171,7 @@ class ProductIdentifier
   #
   # For a Digital Link the path decides. For an identification link there is
   # nothing to compare against, so all that can be required is that a value was
-  # declared at all -- which prEN 18223 Table 1 makes mandatory anyway.
+  # declared at all -- which EN 18223:2026 Table 1 makes mandatory anyway.
   def assert_granularity!(declared)
     declared = declared.to_s
 
@@ -175,15 +179,15 @@ class ProductIdentifier
       return self unless declared.empty?
 
       raise InvalidError,
-            "Granularity is required: an identification link (prEN 18219 §5.2) " \
-            "carries an opaque path, so it cannot be derived from the ProductID"
+            "Granularity is required: an identification link (EN 18219:2026 5.3) " \
+            "carries an opaque path, so it cannot be derived from the identifier"
     end
 
     return self if declared.empty? || declared == granularity
 
     raise InvalidError,
-          "Granularity '#{declared}' contradicts the ProductID path, which " \
-          "expresses '#{granularity}' (prEN 18223 Table 1)"
+          "granularity '#{declared}' contradicts the identifier path, which " \
+          "expresses '#{granularity}' (EN 18223:2026 Table 1)"
   end
 
   private
@@ -194,7 +198,7 @@ class ProductIdentifier
   # scheme accepts.
   #
   # The query string is left out on purpose -- GS1 carries non-identifying data
-  # attributes there (prEN 18219 Table B.7 shows "?17=250101"), and those must
+  # attributes there (EN 18219:2026 Table B.7 shows "?17=250101"), and those must
   # not become part of the lookup key.
   def build_product_key
     path = @uri&.path.to_s.chomp("/")
@@ -212,7 +216,7 @@ class ProductIdentifier
     end
   end
 
-  # prEN 18219 §5.1.2.1: /01/<GTIN-14> plus at most one of each accepted
+  # EN 18219:2026 5.2: /01/<GTIN-14> plus at most one of each accepted
   # qualifier.
   def digital_link_key(segments, path)
     return nil unless segments.length.even? && segments.length >= 2
@@ -234,7 +238,7 @@ class ProductIdentifier
     path
   end
 
-  # prEN 18219 §5.2 / EN IEC 61406-1: the operator's own domain and a path it
+  # EN 18219:2026 5.3 / EN IEC 61406-1: the operator's own domain and a path it
   # assigns itself. Nothing about the path is interpreted here -- that is the
   # point of a self-issuing scheme -- so only the character set is constrained,
   # to what survives a carrier and a URL path segment unencoded. Conformance
@@ -248,13 +252,13 @@ class ProductIdentifier
 
   def invalid_path_message
     if @scheme == DIGITAL_LINK
-      "ProductID starts with an application identifier, so it is read as a GS1 " \
-        "Digital Link (prEN 18219 §5.1.2.1) and must be /01/<14-digit GTIN> " \
+      "the identifier starts with an application identifier, so it is read as a GS1 " \
+        "Digital Link (EN 18219:2026 5.2) and must be /01/<14-digit GTIN> " \
         "optionally followed by /10/<batch>, /21/<serial> or /22/<variant>"
     else
-      "ProductID path must be either a GS1 Digital Link (prEN 18219 §5.1.2.1) " \
+      "the identifier path must be either a GS1 Digital Link (EN 18219:2026 5.2) " \
         "or an identification link under a domain you control " \
-        "(prEN 18219 §5.2, EN IEC 61406-1), using only letters, digits, " \
+        "(EN 18219:2026 5.3, EN IEC 61406-1), using only letters, digits, " \
         "'-', '_' and '.' in its path segments"
     end
   end

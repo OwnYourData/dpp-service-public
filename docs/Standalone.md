@@ -23,7 +23,7 @@ serves them itself, and nothing beyond a PostgreSQL server is needed.
 * optionally Docker, if you want to build the bundled image
 
 Why PostgreSQL in production: the passport document is held as JSON in a
-`jsonb` column, and the lookup by `ProductID` runs over expression indexes on
+`jsonb` column, and the lookup by `uniqueProductIdentifier` runs over expression indexes on
 it.
 
 ---
@@ -103,7 +103,7 @@ and can no longer be changed afterwards.
 the UPI as *one* string that identifies the product and enables the web link to
 the passport, and cl. 4.5.2 (1) requires that same string to be retrievable from
 the data carrier. The service therefore issues no second token: what you send as
-`ProductID` is what is registered and what goes on the carrier.
+`uniqueProductIdentifier` is what is registered and what goes on the carrier.
 
 The registry limits it to 50 characters over `https`, so the service refuses a
 longer one at creation and says how many characters are over. Its host should
@@ -167,17 +167,15 @@ curl -sS -X POST "$BASE/dpps" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "DigitalProductPassportID": "did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W",
-    "ProductID": "https://id.example.org/01/09520123456788",
-    "Granularity": "model",
-    "DPPSchemaVersion": "prEN 18223:2025",
-    "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-    "dataElementCollections": [
-      { "ElementId": "EnergyPerformance", "Name": "Energy performance",
-        "DataElements": [
-          { "@type": "SinglevaluedDataElement", "ElementId": "LuminousFlux",
-            "Name": "Luminous flux", "Value": 806,
-            "ValueDataType": "xs:integer", "UnitOfMeasure": "lm" } ] }
+    "digitalProductPassportId": "did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W",
+    "uniqueProductIdentifier": "https://id.example.org/01/09520123456788",
+    "granularity": "model",
+    "dppSchemaVersion": "EN 18223:2026",
+    "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+    "elements": [
+      { "elementId": "EnergyPerformance", "objectType": "DataElementCollection", "elements": [
+          { "objectType": "SingleValuedDataElement", "elementId": "LuminousFlux", "value": 806,
+            "valueDataType": "xsd:integer", "unitOfMeasure": "lm" } ] }
     ] }' | jq .
 ```
 
@@ -187,13 +185,13 @@ resolve, and the `serviceEndpoint` in its document has to name this instance —
 service holds no key for a DID it did not mint. Identifiers that are not
 `did:oyd` are stored as given.
 
-The response contains `DPPStatus`, `LastUpdate` and the `ProductID` it was
+The response contains `dppStatus`, `lastUpdated` and the `uniqueProductIdentifier` it was
 created with. There is no separate `UPI` field: EN 18223 Table 1 defines none,
 and the product identifier already is the unique product identifier.
 
 ### Create a passport, letting the identifier be minted
 
-If `DigitalProductPassportID` is missing, the service mints a `did:oyd` at the
+If `digitalProductPassportId` is missing, the service mints a `did:oyd` at the
 registrar from `OYDID_LOCATION` and stores the private keys encrypted.
 The `serviceEndpoint` of the DID document points to
 `{DPP_SERVICE_ENDPOINT_BASE}/dpp/v1/dppsByProductId/{ProductID}`:
@@ -202,12 +200,12 @@ The `serviceEndpoint` of the DID document points to
 curl -sS -X POST "$BASE/dpps" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d "{\"ProductID\": \"$PID\", \"Granularity\": \"model\",
-       \"DPPSchemaVersion\": \"prEN 18223:2025\",
-       \"EconomicOperatorID\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"}" | jq -r .DigitalProductPassportID
+  -d "{\"uniqueProductIdentifier\": \"$PID\", \"granularity\": \"model\",
+       \"dppSchemaVersion\": \"EN 18223:2026\",
+       \"economicOperatorId\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"}" | jq -r .digitalProductPassportId
 ```
 
-Note: the `serviceEndpoint` goes through the `ProductID`, not through the DID.
+Note: the `serviceEndpoint` goes through the `uniqueProductIdentifier`, not through the DID.
 The DID cannot appear in its own document — it is the hash over exactly this
 document.
 
@@ -217,10 +215,10 @@ document.
 DID="did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W"
 EDID=$(enc "$DID"); EPID=$(enc "$PID")
 
-curl -sS "$BASE/dpps/$EDID" | jq -c '{DigitalProductPassportID, DPPStatus, ProductID}'
-curl -sS "$BASE/dppsByProductId/$EPID" | jq -r .DigitalProductPassportID
+curl -sS "$BASE/dpps/$EDID" | jq -c '{digitalProductPassportId, dppStatus, uniqueProductIdentifier}'
+curl -sS "$BASE/dppsByProductId/$EPID" | jq -r .digitalProductPassportId
 curl -sS "$BASE/dpps/$EDID/collections/EnergyPerformance" | jq -c '{ElementId, Name}'
-curl -sS "$BASE/dpps/$EDID/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux" | jq -c '{Value, UnitOfMeasure}'
+curl -sS "$BASE/dpps/$EDID/elements/EnergyPerformance/LuminousFlux" | jq -c '{Value, UnitOfMeasure}'
 ```
 
 Reading needs no token.
@@ -233,14 +231,14 @@ Reading needs no token.
 curl -sS -X PATCH "$BASE/dpps/$EDID" \
   -H "Content-Type: application/merge-patch+json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"FacilityID": "https://id.example.org/414/0952012345002"}' | jq -c '{FacilityID, LastUpdate}'
+  -d '{"facilityId": "https://id.example.org/414/0952012345002"}' | jq -c '{facilityId, lastUpdated}'
 ```
 
 Every update archives the previous state in `dpp_versions`. The state at a
-given point in time can thus be retrieved (prEN 18221, module 6):
+given point in time can thus be retrieved (EN 18221:2026, module 6):
 
 ```bash
-curl -sS "$BASE/dppsByProductIdAndDate/$EPID?date=2026-01-01T00:00:00Z" | jq .
+curl -sS "$BASE/dppsByIdAndDate/$EDID?date=2026-01-01T00:00:00Z" | jq .
 ```
 
 ### Deleting
@@ -251,7 +249,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X DELETE "$BASE/dpps/$EDID" \
 ```
 
 Answers with `204`. The active passport disappears, the last state is kept in
-`dpp_versions` with `DPPStatus: "Archived"` — prEN 18221 requires that.
+`dpp_versions` with `dppStatus: "Archived"` — EN 18221:2026 4.2 requires that.
 If the service minted the DID itself, it revokes it at the registrar in the
 process.
 

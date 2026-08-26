@@ -1,0 +1,123 @@
+Carrier path and the published data model — 2026-08-25
+
+Subject
+  Data carrier   https://dpp.oydapp.eu/01/09520123456791/21/000123   (49 characters)
+  Passport       did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+  Custodian B    dpp.data-vault.eu   152.53.34.232   namespace dpp-b, collection 4
+  Custodian A    dpp.go-data.at      89.58.20.114    namespace dpp,   collection 36
+  Service        dpp-service.ownyourdata.eu          image 260825b
+
+  The operator's name dpp.oydapp.eu points at custodian B; the passport is
+  created there. Everything below was measured from outside both clusters.
+
+  This run repeats the one of 22.-23.08. against the published editions of the
+  standards, which renamed every payload attribute and reshaped the element
+  model. What is new here is therefore not the architecture but the vocabulary
+  the architecture speaks.
+
+
+1 — Reading over the data carrier, without a token
+
+      GET https://dpp.oydapp.eu/01/09520123456791/21/000123
+      -> HTTP/2 200, tls=0, redirects=0, 1.078 s
+         content-type: application/json; charset=utf-8
+         etag: W/"2796a37502b1ba18c4d1416fc9c0a0ed"
+         cache-control: max-age=60, public
+
+  One request, no prior knowledge, no resolver, no redirect.
+
+  The answer, in the attribute names of EN 18223:2026 Table 1:
+
+      digitalProductPassportId  did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+      uniqueProductIdentifier   https://dpp.oydapp.eu/01/09520123456791/21/000123
+      granularity               item
+      dppStatus                 Active
+      dppSchemaVersion          EN 18223:2026
+      lastUpdated               2026-08-25T17:00:04Z
+      economicOperatorId        did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6
+
+  Checked mechanically: no attribute begins with a capital letter, so nothing of
+  the 2025 draft's spelling survives. And there is no UPI attribute -- the
+  published edition calls the carrier string uniqueProductIdentifier and defines
+  it as the value that identifies the product AND enables the web link, so a
+  second attribute would be proprietary and would break conformance for every
+  reader.
+
+  The content is the expanded form of EN 18223:2026 Annex A: one uniform tree,
+  every level holding its children in "elements".
+
+      elements[0] = {"elementId": "EnergyPerformance",
+                     "objectType": "DataElementCollection",
+                     "elements": [{"elementId": "LuminousFlux",
+                                   "objectType": "SingleValuedDataElement",
+                                   "value": 806,
+                                   "valueDataType": "xsd:integer"}]}
+
+
+2 — The identifier read from the scan, without a network call
+
+      GTIN          09520123456791
+      Serial        000123
+      Granularity   item, from the path
+
+  The declared granularity is checked against the path rather than believed:
+  a declaration the path contradicts is refused at creation.
+
+
+3 — The long form, at both custodians
+
+      GET dpp.data-vault.eu/dpp/v1/dppsByProductId/{id}   200
+      GET dpp.go-data.at/dpp/v1/dppsByProductId/{id}      404
+
+  B holds the passport, A does not. This is the state before the move.
+
+
+4 — The negative test: the same path under a custodian's own host
+
+      GET https://dpp.data-vault.eu/01/09520123456791/21/000123   404
+      GET https://dpp.go-data.at/01/09520123456791/21/000123      404
+
+  The custodian that holds the passport refuses the carrier path under its own
+  name. The path is the lookup key, but the host has to be the operator's: the
+  card records which name the passport was created under, and a request under
+  any other name is not answered. Without this, a custodian could serve the
+  passport under its own domain and quietly become the address on the carrier.
+
+
+5 — Fine granular access, public
+
+      GET /dpp/v1/dpps/{dppId}/elements/EnergyPerformance/LuminousFlux   200
+          {"elementId": "LuminousFlux", "objectType": "SingleValuedDataElement",
+           "value": 806, "valueDataType": "xsd:integer"}
+
+      GET /dpp/v1/dpps/{dppId}/collections/EnergyPerformance             200
+
+  The element path is the elementId of each level. Under the 2025 draft the same
+  element was addressed as
+  dataElementCollections/EnergyPerformance/DataElements/LuminousFlux, because
+  the container was named twice; the published model gives every level the same
+  shape and the path shortens accordingly.
+
+  Deviation, stated rather than hidden: EN 18222:2026 8.1 asks for RFC 9535
+  JSONPath in elementIdPath. This is a path of element identifiers instead.
+  The collection endpoint is a second deviation -- Table 18 defines
+  ReadDataElement and UpdateDataElement only, a collection being a subclass of
+  DataElement; it is kept as an addition, not claimed as conformance.
+
+
+6 — Where the DID document sends a reader
+
+      GET https://oydid.ownyourdata.eu/1.0/identifiers/{dppId}   200
+
+      id                              did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+      service.DigitalProductPassport  https://dpp.data-vault.eu/dpp/v1/
+                                      dppsByProductId/https%3A%2F%2Fdpp.oydapp.eu
+                                      %2F01%2F09520123456791%2F21%2F000123
+
+  The endpoint names the custodian, and it reaches the passport through the
+  product identifier rather than through the DID -- the DID is the hash over
+  this very document, so an address containing it would be part of its own
+  computation.
+
+  This is also the value the move in the next record has to bring along: the
+  carrier moves by DNS, custody only by a signed log entry.

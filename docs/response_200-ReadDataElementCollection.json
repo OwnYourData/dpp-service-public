@@ -1,12 +1,11 @@
 {
-  "ElementId": "EnergyPerformance",
-  "Name": "Energieeffizienz",
+  "elementId": "EnergyPerformance",
   "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
-  "DataElements": [
-    { "@type": "SinglevaluedDataElement", "ElementId": "OnModePower", "Name": "Leistungsaufnahme im Ein-Zustand", "Value": 8.5, "ValueDataType": "xs:decimal", "UnitOfMeasure": "W" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "LuminousFlux", "Name": "Lichtstrom", "Value": 806, "ValueDataType": "xs:integer", "UnitOfMeasure": "lm" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "LuminousEfficacy", "Name": "Lichtausbeute", "Value": 94.8, "ValueDataType": "xs:decimal", "UnitOfMeasure": "lm/W" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "EnergyEfficiencyClass", "Name": "Energieeffizienzklasse", "Value": "E", "ValueDataType": "xs:string" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "EprelRegistrationNumber", "Name": "EPREL-Registrierungsnummer", "Value": "1234567", "ValueDataType": "xs:string" }
+  "elements": [
+    { "objectType": "SingleValuedDataElement", "elementId": "OnModePower", "name": "Leistungsaufnahme im Ein-Zustand", "value": 8.5, "valueDataType": "xsd:decimal", "unitOfMeasure": "W" },
+    { "objectType": "SingleValuedDataElement", "elementId": "LuminousFlux", "name": "Lichtstrom", "value": 806, "valueDataType": "xsd:integer", "unitOfMeasure": "lm" },
+    { "objectType": "SingleValuedDataElement", "elementId": "LuminousEfficacy", "name": "Lichtausbeute", "value": 94.8, "valueDataType": "xsd:decimal", "unitOfMeasure": "lm/W" },
+    { "objectType": "SingleValuedDataElement", "elementId": "EnergyEfficiencyClass", "name": "Energieeffizienzklasse", "value": "E", "valueDataType": "xsd:string" },
+    { "objectType": "SingleValuedDataElement", "elementId": "EprelRegistrationNumber", "name": "EPREL-Registrierungsnummer", "value": "1234567", "valueDataType": "xsd:string" }
   ]
 }

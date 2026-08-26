@@ -9,11 +9,11 @@ Base URL: `https://api.dpp.example.org/dpp/v1`
 
 | Level | Source |
 |---|---|
-| Outer frame of the DPP object (`DigitalProductPassportID`, `ProductID`, `Granularity`, `DPPSchemaVersion`, `DPPStatus`, `LastUpdate`, `EconomicOperatorID`, `FacilityID`) | **prEN 18223, Table 1** |
-| Structure `DataElementCollection` / `SinglevaluedDataElement` / `MultivaluedDataElement` / `ValueElement` | **prEN 18223, 4.1.3 (Tables 2–5)** |
-| Endpoints, HTTP mapping, status/result object | **prEN 18222 (Tables 13–19)** |
-| Identifier formats (URI/URL, GS1 Digital Link, W3C DID) | **prEN 18219** |
-| **The concrete product characteristics** (luminous flux, colour temperature, lifetime …) | **Not in 18223.** 18223 only defines the *framework*. Which data points a lightbulb has to carry is laid down in the ESPR act for the product group (lighting: Regulation (EU) 2019/2020 + 2019/2015) and in a data dictionary that every element points to via `DictionaryReference` (prEN 18223, 4.3). |
+| Outer frame of the DPP object (`digitalProductPassportId`, `uniqueProductIdentifier`, `granularity`, `dppSchemaVersion`, `dppStatus`, `lastUpdated`, `economicOperatorId`, `facilityId`) | **EN 18223:2026, Table 1** |
+| Structure `DataElementCollection` / `SingleValuedDataElement` / `MultiValuedDataElement` / `RelatedResource` | **EN 18223:2026, 4.1.2 (Tables 2–5)** |
+| Endpoints, HTTP mapping, status/result object | **EN 18222:2026 (Tables 13–19)** |
+| Identifier formats (URI/URL, GS1 Digital Link, W3C DID) | **EN 18219:2026** |
+| **The concrete product characteristics** (luminous flux, colour temperature, lifetime …) | **Not in 18223.** 18223 only defines the *framework*. Which data points a lightbulb has to carry is laid down in the ESPR act for the product group (lighting: Regulation (EU) 2019/2020 + 2019/2015) and in a data dictionary that every element points to via `DictionaryReference` (EN 18223:2026, 4.3). |
 
 > The `DictionaryReference` values below are **illustrative** (ECLASS/IEC CDD style) and have to
 > be replaced against the real repository of the product group.
@@ -84,178 +84,157 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "DigitalProductPassportID": "https://dpp.lumina.example/01/09520123456788/8546",
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "DPPStatus": "Active",
-  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "FacilityID": "https://id.lumina.example/414/0952012345001",
-  "dataElementCollections": [
+  "digitalProductPassportId": "https://dpp.lumina.example/01/09520123456788/8546",
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "elements": [
     {
-      "ElementId": "ProductIdentification",
-      "Name": "Product identification",
+      "elementId": "ProductIdentification",
       "DictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
-      "DataElements": [
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "ModelIdentifier",
-          "Name": "Model identifier",
-          "Value": "LUM-A60-827-806",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ModelIdentifier",
+          "value": "LUM-A60-827-806",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "BrandName",
-          "Name": "Brand",
-          "Value": "Lumina",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BrandName",
+          "value": "Lumina",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LightSourceType",
-          "Name": "Type of light source",
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LightSourceType",
           "DictionaryReference": "0173-1#02-AAO677#003",
-          "Value": "LED",
-          "ValueDataType": "xs:string"
+          "value": "LED",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "CapType",
-          "Name": "Cap type",
-          "Value": "E27",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CapType",
+          "value": "E27",
+          "valueDataType": "xsd:string"
         }
       ]
     },
     {
-      "ElementId": "EnergyPerformance",
-      "Name": "Energy performance",
+      "elementId": "EnergyPerformance",
       "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
-      "DataElements": [
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "OnModePower",
-          "Name": "On-mode power consumption",
-          "Value": 8.5,
-          "ValueDataType": "xs:decimal",
-          "UnitOfMeasure": "W"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "OnModePower",
+          "value": 8.5,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "W"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LuminousFlux",
-          "Name": "Luminous flux",
-          "Value": 806,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "lm"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousFlux",
+          "value": 806,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "lm"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LuminousEfficacy",
-          "Name": "Luminous efficacy",
-          "Value": 94.8,
-          "ValueDataType": "xs:decimal",
-          "UnitOfMeasure": "lm/W"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousEfficacy",
+          "value": 94.8,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "lm/W"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "EnergyEfficiencyClass",
-          "Name": "Energy efficiency class",
-          "Value": "E",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EnergyEfficiencyClass",
+          "value": "E",
+          "valueDataType": "xsd:string"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "EprelRegistrationNumber",
-          "Name": "EPREL registration number",
-          "Value": "1234567",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EprelRegistrationNumber",
+          "value": "1234567",
+          "valueDataType": "xsd:string"
         }
       ]
     },
     {
-      "ElementId": "LightQuality",
-      "Name": "Light quality",
-      "DataElements": [
+      "elementId": "LightQuality",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "CorrelatedColourTemperature",
-          "Name": "Correlated colour temperature",
-          "Value": 2700,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "K"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CorrelatedColourTemperature",
+          "value": 2700,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "K"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "ColourRenderingIndex",
-          "Name": "Colour rendering index (Ra)",
-          "Value": 80,
-          "ValueDataType": "xs:integer"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ColourRenderingIndex",
+          "value": 80,
+          "valueDataType": "xsd:integer"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "Dimmable",
-          "Name": "Dimmable",
-          "Value": false,
-          "ValueDataType": "xs:boolean"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "Dimmable",
+          "value": false,
+          "valueDataType": "xsd:boolean"
         }
       ]
     },
     {
-      "ElementId": "Durability",
-      "Name": "Durability",
-      "DataElements": [
+      "elementId": "Durability",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "RatedLifetime",
-          "Name": "Rated lifetime (L70B50)",
-          "Value": 15000,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "h"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RatedLifetime",
+          "value": 15000,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "h"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "SwitchingCycles",
-          "Name": "Switching cycles before failure",
-          "Value": 100000,
-          "ValueDataType": "xs:integer"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SwitchingCycles",
+          "value": 100000,
+          "valueDataType": "xsd:integer"
         }
       ]
     },
     {
-      "ElementId": "SubstancesOfConcern",
-      "Name": "Substances of concern",
-      "DataElements": [
+      "elementId": "SubstancesOfConcern",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "MercuryContent",
-          "Name": "Mercury content",
-          "Value": 0.0,
-          "ValueDataType": "xs:decimal",
-          "UnitOfMeasure": "mg"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "MercuryContent",
+          "value": 0.0,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "mg"
         },
         {
-          "@type": "MultivaluedDataElement",
-          "ElementId": "MaterialComposition",
-          "Name": "Material composition",
+          "objectType": "MultiValuedDataElement",
+          "elementId": "MaterialComposition",
           "ValueList": [
             {
-              "ElementId": "Polycarbonate",
-              "Name": "Polycarbonate",
-              "Value": 42.0,
-              "ValueDataType": "xs:decimal"
+              "elementId": "Polycarbonate",
+              "value": 42.0,
+              "valueDataType": "xsd:decimal"
             },
             {
-              "ElementId": "Aluminium",
-              "Name": "Aluminium",
-              "Value": 31.5,
-              "ValueDataType": "xs:decimal"
+              "elementId": "Aluminium",
+              "value": 31.5,
+              "valueDataType": "xsd:decimal"
             },
             {
-              "ElementId": "Electronics",
-              "Name": "Electronics",
-              "Value": 26.5,
-              "ValueDataType": "xs:decimal"
+              "elementId": "Electronics",
+              "value": 26.5,
+              "valueDataType": "xsd:decimal"
             }
           ]
         }
@@ -264,11 +243,10 @@ Authorization: Bearer <token>
   ],
   "dataElements": [
     {
-      "@type": "SinglevaluedDataElement",
-      "ElementId": "DeclarationOfConformity",
-      "Name": "EU declaration of conformity",
-      "Value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
-      "ValueDataType": "xs:anyURI"
+      "objectType": "SingleValuedDataElement",
+      "elementId": "DeclarationOfConformity",
+      "value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
+      "valueDataType": "xsd:anyURI"
     }
   ]
 }
@@ -276,19 +254,19 @@ Authorization: Bearer <token>
 
 ### Response `201 Created`
 
-The stored passport, enriched with `LastUpdate` (server timestamp):
+The stored passport, enriched with `lastUpdated` (server timestamp):
 
 ```json
 {
-  "DigitalProductPassportID": "https://dpp.lumina.example/01/09520123456788/8546",
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "DPPStatus": "Active",
-  "LastUpdate": "2026-07-13T09:14:02Z",
-  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "FacilityID": "https://id.lumina.example/414/0952012345001",
-  "dataElementCollections": [ "… as in the request …" ],
+  "digitalProductPassportId": "https://dpp.lumina.example/01/09520123456788/8546",
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-07-13T09:14:02Z",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "elements": [ "… as in the request …" ],
   "dataElements": [ "… as in the request …" ]
 }
 ```
@@ -328,14 +306,14 @@ The current (`Active`) passport for this product — complete DPP document.
 
 ---
 
-## 4. ReadDPPVersionByProductIdAndDate — `GET /dppsByProductIdAndDate/{PID}?date=…`
+## 4. ReadDPPVersionByIdAndDate — `GET /dppsByIdAndDate/{DPP}?date=…`
 
 "What did the passport look like on 1 March 2026?"
 
 ### Request
 
 ```http
-GET /dpp/v1/dppsByProductIdAndDate/https%3A%2F%2Fid.lumina.example%2F01%2F09520123456788?date=2026-03-01T00:00:00Z HTTP/1.1
+GET /dpp/v1/dppsByIdAndDate/did%3Aoyd%3AzQmY3j9By89J8rZR7SiewfA2ebNdoBWsx5BmJbD7in4aAsf?date=2026-03-01T00:00:00Z HTTP/1.1
 ```
 
 ### Response `200 OK`
@@ -343,7 +321,7 @@ GET /dpp/v1/dppsByProductIdAndDate/https%3A%2F%2Fid.lumina.example%2F01%2F095201
 The archived version that was valid at that point in time — for example still with
 `"EnergyEfficiencyClass": "F"` before the reassessment.
 
-### Error case `400 Bad Request` (Result object, prEN 18222 Table 13)
+### Error case `400 Bad Request` (Result object, EN 18222:2026 Table 13)
 
 ```json
 {
@@ -412,25 +390,25 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "FacilityID": "https://id.lumina.example/414/0952012345002"
+  "facilityId": "https://id.lumina.example/414/0952012345002"
 }
 ```
 
 ### Response `200 OK`
 
-The complete document after the patch — `FacilityID` new, `LastUpdate` refreshed.
+The complete document after the patch — `facilityId` new, `lastUpdated` refreshed.
 
 ```json
 {
-  "DigitalProductPassportID": "https://dpp.lumina.example/01/09520123456788/8546",
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "DPPStatus": "Active",
-  "LastUpdate": "2026-07-13T10:02:47Z",
-  "EconomicOperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "FacilityID": "https://id.lumina.example/414/0952012345002",
-  "dataElementCollections": [ "… unchanged …" ]
+  "digitalProductPassportId": "https://dpp.lumina.example/01/09520123456788/8546",
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-07-13T10:02:47Z",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+  "facilityId": "https://id.lumina.example/414/0952012345002",
+  "elements": [ "… unchanged …" ]
 }
 ```
 
@@ -450,15 +428,14 @@ GET /dpp/v1/dpps/{DPP}/collections/EnergyPerformance HTTP/1.1
 
 ```json
 {
-  "ElementId": "EnergyPerformance",
-  "Name": "Energy performance",
+  "elementId": "EnergyPerformance",
   "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
-  "DataElements": [
-    { "@type": "SinglevaluedDataElement", "ElementId": "OnModePower", "Name": "On-mode power consumption", "Value": 8.5, "ValueDataType": "xs:decimal", "UnitOfMeasure": "W" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "LuminousFlux", "Name": "Luminous flux", "Value": 806, "ValueDataType": "xs:integer", "UnitOfMeasure": "lm" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "LuminousEfficacy", "Name": "Luminous efficacy", "Value": 94.8, "ValueDataType": "xs:decimal", "UnitOfMeasure": "lm/W" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "EnergyEfficiencyClass", "Name": "Energy efficiency class", "Value": "E", "ValueDataType": "xs:string" },
-    { "@type": "SinglevaluedDataElement", "ElementId": "EprelRegistrationNumber", "Name": "EPREL registration number", "Value": "1234567", "ValueDataType": "xs:string" }
+  "elements": [
+    { "objectType": "SingleValuedDataElement", "elementId": "OnModePower", "name": "On-mode power consumption", "value": 8.5, "valueDataType": "xsd:decimal", "unitOfMeasure": "W" },
+    { "objectType": "SingleValuedDataElement", "elementId": "LuminousFlux", "name": "Luminous flux", "value": 806, "valueDataType": "xsd:integer", "unitOfMeasure": "lm" },
+    { "objectType": "SingleValuedDataElement", "elementId": "LuminousEfficacy", "name": "Luminous efficacy", "value": 94.8, "valueDataType": "xsd:decimal", "unitOfMeasure": "lm/W" },
+    { "objectType": "SingleValuedDataElement", "elementId": "EnergyEfficiencyClass", "name": "Energy efficiency class", "value": "E", "valueDataType": "xsd:string" },
+    { "objectType": "SingleValuedDataElement", "elementId": "EprelRegistrationNumber", "name": "EPREL registration number", "value": "1234567", "valueDataType": "xsd:string" }
   ]
 }
 ```
@@ -495,7 +472,7 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "Name": "Light quality (after remeasurement 2026)"
+  "name": "Light quality (after remeasurement 2026)"
 }
 ```
 
@@ -503,9 +480,9 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "ElementId": "LightQuality",
-  "Name": "Light quality (after remeasurement 2026)",
-  "DataElements": [ "… unchanged …" ]
+  "elementId": "LightQuality",
+  "objectType": "DataElementCollection",
+  "elements": [ "… unchanged …" ]
 }
 ```
 
@@ -515,24 +492,23 @@ Authorization: Bearer <token>
 
 A single data point, addressed by its absolute ElementId path.
 Path structure in this implementation:
-`dataElementCollections/<CollectionId>/DataElements/<ElementId>`
+`elements/<collectionId>/<elementId>`
 
 ### Request
 
 ```http
-GET /dpp/v1/dpps/{DPP}/elements/dataElementCollections/EnergyPerformance/DataElements/LuminousFlux HTTP/1.1
+GET /dpp/v1/dpps/{DPP}/elements/EnergyPerformance/LuminousFlux HTTP/1.1
 ```
 
 ### Response `200 OK`
 
 ```json
 {
-  "@type": "SinglevaluedDataElement",
-  "ElementId": "LuminousFlux",
-  "Name": "Luminous flux",
-  "Value": 806,
-  "ValueDataType": "xs:integer",
-  "UnitOfMeasure": "lm"
+  "objectType": "SingleValuedDataElement",
+  "elementId": "LuminousFlux",
+  "value": 806,
+  "valueDataType": "xsd:integer",
+  "unitOfMeasure": "lm"
 }
 ```
 
@@ -545,14 +521,14 @@ Correct a single value — for example the reclassification of the efficiency cl
 ### Request
 
 ```http
-PATCH /dpp/v1/dpps/{DPP}/elements/dataElementCollections/EnergyPerformance/DataElements/EnergyEfficiencyClass HTTP/1.1
+PATCH /dpp/v1/dpps/{DPP}/elements/EnergyPerformance/EnergyEfficiencyClass HTTP/1.1
 Content-Type: application/merge-patch+json
 Authorization: Bearer <token>
 ```
 
 ```json
 {
-  "Value": "D"
+  "value": "D"
 }
 ```
 
@@ -560,19 +536,18 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "@type": "SinglevaluedDataElement",
-  "ElementId": "EnergyEfficiencyClass",
-  "Name": "Energy efficiency class",
-  "Value": "D",
-  "ValueDataType": "xs:string"
+  "objectType": "SingleValuedDataElement",
+  "elementId": "EnergyEfficiencyClass",
+  "value": "D",
+  "valueDataType": "xsd:string"
 }
 ```
 
 ---
 
-## 11. PostNewDPPToRegistry — `POST /registerDPP`
+## 11. RegisterProductDPP — `POST /registerDPP`
 
-Registers the passport with the EU registry (prEN 18222, 5.2).
+Registers the passport with the EU registry (EN 18222:2026, 5.2).
 
 ### Request
 
@@ -584,9 +559,11 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "OperatorID": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "BackupID": "did:web:backup.dppservice.example"
+  "dppRegistryEntry": {
+    "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+    "uniqueEconomicOperatorIdentifier": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+    "backupEconomicOperatorIdentifier": "did:web:backup.dppservice.example"
+  }
 }
 ```
 
@@ -595,7 +572,7 @@ Authorization: Bearer <token>
 ```json
 {
   "statusCode": "SuccessCreated",
-  "registryIdentifier": "urn:ec:dpp:registry:9f1c8a2e-4d3b-4c7a-b1e5-6f0a2d9c4b71"
+  "registrationId": "urn:ec:dpp:registry:9f1c8a2e-4d3b-4c7a-b1e5-6f0a2d9c4b71"
 }
 ```
 
@@ -618,12 +595,12 @@ Authorization: Bearer <token>
 ### Response `204 No Content`
 
 No body. Before deleting, the service writes a final snapshot with
-`"DPPStatus": "Archived"`. That snapshot is kept and remains retrievable via endpoint 4
-(`dppsByProductIdAndDate`); `GET /dpps/{DPP}` returns `404` afterwards.
+`"dppStatus": "Archived"`. That snapshot is kept and remains retrievable via endpoint 4
+(`dppsByIdAndDate`); `GET /dpps/{DPP}` returns `404` afterwards.
 
 ---
 
-## Status codes at a glance (prEN 18222, Table 16)
+## Status codes at a glance (EN 18222:2026, Table 15)
 
 | Generic code | HTTP |
 |---|---|

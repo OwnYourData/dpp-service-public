@@ -34,21 +34,21 @@ the operator's own zone rather than a reprint.
 
 | # | Identifier | Identifies | Assigned by | Appears in | Standard |
 |---|---|---|---|---|---|
-| 1 | **Product ID = UPI** (`ProductID`) | the product **and** the access path | economic operator | data carrier, registry, passport document | EN 18219 cl. 5, 3.22, 4.5.2 (1) |
-| 2 | **Facility ID** (`FacilityID`) | a production site | economic operator | passport document | EN 18219 cl. 6 |
-| 3 | **Operator ID** (`EconomicOperatorID`) | the economic operator | economic operator | passport document, `registerDPP` | EN 18219 cl. 6 |
-| 4 | **Passport ID** (`DigitalProductPassportID`) | the passport document | service provider (var. A) or holder (var. B) | passport document, VDR | EN 18223 |
-| 5 | **Backup ID** | the backup service provider | operator / contract | `registerDPP` | EN 18221 3.3.2, EN 18222 Tab. 8 |
-| 6 | **Registration identifier** (`registryIdentifier`) | the registry record | EU registry | registry response | EN 18222 cl. 5.2 |
+| 1 | **Unique product identifier** (`uniqueProductIdentifier`) | the product **and** the access path | economic operator | data carrier, registry, passport document | EN 18219 cl. 5, 3.1.25, 4.5.2 (1) |
+| 2 | **Facility ID** (`facilityId`) | a production site | economic operator | passport document | EN 18219 cl. 6 |
+| 3 | **Operator ID** (`economicOperatorId`) | the economic operator | economic operator | passport document, `registerDPP` | EN 18219 cl. 6 |
+| 4 | **Passport ID** (`digitalProductPassportId`) | the passport document | service provider (var. A) or holder (var. B) | passport document, VDR | EN 18223 |
+| 5 | **Backup ID** | the backup service provider | operator / contract | `registerDPP` | EN 18221 cl. 4.5, EN 18222 Tab. 11 |
+| 6 | **Registration identifier** (`registrationId`) | the registry record | EU registry | registry response | EN 18222 cl. 5.2 |
 
 Alongside these sit the holder's **identity DID** and the service provider's
 **service DID** — actor identities that appear only in tokens and delegations,
 never inside the passport.
 
-There is **no separate carrier token**. EN 18219 cl. 3.22 defines the unique
+There is **no separate carrier token**. EN 18219 cl. 3.1.25 defines the unique
 product identifier as *one* string that identifies the product and also enables
 the web link to the passport, and cl. 4.5.2 (1) requires that very string to be
-retrievable from the carrier. Product ID and UPI are the same value.
+retrievable from the carrier.
 
 ## 3. How they connect
 
@@ -56,16 +56,16 @@ retrievable from the carrier. Product ID and UPI are the same value.
    Data carrier (QR, NFC)
         │   encodes exactly ONE string
         ▼
-   ProductID = UPI     https://p.lumina.at/01/09520123456791/21/000123
+   uniqueProductIdentifier   https://p.lumina.at/01/09520123456791/21/000123
         │                      └─ host: economic operator
         │                                   └─ path: scheme A or B
         │   DNS record, no redirect
         ▼
    Custodian           dpp.data-vault.eu
         ▼
-   Passport document   ProductID · DigitalProductPassportID ──▶ ①
-        │              EconomicOperatorID ──▶ ②  ·  FacilityID
-        │              Granularity · DPPSchemaVersion · DPPStatus · LastUpdate
+   Passport document   uniqueProductIdentifier · digitalProductPassportId ─▶ ①
+        │              economicOperatorId ──▶ ②  ·  facilityId
+        │              granularity · dppSchemaVersion · dppStatus · lastUpdated
         │   DID resolution
         ▼
    DID documents       ① passport: serviceEndpoint, publicKeyMultibase
@@ -97,18 +97,18 @@ document behind it cannot contain the carrier URL either.
 The carrier bears the product identifier itself. Two schemes are admissible
 here, and they trade differently.
 
-**A — GS1 Digital Link** (EN 18219 cl. 5.1.2.1)
+**A — GS1 Digital Link** (EN 18219 cl. 5.2)
 
 ```
 https://p.lumina.at/01/09520123456791/21/000123     47 characters
 ```
 
 Descriptive: a scanner reads GTIN and serial number from the path without a
-network call, and the service checks the declared `Granularity` against the path
+network call, and the service checks the declared `granularity` against the path
 instead of trusting it. Price: the prefix is licensed annually from an issuing
 agency registered under ISO/IEC 15459-2.
 
-**B — identification link with a self-certifying path** (EN 18219 cl. 5.2,
+**B — identification link with a self-certifying path** (EN 18219 cl. 5.3,
 EN IEC 61406-1)
 
 ```
@@ -119,7 +119,7 @@ The path is the multibase multihash of a product `did:oyd`, without the
 `did:oyd:` prefix. Dropping the prefix is lossless, so the same string has two
 readings: call it as a web address, or prepend `did:oyd:` and resolve it as a
 DID. No issuing agency, and the string commits to a document rather than merely
-addressing one. Price: the path describes nothing, and `Granularity` has to be
+addressing one. Price: the path describes nothing, and `granularity` has to be
 believed.
 
 **The character budget.** The registry limits the identifier to 50 characters
@@ -129,10 +129,12 @@ size is a one-way decision: it is fixed with the first carrier printed, and
 increasing it later would require a shorter host — which changes every carrier
 already in the field.
 
-**Not admissible on the carrier: a bare DID.** It is not an https URL, and
-EN 18219 cl. 3.16 note 1 records that DID resolution normally needs additional
-software, which cl. 4.6.2 (2) forbids for the consumer path. The multihash form
-above avoids exactly that: it resolves in any browser.
+**Not admissible on the carrier: a bare DID.** It is not an https URL. On the
+software question the published edition is quieter than the draft was: Annex B
+Table B.10 notes for the DID scheme, under cl. 4.6.2 (2) consumer usage, that
+the identifier has to be parsed and resolved, where every other scheme reads
+"no additional software needed" — but that annex is informative. The multihash
+form above sidesteps the argument: it resolves in any browser.
 
 ## 6. Mapping to the standard's ID schemes
 
@@ -143,12 +145,11 @@ outside the standard:
 
 | Scheme | What it is | Here |
 |---|---|---|
-| 5.1.2.1 structured path | GS1 application identifiers | **A** |
-| 5.1.2.2 query string | ASC MH10 data identifiers | out — we admit no query strings |
-| 5.2 identification link | EN IEC 61406-1, self-issuing | **B** |
-| 5.3 DID | W3C DID | out — carrier-capable only behind a web resolver |
-| 5.4 product/group ID | binary encoding in an RFID tag | out — different carrier type |
-| 5.5 DOI | ISO 26324 | out — foreign resolver, too long |
+| 5.2 web enabled, structured path and query | GS1 application identifiers | **A**, by the path; we admit no query strings |
+| 5.3 identification link | EN IEC 61406-1, self-issuing | **B** |
+| 5.4 DID | W3C DID | out — carrier-capable only behind a web resolver |
+| 5.5 products and product groups | binary encoding in an RFID tag | out — different carrier type |
+| 5.6 DOI | ISO 26324 | out — foreign resolver, too long |
 
 The three external constraints: the **registry** requires https and at most 50
 characters; **cl. 4.6.2 (2)** forbids requiring software downloads on the
@@ -156,7 +157,8 @@ consumer path; and our own **anti-lock-in criterion** admits no third party's
 resolver in the access path. The standard permits the latter explicitly
 (cl. 4.4.3 (2)) — we simply do not want it.
 
-Query strings are excluded by our own decision: `…/01/0952…` and
+The path and the query string are one scheme in the published edition, and
+the query half is excluded by our own decision: `…/01/0952…` and
 `…/01/0952…?17=271231` would otherwise yield the same lookup key.
 
 ## 7. The three confusions that keep recurring
@@ -194,7 +196,7 @@ was issued therefore keeps resolving as its document evolves.
 
 ## 9. Open points
 
-* The **backup service provider** required by EN 18221 cl. 4.3 is not yet
+* The **backup service provider** of EN 18221 cl. 4.5 is not yet
   appointed. The standard makes the backup copy mandatory and the primary
   provider optional — the reverse of what one might assume.
 * The **payload hash** in the DID log and the detached payload signature are

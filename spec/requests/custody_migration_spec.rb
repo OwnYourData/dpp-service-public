@@ -26,10 +26,10 @@ RSpec.describe "Changing the custodian", type: :request do
   end
 
   let(:document) do
-    { "ProductID" => product_id,
-      "Granularity" => "item",
-      "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }
+    { "uniqueProductIdentifier" => product_id,
+      "granularity" => "item",
+      "dppSchemaVersion" => "EN 18223:2026",
+      "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }
   end
 
   # A stubbed custodian that remembers what was written to it.
@@ -77,7 +77,7 @@ RSpec.describe "Changing the custodian", type: :request do
       expect(response).to have_http_status(:ok)
       expect(pod_b).to have_received(:create_object)
       expect(pod_b).to have_received(:write_payload)
-        .with("obj-b", hash_including("ProductID" => product_id))
+        .with("obj-b", hash_including("uniqueProductIdentifier" => product_id))
 
       dpp = Dpp.find(dpp_id)
       expect(dpp.storage_base_url).to eq(url_b)
@@ -88,7 +88,7 @@ RSpec.describe "Changing the custodian", type: :request do
 
     # The identifier is what the carrier bears. If it changed here, every
     # printed carrier would be dead -- which is precisely the property under
-    # test (prEN 18219, 4.6.2 (3)).
+    # test (EN 18219:2026 4.6.2 (3)).
     it "leaves the identifier and the product key untouched" do
       before_move = Dpp.find(dpp_id)
 

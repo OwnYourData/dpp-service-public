@@ -2,31 +2,42 @@
 
 module Api
   module V1
-    # prEN 18222 Clause 5 — Registry API for Register.
+    # EN 18222:2026 Clause 5 — Registry API for Register.
     #
-    # PostNewDPPToRegistry registers a new DPP at the EC registry. The registry
+    # RegisterProductDPP registers a new DPP at the EC registry. The registry
     # is operated by the European Commission; the concrete endpoint and schema
     # are defined by EU implementing acts. This action models the client-facing
     # contract and delegates to a (TODO) EC registry client.
     class RegistryController < ApplicationController
       before_action :authenticate_actor!
 
-      # POST /dpp/v1/registerDPP  (§5.2, Table 8)
+      # POST /dpp/v1/registerDPP  — RegisterProductDPP (EN 18222:2026 5.2, Table 8)
+      #
+      # The method takes a +dppRegistryEntry+ and answers with +statusCode+ and
+      # +registrationId+. EN 18222:2026 7.1 Table 11 defines the entry as the
+      # passport header, of which two fields are indispensable here: the product
+      # identifier and the operator. Note that EN 18222 spells the operator
+      # +uniqueEconomicOperatorIdentifier+ where EN 18223 Table 1 has
+      # +economicOperatorId+; both are accepted.
       def create
         payload     = request_json.to_h.with_indifferent_access
-        product_id  = payload[:ProductID]
-        operator_id = payload[:OperatorID]
+        entry       = (payload[:dppRegistryEntry] || payload).with_indifferent_access
+        product_id  = entry[:uniqueProductIdentifier]
+        operator_id = entry[:uniqueEconomicOperatorIdentifier] || entry[:economicOperatorId]
 
         if product_id.blank? || operator_id.blank?
-          return render_result("ClientErrorBadRequest",
-                               text: "ProductID and OperatorID are required")
+          return render_result(
+            "ClientErrorBadRequest",
+            text: "dppRegistryEntry requires uniqueProductIdentifier and " \
+                  "uniqueEconomicOperatorIdentifier"
+          )
         end
 
-        # TODO: call the EC registry (EN 18222 §5.1) and return its identifier.
-        # registry_id = EcRegistryClient.new.register(payload)
-        registry_id = "urn:ec:dpp:registry:#{SecureRandom.uuid}"
+        # TODO: call the EU registry and return the identifier it assigns.
+        # registration_id = EcRegistryClient.new.register(entry)
+        registration_id = "urn:ec:dpp:registry:#{SecureRandom.uuid}"
 
-        render json: { statusCode: "SuccessCreated", registryIdentifier: registry_id },
+        render json: { statusCode: "SuccessCreated", registrationId: registration_id },
                status: :created
       end
 

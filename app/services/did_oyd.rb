@@ -8,14 +8,14 @@ require "uri"
 # needs in Variante A. Keeping oydid behind this seam lets specs stub it, so the
 # test/dev environment needs neither libsodium nor network access.
 #
-# prEN 18219 (§5.3, W3C DID) is the normative basis; the DID document carries a
-# service endpoint (prEN 18220 discovery) pointing back to the public read URL.
+# EN 18219:2026 (§5.3, W3C DID) is the normative basis; the DID document carries a
+# service endpoint (EN 18220:2026 discovery) pointing back to the public read URL.
 class DidOyd
   class DidError < StandardError; end
 
   DEFAULT_LOCATION = "https://oydid.ownyourdata.eu"
 
-  # The service entry a passport DID carries (prEN 18220 discovery).
+  # The service entry a passport DID carries (EN 18220:2026 discovery).
   SERVICE_TYPE = "DigitalProductPassport"
 
   # Resolving goes over the network. A client-supplied identifier is checked
@@ -137,7 +137,7 @@ class DidOyd
   # passport is created with it.
   #
   # Two things have to hold. The DID must be live -- a passport under a DID
-  # nobody can resolve is unreachable through the discovery path prEN 18220
+  # nobody can resolve is unreachable through the discovery path EN 18220:2026
   # describes. And its serviceEndpoint must name the host that will actually
   # hold the passport, because a reader who resolves the DID is sent there.
   #
@@ -155,7 +155,7 @@ class DidOyd
     return true if actual.present? && actual == wanted
 
     raise DidError,
-          "DigitalProductPassportID resolves to #{actual.presence || 'no host'}, " \
+          "digitalProductPassportId resolves to #{actual.presence || 'no host'}, " \
           "but this passport is served from #{wanted}"
   end
 

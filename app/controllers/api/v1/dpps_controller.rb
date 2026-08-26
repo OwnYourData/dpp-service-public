@@ -2,7 +2,7 @@
 
 module Api
   module V1
-    # prEN 18222 Clause 4 — Life Cycle API (Main Methods).
+    # EN 18222:2026 Clause 4 — Life Cycle API (Main Methods).
     class DppsController < ApplicationController
       # Reads of public data are unauthenticated; writes require an actor.
       before_action :authenticate_actor!, only: %i[create update destroy move_custody]
@@ -10,9 +10,9 @@ module Api
 
       # POST /dpp/v1/dpps  — CreateDPP (§4.6, Table 5)
       #
-      # DID handling keyed off DigitalProductPassportID (no proprietary fields):
+      # DID handling keyed off digitalProductPassportId (no proprietary fields):
       #   * omitted        -> Variante A: the service mints a did:oyd and keeps
-      #                       its keys (prEN 18219 / oydid). Standard-conform:
+      #                       its keys (EN 18219:2026 / oydid). Standard-conform:
       #                       CreateDPP returns the assigned dpp ID (Table 5).
       #   * did:oyd:...     -> client-supplied DID (Variante B). Resolved
       #                       before use: it must be live and its
@@ -22,12 +22,12 @@ module Api
       #
       # Storage backend (S2), keyed off the X-DPP-Storage header — deliberately
       # a header and not a field of the DPP document, so the payload stays free
-      # of proprietary attributes (prEN 18223):
+      # of proprietary attributes (EN 18223:2026):
       #   * absent  -> the document is stored in this service's database
       #   * present -> the document is stored in the hosting pod named by the
       #                token; the pod also serves the public read paths, so the
       #                DID's serviceEndpoint points at it. The carrier does not:
-      #                it bears the ProductID, whose host is the operator's.
+      #                it bears the product identifier, whose host is the operator's.
       def create
         storage = pod_storage_param     # nil unless X-DPP-Storage is present
         # Reachability and credentials are verified BEFORE anything permanent
@@ -37,11 +37,11 @@ module Api
 
         dpp = Dpp.from_document(dpp_document_param)
 
-        # The ProductID is the identifier the carrier bears (prEN 18219 §3.22,
-        # §4.5.2 (1)), so it is checked before anything permanent happens:
+        # The product identifier is what the carrier bears (EN 18219:2026
+        # 3.1.25, 4.5.2 (1)), so it is checked before anything permanent happens:
         # minting first and failing validation afterwards would leave an orphan
-        # DID behind. Granularity is checked against the path rather than
-        # trusted (prEN 18223 Table 1).
+        # DID behind. granularity is checked against the path rather than
+        # trusted (EN 18223:2026 Table 1).
         if dpp.product_id.present?
           begin
             ProductIdentifier.parse!(dpp.product_id).assert_granularity!(dpp.granularity)
@@ -71,7 +71,7 @@ module Api
         if dpp.dpp_id.blank?
           if dpp.product_id.blank?
             return render_result("ClientErrorBadRequest",
-                                 text: "ProductID is required to mint a DID")
+                                 text: "uniqueProductIdentifier is required to mint a DID")
           end
           minted = if storage
                      DidOyd.mint(dpp.product_id, endpoint_base: storage.base_url)
@@ -110,8 +110,8 @@ module Api
       # DELETE /dpp/v1/dpps/:dpp_id  — DeleteDPPById (§4.8, Table 7)
       #
       # The active passport is removed, but its history is kept: the final
-      # snapshot is written with DPPStatus "Archived" and remains retrievable
-      # via ReadDPPVersionByProductIdAndDate (prEN 18221 / Module 6).
+      # snapshot is written with dppStatus "Archived" and remains retrievable
+      # via ReadDPPVersionByIdAndDate (EN 18221:2026 4.2).
       #
       # For a service-minted DID (Variante A) the DID is revoked first, using
       # the stored keys; a revocation failure aborts before anything is deleted.
@@ -137,7 +137,7 @@ module Api
 
       # POST /dpp/v1/dpps/:dpp_id/custody  — change the custodian.
       #
-      # Not part of prEN 18222: the standard describes what a service does with
+      # Not part of EN 18222:2026: the standard describes what a service does with
       # a passport, not where it keeps it. This is the operation the exit claim
       # rests on. Custody is delegated per passport, so moving it is the same
       # kind of act as granting it: the new mandate arrives in X-DPP-Storage
@@ -149,7 +149,7 @@ module Api
       # may still resolve to the old host; withdrawing custody is a declaration
       # of the holder and should look like one; and the version history lives in
       # the pod, so releasing before the new custodian has been seen to answer
-      # would discard what prEN 18221, 4.3 requires to be retained.
+      # would discard what EN 18221:2026, 4.3 requires to be retained.
       #
       # What "release" can and cannot be: a delegated token soft-deletes the
       # object -- the public paths answer 404, the payload versions remain.
@@ -202,31 +202,31 @@ module Api
         render_dpp(dpp.to_document)
       end
 
-      # GET /dpp/v1/dppsByProductIdAndDate/:product_id?date=  (§4.4, Table 3)
+      # GET /dpp/v1/dppsByIdAndDate/:dpp_id?date=
+      # ReadDPPVersionByIdAndDate (EN 18222:2026 4.4, Table 3 and Table 16)
       #
       # The version that was current at +date+ is the earliest snapshot archived
-      # at or after that date. If none exists, the DPP has not changed since —
-      # so the live passport is returned. No join on dpps: archived versions
+      # at or after that date. If none exists, the passport has not changed
+      # since -- so the live one is returned. No join on dpps: archived versions
       # outlive a deleted passport.
-      # For a pod-backed DPP the history lives in the pod (which archives every
-      # change on its own), so the lookup is delegated there.
-      def by_product_id_and_date
-        date = Time.iso8601(params.require(:date)).utc
+      # For a pod-backed passport the history lives in the pod (which archives
+      # every change on its own), so the lookup is delegated there.
+      def by_id_and_date
+        date   = Time.iso8601(params.require(:date)).utc
+        dpp_id = params[:dpp_id]
 
-        pod_dpp = Dpp.where(product_id: params[:product_id], storage_backend: "pod")
-                     .order(last_update: :desc).first
+        pod_dpp = Dpp.where(dpp_id: dpp_id, storage_backend: "pod").first
         if pod_dpp
-          document = pod_dpp.pod_storage.version_at(params[:product_id], date)
+          document = pod_dpp.pod_storage.version_at(dpp_id, date)
           raise ActiveRecord::RecordNotFound if document.nil?
 
           return render_dpp(document)
         end
 
-        version = DppVersion.for_product(params[:product_id])
+        version = DppVersion.where(dpp_id: dpp_id)
                             .where(archived_at: date..)
                             .order(:archived_at).first
-        document = version&.content ||
-                   Dpp.active.find_by!(product_id: params[:product_id]).to_document
+        document = version&.content || Dpp.active.find(dpp_id).to_document
         render_dpp(document)
       rescue ArgumentError
         render_result("ClientErrorBadRequest", text: "Invalid 'date' (expected ISO 8601 UTC)")
@@ -310,7 +310,7 @@ module Api
         Rails.logger.error("[dpp] rollback after failed pod write incomplete: #{e.message}")
       end
 
-      # The DPP document (prEN 18223 attributes) from the request body.
+      # The DPP document (EN 18223:2026 attributes) from the request body.
       def dpp_document_param
         body = request_json
         raise ActionController::ParameterMissing, :dpp if body.blank?

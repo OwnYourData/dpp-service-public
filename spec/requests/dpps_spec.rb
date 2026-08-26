@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# Request specs for the prEN 18222 Life Cycle API (Clause 4), the Registry API
+# Request specs for the EN 18222:2026 Life Cycle API (Clause 4), the Registry API
 # (Clause 5) and the Fine Granular API (Clause 6), using a lighting DPP.
 RSpec.describe "DPP API", type: :request do
   # The bearer gate decodes the JWT (signature verification is still TODO), so
@@ -12,7 +12,7 @@ RSpec.describe "DPP API", type: :request do
   let(:auth)  { json.merge("Authorization" => token) }
   let(:patch_headers) { auth.merge("Content-Type" => "application/merge-patch+json") }
 
-  # Identifiers are URLs (prEN 18219): they contain ":", "/" and ".".
+  # Identifiers are URLs (EN 18219:2026): they contain ":", "/" and ".".
   let(:dpp_id)     { "https://dpp.lumina.example/01/09520123456788/8546" }
   let(:product_id) { "https://id.lumina.example/01/09520123456788" }
   let(:enc_dpp)    { CGI.escape(dpp_id) }
@@ -20,22 +20,20 @@ RSpec.describe "DPP API", type: :request do
 
   let(:dpp_document) do
     {
-      "DigitalProductPassportID" => dpp_id,
-      "ProductID" => product_id,
-      "Granularity" => "model",
-      "DPPSchemaVersion" => "prEN 18223:2025",
-      "DPPStatus" => "Active",
-      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-      "dataElementCollections" => [
+      "digitalProductPassportId" => dpp_id,
+      "uniqueProductIdentifier" => product_id,
+      "granularity" => "model",
+      "dppSchemaVersion" => "EN 18223:2026",
+      "dppStatus" => "Active",
+      "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
+      "elements" => [
         {
-          "ElementId" => "EnergyPerformance",
-          "Name" => "Energieeffizienz",
-          "DataElements" => [
-            { "@type" => "SinglevaluedDataElement", "ElementId" => "LuminousFlux",
-              "Name" => "Lichtstrom", "Value" => 806, "ValueDataType" => "xs:integer",
-              "UnitOfMeasure" => "lm" },
-            { "@type" => "SinglevaluedDataElement", "ElementId" => "EnergyEfficiencyClass",
-              "Name" => "Energieeffizienzklasse", "Value" => "E", "ValueDataType" => "xs:string" }
+          "elementId" => "EnergyPerformance",
+          "objectType" => "DataElementCollection",
+          "elements" => [
+            { "objectType" => "SingleValuedDataElement", "elementId" => "LuminousFlux", "value" => 806, "valueDataType" => "xsd:integer",
+              "unitOfMeasure" => "lm" },
+            { "objectType" => "SingleValuedDataElement", "elementId" => "EnergyEfficiencyClass", "value" => "E", "valueDataType" => "xsd:string" }
           ]
         }
       ]
@@ -48,8 +46,7 @@ RSpec.describe "DPP API", type: :request do
   end
 
   def efficiency_class_path
-    "/dpp/v1/dpps/#{enc_dpp}/elements/" \
-      "dataElementCollections/EnergyPerformance/DataElements/EnergyEfficiencyClass"
+    "/dpp/v1/dpps/#{enc_dpp}/elements/EnergyPerformance/EnergyEfficiencyClass"
   end
 
   describe "Life Cycle API (Clause 4)" do
@@ -61,8 +58,8 @@ RSpec.describe "DPP API", type: :request do
       get "/dpp/v1/dpps/#{enc_dpp}"
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
-      expect(body["DigitalProductPassportID"]).to eq(dpp_id)
-      expect(body["ProductID"]).to eq(product_id)
+      expect(body["digitalProductPassportId"]).to eq(dpp_id)
+      expect(body["uniqueProductIdentifier"]).to eq(product_id)
     end
 
     it "reads a DPP by its product identifier" do
@@ -70,7 +67,7 @@ RSpec.describe "DPP API", type: :request do
 
       get "/dpp/v1/dppsByProductId/#{enc_prod}"
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["DigitalProductPassportID"]).to eq(dpp_id)
+      expect(JSON.parse(response.body)["digitalProductPassportId"]).to eq(dpp_id)
     end
 
     it "resolves product identifiers to DPP identifiers" do
@@ -87,11 +84,11 @@ RSpec.describe "DPP API", type: :request do
       create_dpp!
 
       patch "/dpp/v1/dpps/#{enc_dpp}",
-            params: { "FacilityID" => "https://id.lumina.example/414/0952012345002" }.to_json,
+            params: { "facilityId" => "https://id.lumina.example/414/0952012345002" }.to_json,
             headers: patch_headers
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["FacilityID"]).to end_with("0952012345002")
+      expect(JSON.parse(response.body)["facilityId"]).to end_with("0952012345002")
     end
 
     it "rejects writes without a bearer token" do
@@ -112,62 +109,62 @@ RSpec.describe "DPP API", type: :request do
     it "reads a data element collection" do
       get "/dpp/v1/dpps/#{enc_dpp}/collections/EnergyPerformance"
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["DataElements"].size).to eq(2)
+      expect(JSON.parse(response.body)["elements"].size).to eq(2)
     end
 
-    it "reads a single data element by its ElementId path" do
-      get "/dpp/v1/dpps/#{enc_dpp}/elements/" \
-          "dataElementCollections/EnergyPerformance/DataElements/LuminousFlux"
+    it "reads a single data element by its absolute element path" do
+      get "/dpp/v1/dpps/#{enc_dpp}/elements/EnergyPerformance/LuminousFlux"
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
-      expect(body["Value"]).to eq(806)
-      expect(body["UnitOfMeasure"]).to eq("lm")
+      expect(body["value"]).to eq(806)
+      expect(body["unitOfMeasure"]).to eq("lm")
     end
 
-    # Regression: assign_path indexed the DataElements array with a String and
+    # Regression: assign_path indexed the elements array with a String and
     # raised TypeError -> 500.
     it "patches a single data element inside a collection" do
-      patch efficiency_class_path, params: { "Value" => "D" }.to_json, headers: patch_headers
+      patch efficiency_class_path, params: { "value" => "D" }.to_json, headers: patch_headers
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["Value"]).to eq("D")
+      expect(JSON.parse(response.body)["value"]).to eq("D")
 
       get efficiency_class_path
-      expect(JSON.parse(response.body)["Value"]).to eq("D")
+      expect(JSON.parse(response.body)["value"]).to eq("D")
     end
 
     it "returns 404 for an unknown element path" do
-      get "/dpp/v1/dpps/#{enc_dpp}/elements/dataElementCollections/Nope/DataElements/Nope"
+      get "/dpp/v1/dpps/#{enc_dpp}/elements/Nope/Nope"
       expect(response).to have_http_status(:not_found)
     end
 
     it "patches a data element collection" do
       patch "/dpp/v1/dpps/#{enc_dpp}/collections/EnergyPerformance",
-            params: { "Name" => "Energieeffizienz (2026)" }.to_json,
+            params: { "dictionaryReference" => "https://dictionary.example/energyPerformance" }.to_json,
             headers: patch_headers
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["Name"]).to eq("Energieeffizienz (2026)")
+      expect(JSON.parse(response.body)["dictionaryReference"])
+        .to eq("https://dictionary.example/energyPerformance")
     end
   end
 
-  describe "Archiving (prEN 18221 / Module 6)" do
+  describe "Archiving (EN 18221:2026 4.2)" do
     before { create_dpp! }
 
     it "archives the previous state and serves it by date" do
       before_change = Time.now.utc
 
-      patch efficiency_class_path, params: { "Value" => "D" }.to_json, headers: patch_headers
+      patch efficiency_class_path, params: { "value" => "D" }.to_json, headers: patch_headers
       expect(response).to have_http_status(:ok)
 
-      get "/dpp/v1/dppsByProductIdAndDate/#{enc_prod}", params: { date: before_change.iso8601 }
+      get "/dpp/v1/dppsByIdAndDate/#{enc_dpp}", params: { date: before_change.iso8601 }
       expect(response).to have_http_status(:ok)
 
-      element = JSON.parse(response.body)["dataElementCollections"]
-                    .find { |c| c["ElementId"] == "EnergyPerformance" }["DataElements"]
-                    .find { |e| e["ElementId"] == "EnergyEfficiencyClass" }
-      expect(element["Value"]).to eq("E") # the value *before* the patch
+      element = JSON.parse(response.body)["elements"]
+                    .find { |c| c["elementId"] == "EnergyPerformance" }["elements"]
+                    .find { |e| e["elementId"] == "EnergyEfficiencyClass" }
+      expect(element["value"]).to eq("E") # the value *before* the patch
     end
 
     # Regression: dpp_versions was dependent: :destroy, so DeleteDPPById wiped
@@ -181,15 +178,15 @@ RSpec.describe "DPP API", type: :request do
       get "/dpp/v1/dpps/#{enc_dpp}"
       expect(response).to have_http_status(:not_found)
 
-      get "/dpp/v1/dppsByProductIdAndDate/#{enc_prod}", params: { date: deleted_at.iso8601 }
+      get "/dpp/v1/dppsByIdAndDate/#{enc_dpp}", params: { date: deleted_at.iso8601 }
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
-      expect(body["DigitalProductPassportID"]).to eq(dpp_id)
-      expect(body["DPPStatus"]).to eq("Archived")
+      expect(body["digitalProductPassportId"]).to eq(dpp_id)
+      expect(body["dppStatus"]).to eq("Archived")
     end
 
     it "rejects an invalid date" do
-      get "/dpp/v1/dppsByProductIdAndDate/#{enc_prod}", params: { date: "gestern" }
+      get "/dpp/v1/dppsByIdAndDate/#{enc_dpp}", params: { date: "gestern" }
       expect(response).to have_http_status(:bad_request)
       expect(JSON.parse(response.body)["statusCode"]).to eq("ClientErrorBadRequest")
     end
@@ -198,17 +195,37 @@ RSpec.describe "DPP API", type: :request do
   describe "Registry API (Clause 5)" do
     it "registers a DPP and returns a registry identifier" do
       post "/dpp/v1/registerDPP",
-           params: { "ProductID" => product_id, "OperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }.to_json,
+           params: { "dppRegistryEntry" => {
+             "uniqueProductIdentifier" => product_id,
+             "uniqueEconomicOperatorIdentifier" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+           } }.to_json,
            headers: auth
 
       expect(response).to have_http_status(:created)
       body = JSON.parse(response.body)
       expect(body["statusCode"]).to eq("SuccessCreated")
-      expect(body["registryIdentifier"]).to start_with("urn:ec:dpp:registry:")
+      expect(body["registrationId"]).to start_with("urn:ec:dpp:registry:")
     end
 
-    it "requires ProductID and OperatorID" do
-      post "/dpp/v1/registerDPP", params: { "ProductID" => product_id }.to_json, headers: auth
+    # EN 18222:2026 7.1 Table 11 spells the operator uniqueEconomicOperatorIdentifier
+    # where EN 18223 Table 1 has economicOperatorId. Both are accepted, so a client
+    # that has the passport header at hand does not have to rename a field to
+    # register it.
+    it "also accepts the EN 18223 spelling of the operator" do
+      post "/dpp/v1/registerDPP",
+           params: { "dppRegistryEntry" => {
+             "uniqueProductIdentifier" => product_id,
+             "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+           } }.to_json,
+           headers: auth
+
+      expect(response).to have_http_status(:created)
+    end
+
+    it "requires the product identifier and the operator" do
+      post "/dpp/v1/registerDPP",
+           params: { "dppRegistryEntry" => { "uniqueProductIdentifier" => product_id } }.to_json,
+           headers: auth
       expect(response).to have_http_status(:bad_request)
     end
   end

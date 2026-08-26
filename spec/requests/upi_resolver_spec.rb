@@ -4,7 +4,7 @@ require "rails_helper"
 
 # The identifier the data carrier bears.
 #
-# prEN 18219 §3.22 makes the unique product identifier one string that both
+# EN 18219:2026 3.1.25 makes the unique product identifier one string that both
 # identifies the product and enables the web link to the passport, and
 # §4.5.2 (1) requires that same string to be retrievable from the carrier.
 # There is therefore no separate carrier token to derive: the UPI *is* the
@@ -21,11 +21,11 @@ RSpec.describe "Carrier identifier", type: :request do
 
   let(:dpp_document) do
     {
-      "DigitalProductPassportID" => "did:oyd:zQmWVzyTPZ19ebpw2Dm9doEDP4qw9rVcs6M4v3iQMo7vpVS",
-      "ProductID" => product_id,
-      "Granularity" => "item",
-      "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
+      "digitalProductPassportId" => "did:oyd:zQmWVzyTPZ19ebpw2Dm9doEDP4qw9rVcs6M4v3iQMo7vpVS",
+      "uniqueProductIdentifier" => product_id,
+      "granularity" => "item",
+      "dppSchemaVersion" => "EN 18223:2026",
+      "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
     }
   end
 
@@ -40,14 +40,14 @@ RSpec.describe "Carrier identifier", type: :request do
   end
 
   describe "the identifier itself" do
-    it "is the ProductID, and stays within the Registry's 50-character limit" do
+    it "is the uniqueProductIdentifier, and stays within the Registry's 50-character limit" do
       body = create_dpp!
       expect(response).to have_http_status(:created)
-      expect(body["ProductID"]).to eq(product_id)
+      expect(body["uniqueProductIdentifier"]).to eq(product_id)
       expect(product_id.length).to be <= 50
     end
 
-    it "carries no separate UPI attribute, which prEN 18223 Table 1 does not define" do
+    it "carries no separate UPI attribute, which EN 18223:2026 Table 1 does not define" do
       body = create_dpp!
       expect(body).not_to have_key("UPI")
     end
@@ -62,52 +62,52 @@ RSpec.describe "Carrier identifier", type: :request do
   describe "refusals at creation" do
     it "refuses an identifier that would not fit on the carrier" do
       long = "https://dpp.a-rather-long-operator-domain.example/01/09520123456791/21/000123"
-      create_dpp!(dpp_document.merge("ProductID" => long))
+      create_dpp!(dpp_document.merge("uniqueProductIdentifier" => long))
 
       expect(response).to have_http_status(:bad_request)
       expect(response.body).to match(/over the 50-character limit/)
     end
 
-    it "refuses a Granularity the path contradicts" do
-      create_dpp!(dpp_document.merge("Granularity" => "model"))
+    it "refuses a granularity the path contradicts" do
+      create_dpp!(dpp_document.merge("granularity" => "model"))
 
       expect(response).to have_http_status(:bad_request)
-      expect(response.body).to match(/contradicts the ProductID path/)
+      expect(response.body).to match(/contradicts the identifier path/)
     end
 
     it "refuses a malformed Digital Link rather than reading it as free text" do
-      create_dpp!(dpp_document.merge("ProductID" => "https://dpp.oydapp.eu/01/952012345679"))
+      create_dpp!(dpp_document.merge("uniqueProductIdentifier" => "https://dpp.oydapp.eu/01/952012345679"))
 
       expect(response).to have_http_status(:bad_request)
       expect(response.body).to match(/Digital Link/)
     end
 
     it "refuses a path with characters a carrier cannot bear unencoded" do
-      create_dpp!(dpp_document.merge("ProductID" => "https://dpp.oydapp.eu/ABC 4711"))
+      create_dpp!(dpp_document.merge("uniqueProductIdentifier" => "https://dpp.oydapp.eu/ABC 4711"))
 
       expect(response).to have_http_status(:bad_request)
     end
 
     it "refuses plain http" do
-      create_dpp!(dpp_document.merge("ProductID" => "http://dpp.oydapp.eu/01/09520123456791"))
+      create_dpp!(dpp_document.merge("uniqueProductIdentifier" => "http://dpp.oydapp.eu/01/09520123456791"))
 
       expect(response).to have_http_status(:bad_request)
     end
   end
 
-  # prEN 18219 §5.2: an operator with no GS1 membership can issue its own
+  # EN 18219:2026 5.3: an operator with no GS1 membership can issue its own
   # identifier under a domain it controls. Supporting only §5.1 would make the
   # architecture's freedom from lock-in stop at the domain name and continue as
   # a dependency on an annually licensed prefix.
-  describe "identification links (prEN 18219 §5.2)" do
+  describe "identification links (EN 18219:2026 5.3)" do
     let(:self_issued) { "https://dpp.oydapp.eu/ABC-4711" }
 
     it "is accepted with a declared granularity" do
-      body = create_dpp!(dpp_document.merge("ProductID" => self_issued,
-                                            "Granularity" => "batch"))
+      body = create_dpp!(dpp_document.merge("uniqueProductIdentifier" => self_issued,
+                                            "granularity" => "batch"))
 
       expect(response).to have_http_status(:created)
-      expect(body["ProductID"]).to eq(self_issued)
+      expect(body["uniqueProductIdentifier"]).to eq(self_issued)
       expect(Dpp.find_by(product_id: self_issued).product_key).to eq("/ABC-4711")
     end
   end

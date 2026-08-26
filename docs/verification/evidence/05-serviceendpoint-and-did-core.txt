@@ -1,0 +1,123 @@
+Where the DID document sends a reader, and what the resolver says — 2026-08-25
+
+Subject
+  Resolver       https://oydid.ownyourdata.eu
+                 {"service":"oydid repository","version":"0.5.2","oydid-gem":"0.9.0"}
+  Passport DID   did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+  Reference      W3C DID Core v1.0 (REC 2022-07-19), 5.3 alsoKnownAs and
+                 7.1.3 DID Document Metadata Properties (equivalentId,
+                 canonicalId). EN 18219:2026 requires conformance with
+                 DIDs v1.0:2022 for DID-based identifier schemes.
+
+  A did:oyd is the hash over {doc, key}. If the document changes, so does the
+  identifier -- in this method there is no update without a new identifier. That
+  makes the relation between an issued identifier and the current one the point
+  on which conformance turns, because a printed identifier cannot be recalled.
+
+
+1 — Where the endpoint points, and what it is allowed to contain
+
+      GET https://oydid.ownyourdata.eu/1.0/identifiers/{dppId}   200
+
+      id                              did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+      service.DigitalProductPassport  https://dpp.data-vault.eu/dpp/v1/
+                                      dppsByProductId/https%3A%2F%2Fdpp.oydapp.eu
+                                      %2F01%2F09520123456791%2F21%2F000123
+
+  The endpoint reaches the passport through the product identifier rather than
+  through the DID, and it cannot do otherwise: the DID is the hash over this
+  very document, so an address containing it would be part of its own
+  computation.
+
+
+2 — What the custody moves did NOT do
+
+  This passport was moved twice today, B -> A and A -> B. Its DID document was
+  never updated: didDocumentMetadata reports no version other than the original.
+  Throughout the period in which the passport was held at A, the document
+  therefore sent a reader to B -- and the reader still received the passport,
+  because B was still serving.
+
+  Stated rather than glossed: the DID document was stale for that period, and
+  only the overlap between the two custodians made the staleness harmless.
+  Bringing the serviceEndpoint along is a separate, explicit act, and in this
+  method it costs a new identifier. An operator who wants the DID document to
+  stay accurate pays that price per move; an operator who does not, relies on
+  the overlap -- and the overlap ends with the zone's time-to-live.
+
+
+3 — Where the equivalence between old and new identifier is expressed
+
+  Checked on a passport DID that HAS been updated (issued 23.08, updated the
+  same day), resolved once by each of its two identifiers:
+
+      requested did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W
+        didDocument.id                     the requested DID
+        didDocument.alsoKnownAs            [did:oyd:zQmfEb3Kg…E8K]
+        didDocumentMetadata.canonicalId    did:oyd:zQmfEb3Kg…E8K
+        didDocumentMetadata.equivalentId   [did:oyd:zQmfEb3Kg…E8K]
+
+      requested did:oyd:zQmfEb3KgYZjZUPLTHPmFPdcV6peF5itB5NmJ9N6gaxxE8K
+        didDocument.id                     the requested DID
+        didDocumentMetadata.canonicalId    the requested DID
+        didDocumentMetadata.equivalentId   [did:oyd:zQmSE1…K7W]
+
+  Two things are right here and are worth recording as such, because both were
+  deviations earlier in this project's history:
+
+  didDocument.id is the DID that was resolved, not the newest one. DID Core
+  requires exactly that, and an earlier version of this resolver returned the
+  newest identifier as id and the requested one only under alsoKnownAs.
+
+  canonicalId and equivalentId appear in didDocumentMetadata and nowhere else.
+  7.1.3 defines them as DID document metadata, not as document properties. They
+  are served under content negotiation
+  (Accept: application/ld+json;profile="https://w3id.org/did-resolution");
+  the answer carries Vary: Accept, and without that header the endpoint returns
+  the bare DID document. Both checked.
+
+  A note against a mistake this record made before it was corrected: reading the
+  bare DID document and finding no canonicalId is not a finding. The property
+  does not belong there.
+
+
+4 — One deviation, reported and accepted
+
+  For a DID that has never been updated, the resolver names a location-bound
+  form as the canonical one:
+
+      requested   did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+      canonicalId did:oyd:zQmdX5…MxMdf%40oydid.ownyourdata.eu
+      equivalentId [did:oyd:zQmdX5…MxMdf%40oydid.ownyourdata.eu]
+
+  7.1.3 says of canonicalId that the DID "is defined to be the canonical ID for
+  the DID subject"; a consumer that follows it stores a location-bound string as
+  the primary identifier of a product passport. That is the opposite of what a
+  self-certifying identifier is for, and consumers -- this implementation
+  included -- actively normalise the suffix away before storing.
+
+  Reported to the method maintainers, who accepted it and located the cause in
+  the resolver's version_ids, where the canonical value and the log entries are
+  used without normalisation. Two corrections came back that improve the report:
+
+    * the location must be stripped from canonicalId and equivalentId, not
+      merely written differently, because a DID can be mirrored at any number of
+      locations -- the set is open and cannot be enumerated, so equivalentId
+      could not state it correctly in any encoding. The location remains a
+      resolution hint in alsoKnownAs.
+
+    * the unencoded form did:oyd:…@host, which this record originally proposed
+      as the expected value, is not a conformant DID at all: DID Core 3.1 gives
+      idchar = ALPHA / DIGIT / "." / "-" / "_" / pct-encoded, and "@" is not
+      among them. Only the %40 form is syntactically admissible, so the question
+      of an equivalence between the two spellings does not arise.
+
+  The point is a quality finding, not a conformance failure: what 7.1.3 makes
+  normative is that the METHOD guarantee logical equivalence; the consumer
+  behaviour it describes is not normative.
+
+  Open at the time of writing, and named here rather than left out:
+  didDocumentMetadata carries no created, updated or versionId (each a SHOULD in
+  7.1.3), and a revoked DID is reported as HTTP 410 without metadata, so the
+  deactivated flag that 7.1.3 makes a MUST for deactivated DIDs never reaches a
+  consumer that only sees a resolution result.

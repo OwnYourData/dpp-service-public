@@ -1,0 +1,135 @@
+The same move, in the correct order — 2026-08-25
+
+Subject
+  Data carrier   https://dpp.oydapp.eu/01/09520123456791/21/000123   (unchanged)
+  Passport       did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf   (unchanged)
+  Custodian A    dpp.go-data.at      89.58.20.114    namespace dpp,   collection 36
+  Custodian B    dpp.data-vault.eu   152.53.34.232   namespace dpp-b, collection 4
+  Direction      A -> B
+
+  The previous record measured this move with the two acts in the wrong order
+  and found the gap that produces. This one measures the same move in the order
+  that follows from the finding: custody first, DNS second, release last.
+
+
+1 — Baseline, made unambiguous first
+
+  B still held the copy it had served before the earlier move, so "both answer"
+  would have been true without anything being moved. B was therefore emptied
+  first, under an admin-scoped token at the custodian itself:
+
+      DELETE https://dpp.data-vault.eu/collection/4/purge   {"count":2,"events":5}
+      Store.where(key: "object_4").count                     0
+
+  This is also the release act the third step calls for, performed in advance:
+  the service exposes release only as a parameter of the move
+  (release_previous=true), which is right for a zone with a short time-to-live
+  and wrong for this one. Retiring a custodian after the fact is the operator's
+  own act at their custodian, carried out under their own mandate.
+
+  State: A serves, B does not, the name points at A.
+
+
+2 — Act one: custody
+
+      POST /dpp/v1/dpps/{dppId}/custody
+      X-DPP-Storage: base_url https://dpp.data-vault.eu, collection_id 4,
+                     a delegation minted for B
+
+      {"digitalProductPassportId":"did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf",
+       "uniqueProductIdentifier":"https://dpp.oydapp.eu/01/09520123456791/21/000123",
+       "dppStatus":"Active"}
+
+  Neither identifier changes. That is the whole claim: the string that was
+  printed on the product is not a party to this transaction.
+
+  Measured with both custodian addresses pinned by curl --resolve, so that no
+  cache can decide the outcome:
+
+      carrier at 89.58.20.114 (A)   200
+      carrier at 152.53.34.232 (B)  200
+      long form at dpp.go-data.at        200
+      long form at dpp.data-vault.eu     200
+
+  Both addresses answer. This is the overlap, and it is the state in which act
+  two cannot fail.
+
+  On where this was measured, because it decides whether the two lines above
+  mean anything: from the operator's own machine, not from the observation host
+  used elsewhere in this run. That host sits behind an egress proxy which
+  resolves names itself and silently ignores curl --resolve -- pinning a name to
+  203.0.113.99, an address reserved for documentation where nothing is listening,
+  still returned 200 there. Every address attribution in this record therefore
+  comes from a vantage point where a counter-check against that same unreachable
+  address fails as it should. The check is cheap and belongs in any measurement
+  that claims to have asked a particular host.
+
+
+3 — Act two: DNS, under observation
+
+  A sampler polled both pinned addresses and the name itself every 3 seconds
+  across the change of the A record from A to B.
+
+      18:09:23Z ... 18:11:42Z    41 samples
+      A=200  B=200  viaDNS=200   in every single one
+
+  No deviation. Compare the previous record, where the same two acts in the
+  opposite order produced a 404 whose only reason for being a single one was
+  that the sampler's cache happened to hide the others.
+
+
+4 — The measurement that shows why the overlap is not optional
+
+  At 18:12:29Z, one minute after the change, two independent public resolvers
+  were asked the same question and gave different answers:
+
+      dns.google           dpp.oydapp.eu   A   152.53.34.232   TTL 820
+      cloudflare-dns.com   dpp.oydapp.eu   A   89.58.20.114    TTL 7200
+
+  Both are correct from where they stand: one has the new record, the other is
+  still serving a valid cached answer of the old one. There is no moment at
+  which the world agrees on where the name points -- there is only a period in
+  which both answers are in circulation, bounded by the zone's time-to-live,
+  here 7200 s.
+
+  Both answers worked, because both custodians were serving. That is what the
+  overlap buys, and it is why releasing the previous custodian belongs after the
+  time-to-live rather than with the move.
+
+
+5 — Three statements, and why they need not agree
+
+  A custodian can be named in three places, and they move independently:
+
+      the DNS record in the operator's zone      moved in act two
+      the DID document's serviceEndpoint         not moved
+      the service's own custody record           moved in act one
+
+  Resolution of the passport DID after both acts:
+
+      id               did:oyd:zQmdX5gYVMPyfbTDmy4cv7guhchbHQBiTu64vyVvZMNxMdf
+      canonicalId      null
+      serviceEndpoint  https://dpp.data-vault.eu/dpp/v1/dppsByProductId/
+                       https%3A%2F%2Fdpp.oydapp.eu%2F01%2F09520123456791%2F21%2F000123
+
+  canonicalId is null: this DID document has never been updated. It has named B
+  since the passport was created. During the period the passport was held at A,
+  it therefore sent a reader to B -- and the reader still received the passport,
+  because B was still serving.
+
+  Stated plainly rather than glossed: the DID document was stale for that
+  period, and only the overlap made the staleness harmless. Bringing the
+  serviceEndpoint along is a separate, explicit act, and in did:oyd it costs a
+  new identifier, because the identifier is the hash over the document (see the
+  serviceEndpoint record). An operator who wants the DID document to stay
+  accurate pays that price per move; an operator who does not, relies on the
+  overlap -- and the overlap has a deadline.
+
+
+What this establishes
+
+  A change of custodian costs a delegation, a log entry and a DNS record. It
+  costs nothing that was printed, nothing that was registered, and no identifier
+  anywhere. The one thing it does cost is time: the previous custodian has to
+  keep serving for one time-to-live of the operator's zone, and the order of the
+  two acts is not a matter of taste.

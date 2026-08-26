@@ -1,27 +1,25 @@
 {
-  "ProductID": "https://id.lumina.example/01/09520123456788",
-  "Granularity": "model",
-  "DPPSchemaVersion": "prEN 18223:2025",
-  "EconomicOperatorID": "did:web:lumina.example",
-  "dataElementCollections": [
+  "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
+  "granularity": "model",
+  "dppSchemaVersion": "EN 18223:2026",
+  "economicOperatorId": "did:web:lumina.example",
+  "elements": [
     {
-      "ElementId": "EnergyPerformance",
-      "Name": "Energieeffizienz",
-      "DataElements": [
+      "elementId": "EnergyPerformance",
+      "objectType": "DataElementCollection",
+      "elements": [
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "LuminousFlux",
-          "Name": "Lichtstrom",
-          "Value": 806,
-          "ValueDataType": "xs:integer",
-          "UnitOfMeasure": "lm"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousFlux",
+          "value": 806,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "lm"
         },
         {
-          "@type": "SinglevaluedDataElement",
-          "ElementId": "EnergyEfficiencyClass",
-          "Name": "Energieeffizienzklasse",
-          "Value": "E",
-          "ValueDataType": "xs:string"
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EnergyEfficiencyClass",
+          "value": "E",
+          "valueDataType": "xsd:string"
         }
       ]
     }

@@ -2,7 +2,7 @@
 
 class CreateDpps < ActiveRecord::Migration[7.1]
   def change
-    # prEN 18223 Table 1 — header attributes as columns; full document in :content.
+    # EN 18223:2026 Table 1 — header attributes as columns; full document in :content.
     create_table :dpps, id: false do |t|
       t.string :dpp_id, null: false                       # DigitalProductPassportID
       t.string :product_id, null: false                   # ProductID

@@ -321,7 +321,7 @@ true for anything that still authenticates with a shared secret. The claim this
 model earns is "the DPP path needs no shared secret", not "the intermediary
 works without shared secrets".
 
-## 14. Error mapping (prEN 18222 Table 16)
+## 14. Error mapping (EN 18222:2026 Table 16)
 
 `invalid_dpop_proof` (RFC 9449 §7.1) and `insufficient_scope` (RFC 6750 §3.1)
 are prescribed by their respective RFCs; where this table names one of them it
@@ -382,13 +382,13 @@ delegate may perform and never said how it reaches the state it is supposed to
 change. A merge patch cannot be formulated without the current document.
 
 The rule is in §5. What makes it not a widening of the mandate: with `update` or
-`delete` in `act`, the service ends up holding the document anyway. `UpdateDPP`
-applies an RFC 7396 merge patch and answers with the updated passport (prEN
-18222, Table 5); `DeleteDPPById` writes the final version as `Archived` before
+`delete` in `act`, the service ends up holding the document anyway. `UpdateDPPById`
+applies an RFC 7396 merge patch and answers with the updated passport (EN
+18222:2026, Table 6); `DeleteDPPById` writes the final version as `Archived` before
 the object goes. A write-only mandate would therefore not keep the content from
 the delegate — it would only make the operations it grants impossible. That is
 the argument, and it is worth being precise about it: "the passport is public
-via its UPI anyway" is *not*, because passports need not stay public, and the
+via its product identifier anyway" is *not*, because passports need not stay public, and the
 same objection is what rules out reading through the public path.
 
 Three alternatives were weighed and dropped. Reading through the **public path**

@@ -22,11 +22,11 @@ RSpec.describe "DID-based authorization", type: :request do
   end
 
   def document(overrides = {})
-    { "DigitalProductPassportID" => dpp_id,
-      "ProductID" => product_id,
-      "Granularity" => "model",
-      "DPPSchemaVersion" => "prEN 18223:2025",
-      "EconomicOperatorID" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }.merge(overrides)
+    { "digitalProductPassportId" => dpp_id,
+      "uniqueProductIdentifier" => product_id,
+      "granularity" => "model",
+      "dppSchemaVersion" => "EN 18223:2026",
+      "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }.merge(overrides)
   end
 
   before do
@@ -78,18 +78,18 @@ RSpec.describe "DID-based authorization", type: :request do
     end
 
     it "lets the owner update" do
-      patch "/dpp/v1/dpps/#{enc}", params: { "FacilityID" => "https://f.example/1" }.to_json,
+      patch "/dpp/v1/dpps/#{enc}", params: { "facilityId" => "https://f.example/1" }.to_json,
                                    headers: patch_headers.call(owner)
       expect(response).to have_http_status(:ok)
     end
 
     it "refuses an update from another DID" do
-      patch "/dpp/v1/dpps/#{enc}", params: { "FacilityID" => "https://f.example/2" }.to_json,
+      patch "/dpp/v1/dpps/#{enc}", params: { "facilityId" => "https://f.example/2" }.to_json,
                                    headers: patch_headers.call(stranger)
 
       expect(response).to have_http_status(:forbidden)
       expect(response.parsed_body["statusCode"]).to eq("ClientForbidden")
-      expect(Dpp.find(dpp_id).to_document[:FacilityID]).to be_nil
+      expect(Dpp.find(dpp_id).to_document[:facilityId]).to be_nil
     end
 
     it "refuses a delete from another DID and keeps the passport" do
@@ -100,8 +100,8 @@ RSpec.describe "DID-based authorization", type: :request do
     end
 
     it "refuses a data element patch from another DID" do
-      patch "/dpp/v1/dpps/#{enc}/elements/dataElementCollections/X/DataElements/Y",
-            params: { "Value" => "D" }.to_json, headers: patch_headers.call(stranger)
+      patch "/dpp/v1/dpps/#{enc}/elements/X/Y",
+            params: { "value" => "D" }.to_json, headers: patch_headers.call(stranger)
 
       expect(response).to have_http_status(:forbidden)
     end
@@ -115,14 +115,14 @@ RSpec.describe "DID-based authorization", type: :request do
   describe "a passport created before verification was switched on" do
     before do
       Dpp.create!(dpp_id: dpp_id, product_id: product_id, granularity: "model",
-                  dpp_schema_version: "prEN 18223:2025",
+                  dpp_schema_version: "EN 18223:2026",
                   economic_operator_id: "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS", last_update: Time.now.utc,
                   content: {}, owner_did: nil)
     end
 
     it "cannot be modified, because there is nobody to compare against" do
       patch "/dpp/v1/dpps/#{CGI.escape(dpp_id)}",
-            params: { "FacilityID" => "https://f.example/3" }.to_json,
+            params: { "facilityId" => "https://f.example/3" }.to_json,
             headers: headers_for(owner).merge("Content-Type" => "application/merge-patch+json")
 
       expect(response).to have_http_status(:forbidden)
@@ -138,7 +138,7 @@ RSpec.describe "DID-based authorization", type: :request do
       expect(Dpp.find(dpp_id).owner_did).to be_nil
 
       patch "/dpp/v1/dpps/#{CGI.escape(dpp_id)}",
-            params: { "FacilityID" => "https://f.example/4" }.to_json,
+            params: { "facilityId" => "https://f.example/4" }.to_json,
             headers: headers_for(stranger).merge("Content-Type" => "application/merge-patch+json")
       expect(response).to have_http_status(:ok)
     end

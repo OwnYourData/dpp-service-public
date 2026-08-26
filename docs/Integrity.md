@@ -4,8 +4,8 @@
 Section 6 names what is **not** implemented today — and the integrity claim we
 make in the paper depends on exactly that.
 
-Reference: prEN 18219 (identifiers), prEN 18246 (authenticity and integrity),
-prEN 18221 (storage, archiving, persistence).
+Reference: EN 18219:2026 (identifiers), prEN 18246 (authenticity and integrity),
+EN 18221:2026 (storage, archiving, persistence).
 
 ---
 
@@ -82,9 +82,9 @@ Two commitments:
 2. **`payloadHash`** — the hash of the current passport document in the form in
    which the custodian delivers it.
 
-> **Why the endpoint goes through the `ProductID` and not through the DID:** the
+> **Why the endpoint goes through the `uniqueProductIdentifier` and not through the DID:** the
 > DID is the hash over exactly that document which would have to contain the
-> endpoint. It cannot occur in its own document. The `ProductID` is known at the
+> endpoint. It cannot occur in its own document. The `uniqueProductIdentifier` is known at the
 > time of minting and is stable.
 
 ## 4. Which hash exactly
@@ -94,7 +94,7 @@ hashed. Definition:
 
 - **Subject:** exactly the bytes that the custodian delivers under the
   `serviceEndpoint` with `Content-Type: application/json` — the payload in the
-  sense of prEN 18223, without the HTTP frame, without reformatting.
+  sense of EN 18223:2026, without the HTTP frame, without reformatting.
 - **Procedure:** `sha256`, multibase-encoded (`z…`), identical to how the DRI is
   formed in the pod, so that pod and DID document carry the same value.
 - **No canonicalisation.** Precisely for that reason the custodian stores and
@@ -105,9 +105,9 @@ hashed. Definition:
 The verification step of a reader is therefore:
 
 ```
-1. scan data carrier           → the ProductID, an https URL
+1. scan data carrier           → the uniqueProductIdentifier, an https URL
 2. fetch                       → passport document (bytes B)
-3. DigitalProductPassportID    → take from B
+3. digitalProductPassportId    → take from B
 4. resolve DID                 → document v_n
 5. sha256(B) == payloadHash?   → integrity
 6. signature of entry n        → verify against the document key
@@ -175,7 +175,7 @@ Two mechanisms that must not be confused:
 |---|---|---|
 | What | signed chain of the DID documents | append-only write log with timestamp and payload hash |
 | Who writes | holder, or service with the document key | the pod |
-| What for | prEN 18246, integrity **against** the custodian | prEN 18221, state at a point in time; at the same time activity data under Art. 12(c) DGA |
+| What for | prEN 18246, integrity **against** the custodian | EN 18221:2026, state at a point in time; at the same time activity data under Art. 12(c) DGA |
 | What it proves | this content was attested by the holder | this content existed at this point in time |
 
 The pod can keep a history without anyone having to believe it — the
@@ -184,7 +184,7 @@ serve a point-in-time query. Only both together satisfy 18221 **and** 18246.
 
 ## 8. Deletion
 
-`DeleteDPPById` terminates the active passport, not the history (prEN 18221).
+`DeleteDPPById` terminates the active passport, not the history (EN 18221:2026 4.2).
 In variant A the service revokes the DID with the revocation key; in variant B
 only the holder can do this. A revoked identifier is no longer resolvable
 afterwards — the archived states in the pod remain retrievable, but their

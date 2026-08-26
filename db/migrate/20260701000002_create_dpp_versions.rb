@@ -2,7 +2,7 @@
 
 class CreateDppVersions < ActiveRecord::Migration[7.1]
   def change
-    # prEN 18221 (Module 6) — archived snapshots of each DPP change.
+    # EN 18221:2026 (Module 6) — archived snapshots of each DPP change.
     create_table :dpp_versions do |t|
       t.string :dpp_id, null: false
       t.string :product_id, null: false # denormalised: versions outlive the DPP row

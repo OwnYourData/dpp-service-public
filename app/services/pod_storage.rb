@@ -28,7 +28,7 @@ require "digest"
 #
 # Deliberately without extra gems: Net::HTTP from the standard library.
 class PodStorage
-  # Pod failures are mapped onto the generic status codes of prEN 18222
+  # Pod failures are mapped onto the generic status codes of EN 18222:2026
   # (Table 16); docs/Delegation.md §14 fixes the mapping for the OAuth errors.
   class Error < StandardError
     attr_reader :status_code
@@ -50,7 +50,7 @@ class PodStorage
   class DelegationError < Error; end
 
   # The Registry's 50-character budget no longer constrains this value. Since
-  # the carrier redesign the UPI is the ProductID under a host of the economic
+  # the carrier redesign the UPI is the product identifier under a host of the
   # operator's own (see ProductIdentifier), while this base_url is the
   # custodian's own address and never reaches a carrier. The length check moved
   # to ProductIdentifier, where the string that actually gets printed lives.
@@ -169,8 +169,8 @@ class PodStorage
     body = {
       "collection-id"            => numeric_collection_id,
       "type"                     => "DigitalProductPassport",
-      "DigitalProductPassportID" => dpp.dpp_id,
-      "ProductID"                => dpp.product_id,
+      "digitalProductPassportId" => dpp.dpp_id,
+      "uniqueProductIdentifier"  => dpp.product_id,
       # Host-independent lookup key: it is what lets this one store answer for
       # every operator hostname pointed at it by CNAME (docs/Identifiers.md).
       "product_key"              => dpp.product_key
@@ -184,7 +184,7 @@ class PodStorage
 
   # Writes the DPP document as the payload. Every change creates a new payload
   # row in the pod; the previous one stays retrievable under its DRI — that is
-  # the version history of prEN 18221.
+  # the version history of EN 18221:2026.
   def write_payload(object_id, document)
     ensure_covers!("update")
     request(:put, "/object/#{object_id}/write", body: document, auth: true)
@@ -195,7 +195,7 @@ class PodStorage
     request(:get, "/object/#{object_id}/read", auth: true)
   end
 
-  # Soft delete: the archived versions survive (prEN 18221).
+  # Soft delete: the archived versions survive (EN 18221:2026).
   def delete_object(object_id)
     ensure_covers!("delete")
     request(:delete, "/object/#{object_id}", auth: true)
@@ -203,8 +203,8 @@ class PodStorage
   end
 
   # State at +date+ — served by pod-dpp, public, without a token.
-  def version_at(product_id, date)
-    path = "/dpp/v1/dppsByProductIdAndDate/#{CGI.escape(product_id.to_s)}" \
+  def version_at(dpp_id, date)
+    path = "/dpp/v1/dppsByIdAndDate/#{CGI.escape(dpp_id.to_s)}" \
            "?date=#{CGI.escape(date.utc.iso8601)}"
     request(:get, path, auth: false)
   rescue Error => e
@@ -314,7 +314,7 @@ class PodStorage
     raise ConfigError, "storage configuration: delegation is required"    if delegation.empty?
 
     unless base_url.start_with?("https://")
-      raise ConfigError, "storage configuration: base_url must use https (prEN 18216 §6.2)"
+      raise ConfigError, "storage configuration: base_url must use https (EN 18216:2026 §6.2)"
     end
 
     URI.parse(base_url)

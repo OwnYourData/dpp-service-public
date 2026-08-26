@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# RFC 7396 — JSON Merge Patch. Referenced by prEN 18222 §4.7 (UpdateDPP) and
+# RFC 7396 — JSON Merge Patch. Referenced by EN 18222:2026 4.7 (UpdateDPPById) and
 # §6.4/§6.5 for partial updates of DPPs and data elements.
 module JsonMergePatch
   module_function

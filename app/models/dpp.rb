@@ -2,8 +2,8 @@
 
 # A Digital Product Passport instance.
 #
-# The header attributes of the prEN 18223 semantic model (Table 1) are stored
-# as columns for querying; the full DPP document (header + dataElementCollections
+# The header attributes of the EN 18223:2026 semantic model (Table 1) are stored
+# as columns for querying; the full DPP document (header + elements
 # + dataElements) is kept in +content+ as the single source of truth.
 class Dpp < ApplicationRecord
   self.primary_key = "dpp_id"
@@ -13,7 +13,7 @@ class Dpp < ApplicationRecord
 
   # NOT dependent: :destroy — DeleteDPPById archives the current version and
   # removes the active passport; the archived versions must survive so that
-  # ReadDPPVersionByProductIdAndDate keeps working (prEN 18221 / Module 6).
+  # ReadDPPVersionByIdAndDate keeps working (EN 18221:2026 4.2).
   has_many :dpp_versions, foreign_key: "dpp_id", primary_key: "dpp_id",
                           dependent: nil, inverse_of: :dpp
 
@@ -21,7 +21,7 @@ class Dpp < ApplicationRecord
   validates :dpp_status, inclusion: { in: STATUSES }
   validates :granularity, inclusion: { in: GRANULARITIES }
 
-  # The ProductID has to be a carrier-borne identifier (see ProductIdentifier).
+  # The product identifier has to be carrier-borne (see ProductIdentifier).
   # On create only: passports minted before the carrier redesign carry opaque
   # identifiers and must stay updatable.
   validate :product_id_is_a_carrier_identifier, on: :create
@@ -31,14 +31,14 @@ class Dpp < ApplicationRecord
 
   # The Unique Product Identifier registered at the EU Registry.
   #
-  # prEN 18219 §3.22 defines it as *one* string that identifies the product and
+  # EN 18219:2026 3.1.25 defines it as *one* string that identifies the product and
   # "also enables a web link to the digital product passport", and §4.5.2 (1)
   # requires that same string to be retrievable from the data carrier. It is
-  # therefore the ProductID itself — there is no second carrier token to derive.
+  # therefore the product identifier itself -- no second carrier token exists.
   #
   # The host belongs to the economic operator and is pointed at the custodian by
   # CNAME, so changing custodian leaves printed carriers intact, which is what
-  # §4.6.2 (3) (no vendor lock-in), §4.5.2 (4) (portability) and §3.12 (usable
+  # 4.6.2 (3) (no vendor lock-in), 4.5.2 (4) (existing ID) and 3.1.25 (usable
   # outside the issuing assigner's control) ask for.
   def upi
     product_id
@@ -102,7 +102,7 @@ class Dpp < ApplicationRecord
   #
   # Deliberately NOT touched here: the old pod. The overlap is the rollback path
   # while a carrier may still resolve to the old host, and the version history
-  # lives in the pod (prEN 18221, 4.3 requires all versions to be retained), so
+  # lives in the pod (EN 18221:2026 4.2 requires archived versions to be retained), so
   # releasing before the new custodian has been seen to answer would discard
   # exactly what has to be kept.
   def move_to_pod!(storage)
@@ -163,40 +163,46 @@ class Dpp < ApplicationRecord
     self.did_rev_log = minted[:rev_log]
   end
 
-  # Build a Dpp from an inbound DPP document (prEN 18223 attribute names).
+  # Build a Dpp from an inbound DPP document (EN 18223:2026 Table 1).
   def self.from_document(doc)
     doc = doc.with_indifferent_access
     new(
-      dpp_id:               doc[:DigitalProductPassportID],
-      product_id:           doc[:ProductID],
-      granularity:          doc[:Granularity],
-      dpp_schema_version:   doc[:DPPSchemaVersion],
-      dpp_status:           doc[:DPPStatus] || "Active",
-      economic_operator_id: doc[:EconomicOperatorID],
-      facility_id:          doc[:FacilityID],
+      dpp_id:               doc[:digitalProductPassportId],
+      product_id:           doc[:uniqueProductIdentifier],
+      granularity:          doc[:granularity],
+      dpp_schema_version:   doc[:dppSchemaVersion],
+      dpp_status:           doc[:dppStatus] || "Active",
+      economic_operator_id: doc[:economicOperatorId],
+      facility_id:          doc[:facilityId],
       last_update:          Time.now.utc,
       content:              doc.to_h
     )
   end
 
-  # The DPP document as returned to clients (prEN 18223 §4.1.3.1).
-  # Exactly the attributes of Table 1 — the UPI is not among them, because it
-  # *is* the ProductID (prEN 18219 §3.22). Carrying it a second time would be a
-  # proprietary attribute and would break conformance for every reader.
+  # The DPP document as returned to clients: exactly the attributes of
+  # EN 18223:2026 Table 1, "Attributes of the DigitalProductPassport class".
+  #
+  # There is no separate UPI attribute, and the published edition makes the
+  # reason plain by naming the attribute +uniqueProductIdentifier+ and defining
+  # it as "unique string of characters for the identification of a product, that
+  # also enables a web link to the digital product passport" -- the product
+  # identifier and the unique product identifier are one value, as EN 18219
+  # 3.1.25 also has it. Carrying it twice would be a proprietary attribute and
+  # would break conformance for every reader.
   def to_document
     (document_content || {}).merge(
-      "DigitalProductPassportID" => dpp_id,
-      "ProductID"                => product_id,
-      "Granularity"              => granularity,
-      "DPPSchemaVersion"         => dpp_schema_version,
-      "DPPStatus"                => dpp_status,
-      "LastUpdate"               => last_update&.iso8601,
-      "EconomicOperatorID"       => economic_operator_id,
-      "FacilityID"               => facility_id
+      "digitalProductPassportId" => dpp_id,
+      "uniqueProductIdentifier"  => product_id,
+      "granularity"              => granularity,
+      "dppSchemaVersion"         => dpp_schema_version,
+      "dppStatus"                => dpp_status,
+      "lastUpdated"              => last_update&.iso8601,
+      "economicOperatorId"       => economic_operator_id,
+      "facilityId"               => facility_id
     ).compact
   end
 
-  # prEN 18222 §4.7: every change shall be archived (prEN 18221 / Module 6).
+  # EN 18222:2026 4.7: every change shall be archived (EN 18221:2026 4.2).
   # The snapshot holds the state *before* the change.
   #
   # For a pod-backed DPP this is a no-op: the pod archives on its own — a
@@ -231,9 +237,9 @@ class Dpp < ApplicationRecord
 
   private
 
-  # The host-independent part of the ProductID: the lookup key at the custodian,
-  # which is what lets one store serve any number of operator-owned hostnames.
-  # nil for a legacy identifier that is not a Digital Link.
+  # The host-independent part of the product identifier: the lookup key at the
+  # custodian, which is what lets one store serve any number of operator-owned
+  # hostnames. nil for an identifier no scheme of EN 18219:2026 Clause 5 covers.
   def assign_product_key
     return if product_id.blank?
 
@@ -250,10 +256,10 @@ class Dpp < ApplicationRecord
 
   def assign_from_document(doc)
     doc = doc.with_indifferent_access
-    self.granularity        = doc[:Granularity] if doc.key?(:Granularity)
-    self.dpp_schema_version = doc[:DPPSchemaVersion] if doc.key?(:DPPSchemaVersion)
-    self.dpp_status         = doc[:DPPStatus] if doc.key?(:DPPStatus)
-    self.facility_id        = doc[:FacilityID] if doc.key?(:FacilityID)
+    self.granularity        = doc[:granularity] if doc.key?(:granularity)
+    self.dpp_schema_version = doc[:dppSchemaVersion] if doc.key?(:dppSchemaVersion)
+    self.dpp_status         = doc[:dppStatus] if doc.key?(:dppStatus)
+    self.facility_id        = doc[:facilityId] if doc.key?(:facilityId)
     self.last_update        = Time.now.utc
     self.document_content   = doc.to_h
   end

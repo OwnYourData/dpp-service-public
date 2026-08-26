@@ -1,0 +1,124 @@
+Scheme B2: a self-certifying carrier identifier — 2026-08-25
+
+Subject
+  Product DID    did:oyd:zAkjAizBrimXL6VVVzfY97L8AbvU      (blake2b-18)
+  Data carrier   https://dpp.oydapp.eu/zAkjAizBrimXL6VVVzfY97L8AbvU
+                 = 8 + 13 + 1 + 28 = 50 characters, the registry's upper limit
+  Passport       did:oyd:zQmcZiM2s8RXFFAjEzQfTWkSoGgcvWpnAXPQnrJumzBJqXf
+  Custodian      dpp.data-vault.eu, collection 4
+
+  EN 18219:2026 5.3 admits an identification link per EN IEC 61406-1: a path the
+  operator issues itself under a domain it owns. No GS1 prefix, no issuing body,
+  no annual membership. This record measures what that buys and what it costs.
+
+  The carrier's path is the multibase multihash of the product DID, without the
+  prefix did:oyd:. Dropping it is lossless as long as the DID carries no
+  location suffix.
+
+  The content of the product DID does NOT contain the carrier URL. It cannot:
+  the path is the hash over exactly this document, so an address contained in it
+  would be part of its own computation -- the same circularity from which it
+  follows that a passport's serviceEndpoint goes through the product identifier
+  rather than through the passport DID.
+
+
+1 — Self-certification, recomputed
+
+      oydid read did:oyd:zAkjAizBrimXL6VVVzfY97L8AbvU --show-verification
+
+  confirms step by step:
+
+      identifier: zAkjAizBrimXL6VVVzfY97L8AbvU
+      OK  is hash of DID Document
+          {"doc":{"name":"Lumina LED 806lm","model":"L-806-E27",
+                  "manufacturer":"Lumina"},
+           "key":"z6MkpAMs…:z6Mkiqmn…",
+           "log":"zQmdUqaLjNjLzNEmntR7FnyoVC3wLm9P6PWru2Hun547nqL@…"}
+      OK  log reference in the document is the hash of the TERMINATE log record
+          {"ts":1787698977,"op":0,"doc":"zQmbBa9wvuc…","sig":"z3JSZQoE…",
+           "previous":[]}
+      OK  cannot find a revocation record
+
+  The printed string therefore commits to a document rather than merely
+  addressing one -- without a ledger and without an external trust anchor.
+
+
+2 — The same string, two readings
+
+  Measured from the operator's own machine, with both custodian addresses pinned
+  by curl --resolve:
+
+      as a web address  https://dpp.oydapp.eu/zAkjAizBrimXL6VVVzfY97L8AbvU
+                        at 152.53.34.232 (B)   200, the product passport
+                        at 89.58.20.114  (A)   404, A never held it
+
+      as a DID          did:oyd:zAkjAizBrimXL6VVVzfY97L8AbvU
+                        {"doc":{"name":"Lumina LED 806lm",
+                                "model":"L-806-E27",
+                                "manufacturer":"Lumina"}, …}
+
+  Whoever wants to treat the identifier as a DID prepends eight characters;
+  whoever treats it as an address calls it. The consumer path needs no
+  additional software -- which EN 18219:2026 notes for DIDs in Annex B,
+  Table B.10 -- and the DID semantics are available all the same.
+
+
+3 — The same checks as for the Digital Link
+
+      carrier, no token, no redirect                  200
+      no UPI attribute in the answer                  confirmed
+      uniqueProductIdentifier in the answer           unchanged, 50 characters
+      same path under the custodian's own host        404 at dpp.data-vault.eu
+                                                      404 at dpp.go-data.at
+      long form at B                                  200
+      long form at A                                  404
+
+  The custodian that holds the passport refuses the carrier path under its own
+  name: the card records which name the passport was created under, and a
+  request under any other name is not answered.
+
+
+4 — What B2 costs, against the Digital Link
+
+  Granularity had to be DECLARED. Under the Digital Link the service derives it
+  from the path (/21/ = item) and refuses a declaration the path contradicts;
+  here the path says nothing and the service can only require that a value was
+  declared at all. EN 18223:2026 Table 1 requires the value but cannot require
+  it to be true -- under the Digital Link it is checked, under B2 it is not.
+
+  What also falls away is getting GTIN and serial number out of the scan alone.
+  The identifier identifies; it does not describe.
+
+
+5 — And the limit the method cannot pass
+
+  blake2b-18 is 144 bits, so 2^72 work for a collision. The threat model is
+  narrow but not academic: only someone who produces BOTH documents can exploit
+  it -- for a DPP that is the manufacturer, and it is precisely against his
+  later reinterpretation that a self-certifying identifier is meant to protect.
+  A third party would need 2^144.
+
+  2^72 blake2b evaluations are within reach of state or large-industrial actors
+  and get cheaper over a product's lifetime. The long-term guidance from BSI and
+  NIST is 128 bits.
+
+  128 bits are NOT reachable under the registry's 50-character limit: that would
+  need a 32-byte digest, so more than 45 characters of path. The registry's
+  limit forces the compromise, not the architecture.
+
+  The only lever is the hostname; one label fewer is worth a factor of 4096:
+
+      dpp.oydapp.eu   13 characters   path 28   blake2b-18   2^72
+      oydapp.eu        9 characters   path 32   blake2b-21   2^84
+      pace.eu          7 characters   path 34   blake2b-22   2^88
+      dpp.eu           6 characters   path 35   blake2b-23   2^92
+
+  Mitigation without a longer printed string: additionally record the full
+  sha2-256 hash of the DID document in the registry entry. The short identifier
+  is then the pointer, the 128-bit commitment exists regardless, and a later
+  substitution shows up on comparison.
+
+Tooling
+  oydid CLI 0.9.0 on gem 0.9.0. The lengths are deterministic, not "at most":
+  the leading code byte is small and constant, so the digit count does not tip.
+  blake2b-18 gives exactly 28 characters.

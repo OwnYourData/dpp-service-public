@@ -53,6 +53,16 @@ token that is a self-issued JWT, signed with the document key of the issuer's
 public and needs no token. A stand-alone instance starts in `permissive` mode,
 where the signature is not checked — see [docs/Standalone.md](docs/Standalone.md).
 
+`did:oyd` is one of the DID methods EN 18219:2026 admits, specified in
+**[the OYD DID Method](https://ownyourdata.github.io/oydid/)** and implemented
+by the [`oydid` gem and CLI](https://rubygems.org/gems/oydid)
+([source](https://github.com/ownyourdata/oydid)). The identifier is the hash of
+its own DID document, so it is self-certifying: what the specification calls
+`calculate_hash` and `retrieve_log` is what `oydid read --show-verification`
+recomputes step by step. The service uses it for the passport identifier and for
+actor identities; nothing in the API is specific to it, and `docs/Identifiers.md`
+says which identifier is which.
+
 ## Documentation
 
 | File | What it covers |
@@ -113,7 +123,7 @@ element path: the elementId of each level, separated by `/`.
 | EN 18216:2026 | Transport and formats (TLS, JSON) | `force_ssl`, response content types |
 | prEN 18239 | Access rights and security | `TokenAuthenticatable` |
 | EN 18221:2026 | Storage, archiving, versioning | `DppVersion`, `Dpp#archive_current_version!` |
-| EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, `did:oyd` and `did:web` |
+| EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, [`did:oyd`](https://ownyourdata.github.io/oydid/) and `did:web` |
 | prEN 18246 | Authenticity and integrity | DID document as anchor |
 | DIN DKE SPEC 99100 | Battery passport attributes | `db/seeds.rb` example content |
 

@@ -37,7 +37,7 @@ the operator's own zone rather than a reprint.
 | 1 | **Unique product identifier** (`uniqueProductIdentifier`) | the product **and** the access path | economic operator | data carrier, registry, passport document | EN 18219 cl. 5, 3.1.25, 4.5.2 (1) |
 | 2 | **Facility ID** (`facilityId`) | a production site | economic operator | passport document | EN 18219 cl. 6 |
 | 3 | **Operator ID** (`economicOperatorId`) | the economic operator | economic operator | passport document, `registerDPP` | EN 18219 cl. 6 |
-| 4 | **Passport ID** (`digitalProductPassportId`) | the passport document | service provider (var. A) or holder (var. B) | passport document, VDR | EN 18223 |
+| 4 | **Passport ID** (`digitalProductPassportId`) | the passport document | service provider (var. A) or holder (var. B) | passport document, VDR | EN 18223; here a [`did:oyd`](https://ownyourdata.github.io/oydid/) |
 | 5 | **Backup ID** | the backup service provider | operator / contract | `registerDPP` | EN 18221 cl. 4.5, EN 18222 Tab. 11 |
 | 6 | **Registration identifier** (`registrationId`) | the registry record | EU registry | registry response | EN 18222 cl. 5.2 |
 

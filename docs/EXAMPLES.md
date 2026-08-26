@@ -73,7 +73,9 @@ echo '{"service":[{
 oydid create
 ```
 
-**Step 2 — sign the token.** Runnable anywhere the `oydid` gem is installed;
+**Step 2 — sign the token.** Runnable anywhere the [`oydid` gem](https://rubygems.org/gems/oydid) is installed
+(`gem install oydid`; the method itself is specified in
+[the OYD DID Method](https://ownyourdata.github.io/oydid/));
 `doc_key` is the `documentKey` from step 1 (or the content of the
 `_private_key.enc` file):
 

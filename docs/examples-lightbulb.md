@@ -13,9 +13,9 @@ Base URL: `https://api.dpp.example.org/dpp/v1`
 | Structure `DataElementCollection` / `SingleValuedDataElement` / `MultiValuedDataElement` / `RelatedResource` | **EN 18223:2026, 4.1.2 (Tables 2–5)** |
 | Endpoints, HTTP mapping, status/result object | **EN 18222:2026 (Tables 13–19)** |
 | Identifier formats (URI/URL, GS1 Digital Link, W3C DID) | **EN 18219:2026** |
-| **The concrete product characteristics** (luminous flux, colour temperature, lifetime …) | **Not in 18223.** 18223 only defines the *framework*. Which data points a lightbulb has to carry is laid down in the ESPR act for the product group (lighting: Regulation (EU) 2019/2020 + 2019/2015) and in a data dictionary that every element points to via `DictionaryReference` (EN 18223:2026, 4.3). |
+| **The concrete product characteristics** (luminous flux, colour temperature, lifetime …) | **Not in 18223.** 18223 only defines the *framework*. Which data points a lightbulb has to carry is laid down in the ESPR act for the product group (lighting: Regulation (EU) 2019/2020 + 2019/2015) and in a data dictionary that every element points to via `dictionaryReference` (EN 18223:2026, 4.3). |
 
-> The `DictionaryReference` values below are **illustrative** (ECLASS/IEC CDD style) and have to
+> The `dictionaryReference` values below are **illustrative** (ECLASS/IEC CDD style) and have to
 > be replaced against the real repository of the product group.
 
 ## Identifiers in the example
@@ -94,7 +94,8 @@ Authorization: Bearer <token>
   "elements": [
     {
       "elementId": "ProductIdentification",
-      "DictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
+      "objectType": "DataElementCollection",
+      "dictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
       "elements": [
         {
           "objectType": "SingleValuedDataElement",
@@ -111,7 +112,7 @@ Authorization: Bearer <token>
         {
           "objectType": "SingleValuedDataElement",
           "elementId": "LightSourceType",
-          "DictionaryReference": "0173-1#02-AAO677#003",
+          "dictionaryReference": "0173-1#02-AAO677#003",
           "value": "LED",
           "valueDataType": "xsd:string"
         },
@@ -125,7 +126,8 @@ Authorization: Bearer <token>
     },
     {
       "elementId": "EnergyPerformance",
-      "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
+      "objectType": "DataElementCollection",
+      "dictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
       "elements": [
         {
           "objectType": "SingleValuedDataElement",
@@ -220,18 +222,21 @@ Authorization: Bearer <token>
         {
           "objectType": "MultiValuedDataElement",
           "elementId": "MaterialComposition",
-          "ValueList": [
+          "elements": [
             {
+              "objectType": "SingleValuedDataElement",
               "elementId": "Polycarbonate",
               "value": 42.0,
               "valueDataType": "xsd:decimal"
             },
             {
+              "objectType": "SingleValuedDataElement",
               "elementId": "Aluminium",
               "value": 31.5,
               "valueDataType": "xsd:decimal"
             },
             {
+              "objectType": "SingleValuedDataElement",
               "elementId": "Electronics",
               "value": 26.5,
               "valueDataType": "xsd:decimal"
@@ -239,14 +244,12 @@ Authorization: Bearer <token>
           ]
         }
       ]
-    }
-  ],
-  "dataElements": [
+    },
     {
-      "objectType": "SingleValuedDataElement",
+      "objectType": "RelatedResource",
       "elementId": "DeclarationOfConformity",
-      "value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
-      "valueDataType": "xsd:anyURI"
+      "contentType": "application/pdf",
+      "url": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf"
     }
   ]
 }
@@ -266,8 +269,7 @@ The stored passport, enriched with `lastUpdated` (server timestamp):
   "lastUpdated": "2026-07-13T09:14:02Z",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
   "facilityId": "https://id.lumina.example/414/0952012345001",
-  "elements": [ "… as in the request …" ],
-  "dataElements": [ "… as in the request …" ]
+  "elements": [ "… as in the request …" ]
 }
 ```
 
@@ -429,13 +431,14 @@ GET /dpp/v1/dpps/{DPP}/collections/EnergyPerformance HTTP/1.1
 ```json
 {
   "elementId": "EnergyPerformance",
-  "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
+  "objectType": "DataElementCollection",
+  "dictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
   "elements": [
-    { "objectType": "SingleValuedDataElement", "elementId": "OnModePower", "name": "On-mode power consumption", "value": 8.5, "valueDataType": "xsd:decimal", "unitOfMeasure": "W" },
-    { "objectType": "SingleValuedDataElement", "elementId": "LuminousFlux", "name": "Luminous flux", "value": 806, "valueDataType": "xsd:integer", "unitOfMeasure": "lm" },
-    { "objectType": "SingleValuedDataElement", "elementId": "LuminousEfficacy", "name": "Luminous efficacy", "value": 94.8, "valueDataType": "xsd:decimal", "unitOfMeasure": "lm/W" },
-    { "objectType": "SingleValuedDataElement", "elementId": "EnergyEfficiencyClass", "name": "Energy efficiency class", "value": "E", "valueDataType": "xsd:string" },
-    { "objectType": "SingleValuedDataElement", "elementId": "EprelRegistrationNumber", "name": "EPREL registration number", "value": "1234567", "valueDataType": "xsd:string" }
+    { "objectType": "SingleValuedDataElement", "elementId": "OnModePower", "value": 8.5, "valueDataType": "xsd:decimal", "unitOfMeasure": "W" },
+    { "objectType": "SingleValuedDataElement", "elementId": "LuminousFlux", "value": 806, "valueDataType": "xsd:integer", "unitOfMeasure": "lm" },
+    { "objectType": "SingleValuedDataElement", "elementId": "LuminousEfficacy", "value": 94.8, "valueDataType": "xsd:decimal", "unitOfMeasure": "lm/W" },
+    { "objectType": "SingleValuedDataElement", "elementId": "EnergyEfficiencyClass", "value": "E", "valueDataType": "xsd:string" },
+    { "objectType": "SingleValuedDataElement", "elementId": "EprelRegistrationNumber", "value": "1234567", "valueDataType": "xsd:string" }
   ]
 }
 ```
@@ -472,7 +475,7 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "name": "Light quality (after remeasurement 2026)"
+  "dictionaryReference": "https://dict.example.org/dpp/lighting/LightQuality/v2"
 }
 ```
 
@@ -482,6 +485,7 @@ Authorization: Bearer <token>
 {
   "elementId": "LightQuality",
   "objectType": "DataElementCollection",
+  "dictionaryReference": "https://dict.example.org/dpp/lighting/LightQuality/v2",
   "elements": [ "… unchanged …" ]
 }
 ```

@@ -6,7 +6,7 @@ Dpp.find_or_create_by!(dpp_id: "https://dpp.example.org/01/09520123456788/21/000
   # a GS1 Digital Link under a host of the operator's own, 49 characters.
   dpp.product_id           = "https://dpp.example.org/01/09520123456788/21/0001"
   dpp.granularity          = "item"
-  dpp.dpp_schema_version   = "EN18223:2026"
+  dpp.dpp_schema_version   = "EN 18223:2026"
   dpp.dpp_status           = "Active"
   dpp.economic_operator_id = "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
   dpp.facility_id          = "https://id.example.org/414/4012345000009"

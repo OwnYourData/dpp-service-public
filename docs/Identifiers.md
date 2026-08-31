@@ -50,6 +50,13 @@ product identifier as *one* string that identifies the product and also enables
 the web link to the passport, and cl. 4.5.2 (1) requires that very string to be
 retrievable from the carrier.
 
+**Address and identity.** The shortest way to hold the six apart is to ask what
+each is *for*. The product identifier is an **address**: it is printed, it
+resolves, and reading a passport needs nothing else. The passport identifier is
+an **identity**: it carries keys, it can sign, be revoked and be versioned, and
+it is what a write, a delegation or a registry record is attributed to. Reading
+needs an address; everything that assigns responsibility needs an identity.
+
 ## 3. How they connect
 
 ```
@@ -166,7 +173,13 @@ the query half is excluded by our own decision: `…/01/0952…` and
 **Product ID versus passport ID.** The product identifier names the product and
 survives re-minting. The passport identifier names one document; mint the
 passport again and it changes. That is why the carrier bears the product
-identifier, never the passport identifier.
+identifier, never the passport identifier — and why the two cannot be collapsed
+into one. EN 18222 cl. 4.5 returns a *list* of passport identifiers for a set of
+product identifiers (`Identifier[]`, `0..*`), because one product may have
+several passports; the back-up copy required by ESPR Art. 10(4) is the everyday
+case. And dated retrieval is keyed on the passport identifier, not the product
+one (`ReadDPPVersionByIdAndDate`, cl. 4.4): a product has no versions, a
+document does.
 
 **Carrier host versus custodian host.** The carrier bears a host belonging to
 the *economic operator*. The custodian's host appears only in the

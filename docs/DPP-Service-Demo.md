@@ -1,62 +1,62 @@
-# DPP Service auf der Kommandozeile
+# The DPP Service on the command line
 
-**Technical Integration Meeting, PACE-DPP** — Live-Demo, ca. 15 Minuten.
+**Technical Integration Meeting, PACE-DPP** — live demo, about 15 minutes.
 
-Der rote Faden ist eine Frage: *Wem gehört der Produktpass?* Wir fangen beim
-bequemsten Weg an, bei dem der Dienstleister alles macht, und holen uns in zwei
-Schritten die Kontrolle zurück — zuerst über die **Schlüssel**, dann über den
-**Speicherort**. Am Ende steht ein Pass, der unter einer eigenen Domain
-abrufbar ist, dessen Kennung dem Wirtschaftsteilnehmer gehört und dessen Daten
-bei einem registrierten Datenintermediär liegen.
+One question runs through it: *who owns the product passport?* We start with the
+most comfortable route, where the service provider does everything, and take
+control back in two steps — first over the **keys**, then over the **place the
+data is kept**. What stands at the end is a passport readable under a domain of
+one's own, whose identifier belongs to the economic operator and whose data sits
+with a registered data intermediary.
 
-Alle Befehle laufen gegen die produktive Installation.
+Every command runs against the production deployment.
 
-Zwei Hilfsskripte unter `tmp/` prägen das Token und die Vollmacht. Sie signieren
-mit dem privaten Schlüssel des Wirtschaftsteilnehmers und liegen deshalb nicht
-in diesem Repository — jede andere Signierumgebung leistet dasselbe, das Format
-steht in `docs/Delegation.md`.
+Two helper scripts under `tmp/` mint the token and the delegation. They sign
+with the economic operator's private key and are therefore not part of this
+repository — any other signing environment does the same job, and the format is
+in `docs/Delegation.md`.
 
 | | |
 |---|---|
 | DPP Service | `https://dpp-service.ownyourdata.eu` |
-| Verwahrer (Datenintermediär) | `https://dpp.go-data.at`, Collection 36 |
-| Domain des Wirtschaftsteilnehmers | `dpp.oydapp.eu` |
-| VDR / Registrar für `did:oyd` | `https://oydid.ownyourdata.eu` |
+| Custodian (data intermediary) | `https://dpp.go-data.at`, collection 36 |
+| Economic operator's domain | `dpp.oydapp.eu` |
+| VDR / registrar for `did:oyd` | `https://oydid.ownyourdata.eu` |
 
-> **Zu den Namen.** Die vier Zeilen sind vier **Rollen**, nicht vier Produkte
-> desselben Hauses. `dpp.oydapp.eu` ist die Domain des Wirtschaftsteilnehmers —
-> sie gehört ihm, nicht dem Dienst, und der Dienst hat auf sie keinen Zugriff.
-> Dass hinter mehreren dieser Rollen zufällig dieselbe Organisation steht, ist
-> die einzige Vereinfachung dieser Demo; die Trennung, um die es geht, ist
-> trotzdem eine echte — sie ist an jeder Stelle nachprüfbar, an der gleich ein
-> Hostname mit einem anderen verglichen wird.
+> **About the names.** Those four lines are four **roles**, not four products of
+> the same house. `dpp.oydapp.eu` is the economic operator's domain — it belongs
+> to the operator, not to the service, and the service has no access to it. That
+> the same organisation happens to stand behind several of these roles is the one
+> simplification in this demo; the separation at issue is real all the same, and
+> it is checkable at every point below where one hostname is compared with
+> another.
 
-**Wer was hält.** Drei Akteure, und in jedem Schritt verschiebt sich, wer welche
-Information hat. Dieselbe Skizze steht nach Schritt 1, 3 und 5 noch einmal da;
-`▸` markiert, was der jeweilige Schritt geändert hat.
+**Who holds what.** Three actors, and in every step it shifts which of them has
+which information. The same sketch appears again after steps 1, 3 and 5; `▸`
+marks what that step changed.
 
 ```
-┌─ WIRTSCHAFTSTEILNEHMER ────────────────── dpp.oydapp.eu ─┐
-│ Identitätsschlüssel  ·  DNS-Zone                         │
-│ Passschlüssel, sobald er selbst prägt                    │
+┌─ ECONOMIC OPERATOR ────────────────────── dpp.oydapp.eu ─┐
+│ Identity key  ·  DNS zone                                │
+│ Passport keys, as soon as it mints them itself           │
 └──────────────────────────────────────────────────────────┘
-        │  Token, selbst signiert
+        │  Token, self-issued
         ▼
 ┌─ DPP SERVICE ─────────────── dpp-service.ownyourdata.eu ─┐
-│ Metadaten je Pass  ·  Vollmacht im Klartext              │
-│ Nutzdaten nur, solange kein Verwahrer benannt ist        │
+│ Metadata per passport  ·  Delegation in the clear        │
+│ Payload only while no custodian is named                 │
 └──────────────────────────────────────────────────────────┘
-        │  Vollmacht im Header X-DPP-Storage
+        │  Delegation in the X-DPP-Storage header
         ▼
-┌─ VERWAHRER (Intermediär) ─────────────── dpp.go-data.at ─┐
-│ Nutzdaten  ·  Historie  ·  Zugriffslog                   │
-│ kennt den Pass nur als Objekt, nicht als Pass            │
+┌─ CUSTODIAN (intermediary) ────────────── dpp.go-data.at ─┐
+│ Payload  ·  History  ·  Access log                       │
+│ knows the passport as an object, not as a passport       │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 0 — Vorbereitung
+## 0 — Preparation
 
 ```bash
 cd ~/projects/pace-dpp/impl/dpp-service
@@ -66,7 +66,7 @@ curl -sS -o /dev/null -w 'Service: %{http_code}\n' https://dpp-service.ownyourda
 curl -sS https://dpp-service.ownyourdata.eu/.well-known/dpp-service | jq .
 ```
 
-Erwartet:
+Expected:
 
 ```json
 {
@@ -75,35 +75,32 @@ Erwartet:
 }
 ```
 
-> Der Dienst sagt öffentlich, wer er ist. Diese DID braucht man später, um eine
-> Vollmacht auf ihn auszustellen — und sie ist der Grund, warum kein geteiltes
-> Geheimnis nötig ist.
+> The service says publicly who it is. That DID is what a delegation is later
+> issued to — and it is the reason no shared secret is needed.
 
-**Das Token.** Schreibzugriffe brauchen ein Bearer-Token, das der
-Wirtschaftsteilnehmer sich **selbst ausstellt** und mit seinem Identitäts­schlüssel
-signiert. Es gibt keine Registrierung und kein vom Dienst vergebenes Passwort.
+**The token.** Writes need a bearer token that the economic operator **issues to
+itself** and signs with its identity key. There is no registration and no
+password handed out by the service.
 
 ```bash
 TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
 echo "$TOKEN" | cut -d. -f2 | ruby -rbase64 -e 's = STDIN.read.strip; print Base64.urlsafe_decode64(s + "=" * ((4 - s.size % 4) % 4))' | jq .
 ```
 
-Erwartet: `iss` und `sub` sind die DID des Wirtschaftsteilnehmers, `aud` ist der
-Dienst.
+Expected: `iss` and `sub` are the economic operator's DID, `aud` is the service.
 
-> Tokens sind kurzlebig — deshalb steht diese Zeile vor jedem schreibenden
-> Aufruf noch einmal.
+> Tokens are short-lived — which is why this line appears again before every
+> write.
 
-> **Merksatz für später:** das hier ist der *Identitätsschlüssel* des
-> Wirtschaftsteilnehmers. Der *Passschlüssel* ist etwas anderes — den haben wir
-> gleich noch nicht.
+> **Worth remembering:** this is the economic operator's *identity key*. The
+> *passport key* is something else, and we do not have one yet.
 
 ---
 
-## 1 — Der bequeme Weg: der Dienst macht alles
+## 1 — The comfortable route: the service does everything
 
-Wir legen einen Pass an und geben **keine** Passkennung und **keinen**
-Speicherort mit.
+We create a passport and supply **no** passport identifier and **no** storage
+location.
 
 ```bash
 PID1="https://dpp.oydapp.eu/01/09520123456788/21/000901"
@@ -125,121 +122,118 @@ curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorizat
 JSON
 ```
 
-Erwartet: `201`, und in der Antwort steht eine **frisch geprägte**
-`digitalProductPassportId` — die hat der Dienst gemacht, nicht wir.
+Expected: `201`, and the answer carries a **freshly minted**
+`digitalProductPassportId` — the service made it, not us.
 
-Damit liegen zwei Kennungen vor, und es lohnt sich, gleich hier zu zeigen, wie
-sie zusammenhängen:
+Two identifiers are now in play, and it is worth showing right here how they
+relate:
 
 ```
-   Datenträger (QR, NFC)
-        │   trägt GENAU EINE Zeichenkette
+   Data carrier (QR, NFC)
+        │   carries EXACTLY ONE string
         ▼
    uniqueProductIdentifier   https://dpp.oydapp.eu/01/09520123456788/21/000901
-        │                      └─ Host: Wirtschaftsteilnehmer
-        │                                   └─ Pfad: Schema A oder B
-        │   DNS-Eintrag, keine Weiterleitung
+        │                      └─ host: economic operator
+        │                                   └─ path: scheme A or B
+        │   DNS record, no redirect
         ▼
-   Verwahrer           in Schritt 1 noch der Dienst selbst
+   Custodian           in step 1 still the service itself
         ▼
-   Pass-Dokument       uniqueProductIdentifier · digitalProductPassportId ─▶ ①
+   Passport document   uniqueProductIdentifier · digitalProductPassportId ─▶ ①
         │              economicOperatorId ──▶ ②  ·  facilityId
         │              granularity · dppSchemaVersion · dppStatus · lastUpdated
-        │   DID-Auflösung
+        │   DID resolution
         ▼
-   DID-Dokumente       ① Pass:      serviceEndpoint, publicKeyMultibase
-                       ② Betreiber: publicKeyMultibase
+   DID documents       ① passport: serviceEndpoint, publicKeyMultibase
+                       ② operator: publicKeyMultibase
 ```
 
-**Die Produkt-ID ist die Adresse, die Pass-ID ist die Identität.** Gelesen wird
-über die Adresse — ein Scan, kein Resolver, kein Redirect. Alles, was
-Verantwortung zuordnet — Schreiben, Delegieren, Widerrufen, Versionieren —
-hängt an der Identität.
+**The product identifier is the address, the passport identifier is the
+identity.** Reading goes through the address — one scan, no resolver, no
+redirect. Everything that assigns responsibility — writing, delegating,
+revoking, versioning — hangs on the identity.
 
-Lesen lässt er sich sofort:
+It can be read straight away:
 
 ```bash
 ENC1=$(printf %s "$PID1" | jq -sRr @uri)
 curl -sS "$BASE/dppsByProductId/$ENC1" | jq -c 'if .digitalProductPassportId then {digitalProductPassportId, uniqueProductIdentifier, granularity, dppStatus} else . end'
 ```
 
-### Was wir dabei aus der Hand gegeben haben
+### What we gave away in the process
 
 ```bash
 DID1=$(curl -sS "$BASE/dppsByProductId/$ENC1" | jq -r .digitalProductPassportId)
 curl -sS "https://oydid.ownyourdata.eu/1.0/identifiers/$DID1" | jq -c '.service[0].serviceEndpoint'
-curl -sS -o /dev/null -w 'Traeger unter eigener Domain: %{http_code}\n' "$PID1"
+curl -sS -o /dev/null -w 'Carrier under our own domain: %{http_code}\n' "$PID1"
 ```
 
-Erwartet: der `serviceEndpoint` zeigt auf **`dpp-service.ownyourdata.eu`**, und
-der Träger unter der eigenen Domain liefert **404**.
+Expected: the `serviceEndpoint` points at **`dpp-service.ownyourdata.eu`**, and
+the carrier under our own domain answers **404**.
 
-> **Eine Abhängigkeit, zwei Auswirkungen.**
-> 1. Die Passkennung wurde vom Dienst geprägt — er hält `documentKey` und
->    `revocationKey`. Er kann die Kennung widerrufen und das DID-Dokument
->    ändern; der Wirtschaftsteilnehmer kann in dieser Konfiguration beides
->    nicht.
-> 2. Deshalb steht auch fest, wohin ein Leser geschickt wird: der
->    `serviceEndpoint` zeigt auf den Dienst, und umlenken kann ihn nur, wer den
->    Schlüssel hat.
+> **One dependency, two consequences.**
+> 1. The passport identifier was minted by the service — it holds `documentKey`
+>    and `revocationKey`. It can revoke the identifier and change the DID
+>    document; the economic operator can do neither in this configuration.
+> 2. Which also settles where a reader is sent: the `serviceEndpoint` points at
+>    the service, and only whoever holds the key can redirect it.
 >
-> Der 404 unter der eigenen Domain zeigt nur, dass dort **gerade** nichts
-> ausgeliefert wird — nicht, dass dort nichts stehen dürfte. Die Daten gehören
-> dem Wirtschaftsteilnehmer, und niemand hindert ihn, sie unter seiner Domain zu
-> veröffentlichen. Was er ohne den Dienst nicht kann, ist, diese Veröffentlichung
-> zum *Pass* zu machen: nichts signiert sie, keine Historie hängt daran, und wer
-> die Passkennung auflöst, landet trotzdem beim Dienst.
+> The 404 under our own domain shows only that nothing is being served there
+> **at the moment** — not that nothing may be. The data belongs to the economic
+> operator, and nobody stops it from publishing that data under its own domain.
+> What it cannot do without the service is make that publication the *passport*:
+> nothing signs it, no history hangs on it, and whoever resolves the passport
+> identifier still ends up at the service.
 >
-> Der praktische Preis: wegziehen geht in dieser Variante nur mit dem
-> Entgegenkommen des Dienstes — oder mit einer neuen Passkennung. Der gedruckte
-> Träger überlebt das, die Identität nicht.
+> The practical price: leaving, in this variant, takes either the service's
+> cooperation or a new passport identifier. The printed carrier survives that;
+> the identity does not.
 
-**Stand nach diesem Schritt.**
+**Where things stand after this step.**
 
 ```
-┌─ WIRTSCHAFTSTEILNEHMER ────────────────── dpp.oydapp.eu ─┐
-│ Identitätsschlüssel                                      │
+┌─ ECONOMIC OPERATOR ────────────────────── dpp.oydapp.eu ─┐
+│ Identity key                                             │
 └──────────────────────────────────────────────────────────┘
         │  Token
         ▼
 ┌─ DPP SERVICE ─────────────── dpp-service.ownyourdata.eu ─┐
-│ Metadaten je Pass                                        │
-│ ▸ Passkennung, documentKey, revocationKey                │
-│ ▸ Nutzdaten                                              │
+│ Metadata per passport                                    │
+│ ▸ Passport identifier, documentKey, revocationKey        │
+│ ▸ Payload                                                │
 └──────────────────────────────────────────────────────────┘
-        ·  Verwahrer noch nicht beteiligt
+        ·  custodian not involved yet
 ```
 
 ---
 
-## 2 — Zwischenspiel: die zwei Kennungen
+## 2 — Interlude: the two identifiers
 
-Die Skizze aus Schritt 1 in einer Tabelle — dieselbe Unterscheidung, nur nach
-Eigenschaften sortiert:
+The sketch from step 1 as a table — the same distinction, sorted by property:
 
-| | Produkt-ID | Pass-ID |
+| | Product identifier | Passport identifier |
 |---|---|---|
-| identifiziert | das Produkt | das Dokument darüber |
-| steht auf dem Träger | ja | nie |
-| ändert sich | nie, sobald gedruckt | bei jeder Dokumentänderung |
-| trägt Schlüssel | nein | ja — signieren, widerrufen, versionieren |
-| gebraucht für | Lesen | Schreiben, Register, Sicherungskopie, Historie |
+| identifies | the product | the document about it |
+| appears on the carrier | yes | never |
+| changes | never, once printed | with every change to the document |
+| carries keys | no | yes — signing, revoking, versioning |
+| needed for | reading | writing, registry, backup copy, history |
 
-> Warum der `serviceEndpoint` über die Produktkennung läuft: eine `did:oyd` ist
-> der Hash über ihr eigenes Dokument. Eine Adresse, die die DID enthielte, wäre
-> Teil ihrer eigenen Berechnung.
+> Why the `serviceEndpoint` goes through the product identifier: a `did:oyd` is
+> the hash over its own document. An address containing the DID would be part of
+> its own computation.
 >
-> Und warum es beide braucht: EN 18222 Abschn. 4.5 liefert zu einer
-> Produktkennung eine **Liste** von Passkennungen (`0..*`) — die von ESPR
-> Art. 10(4) verlangte Sicherungskopie ist der Alltagsfall.
+> And why both are needed: EN 18222 cl. 4.5 returns a **list** of passport
+> identifiers (`0..*`) for one product identifier — the backup copy required by
+> ESPR Art. 10(4) is the everyday case.
 
 ---
 
-## 3 — Kontrolle über die Schlüssel: eigene Passkennung
+## 3 — Control over the keys: our own passport identifier
 
-Wir prägen die Passkennung selbst, beim VDR, und behalten beide Schlüssel.
-Wichtig ist der `serviceEndpoint`: er muss den Host nennen, der den Pass
-**tatsächlich ausliefern wird** — hier noch der Dienst selbst.
+We mint the passport identifier ourselves, at the VDR, and keep both keys. What
+matters is the `serviceEndpoint`: it has to name the host that will **actually
+serve** the passport — here still the service itself.
 
 ```bash
 PID2="https://dpp.oydapp.eu/01/09520123456788/21/000902"
@@ -251,10 +245,10 @@ echo "$RESP" | jq '.didState.secret'
 echo "DID2 = $DID2"
 ```
 
-> ⚠️ `documentKey` und `revocationKey` kommen **in dieser einen Antwort** zurück
-> und werden nirgends gespeichert. Wer sie behält, dem gehört die Kennung.
+> ⚠️ `documentKey` and `revocationKey` come back **in this one answer** and are
+> stored nowhere. Whoever keeps them owns the identifier.
 
-Damit anlegen — der Dienst prägt jetzt nichts mehr:
+Now create the passport with it — the service mints nothing any more:
 
 ```bash
 TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
@@ -276,14 +270,14 @@ curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorizat
 JSON
 ```
 
-Erwartet: `201`, und die **gelieferte Kennung kommt unverändert zurück**.
+Expected: `201`, and the **supplied identifier comes back unchanged**.
 
-### Die Prüfung, die dabei läuft
+### The check that runs while it happens
 
-Der Dienst hält für eine fremd geprägte DID keinen Schlüssel — er kann ein
-falsches DID-Dokument später also nicht reparieren. Deshalb prüft er **vor**
-allem Dauerhaften, ob die Kennung auflöst und ob ihr `serviceEndpoint` den
-richtigen Host nennt. Zum Vorführen absichtlich falsch:
+The service holds no key for a DID it did not mint — so it could never repair a
+wrong DID document later. It therefore checks, **before** anything permanent
+happens, that the identifier resolves and that its `serviceEndpoint` names the
+right host. Deliberately wrong, to show it:
 
 ```bash
 PIDX="https://dpp.oydapp.eu/01/09520123456788/21/000999"
@@ -295,54 +289,54 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/dpps" -H "Content-Type: appli
   -d "{\"digitalProductPassportId\":\"$DIDX\",\"uniqueProductIdentifier\":\"$PIDX\",\"granularity\":\"item\",\"dppSchemaVersion\":\"EN 18223:2026\",\"economicOperatorId\":\"$EO\"}"
 ```
 
-Erwartet: **`HTTP 400`**, und die Meldung nennt **beide** Hostnamen im Klartext:
+Expected: **`HTTP 400`**, and the message names **both** hostnames in plain text:
 
 ```
 digitalProductPassportId resolves to dpp.data-vault.eu,
 but this passport is served from dpp-service.ownyourdata.eu
 ```
 
-Es wird nichts angelegt. Verglichen wird nur der **Host**, nie der Pfad — geprüft
-wird, wohin ein Leser geschickt wird.
+Nothing is created. Only the **host** is compared, never the path — what is
+under examination is where a reader is sent.
 
-**Stand nach diesem Schritt.**
+**Where things stand after this step.**
 
 ```
-┌─ WIRTSCHAFTSTEILNEHMER ────────────────── dpp.oydapp.eu ─┐
-│ Identitätsschlüssel                                      │
-│ ▸ documentKey und revocationKey des Passes               │
+┌─ ECONOMIC OPERATOR ────────────────────── dpp.oydapp.eu ─┐
+│ Identity key                                             │
+│ ▸ documentKey and revocationKey of the passport          │
 └──────────────────────────────────────────────────────────┘
-        │  Token  +  fertige Passkennung
+        │  Token  +  ready-made passport identifier
         ▼
 ┌─ DPP SERVICE ─────────────── dpp-service.ownyourdata.eu ─┐
-│ Metadaten je Pass  ·  Nutzdaten                          │
-│ ▸ kein Schlüssel zur Passkennung                         │
+│ Metadata per passport  ·  Payload                        │
+│ ▸ no key to the passport identifier                      │
 └──────────────────────────────────────────────────────────┘
-        ·  Verwahrer noch nicht beteiligt
+        ·  custodian not involved yet
 ```
 
 ---
 
-## 4 — Kontrolle über den Speicherort: Intermediär und DNS
+## 4 — Control over the storage: intermediary and DNS
 
-Zwei Dinge sind nötig, und sie sind unabhängig voneinander.
+Two things are needed, and they are independent of each other.
 
-**Erstens der Name.** `dpp.oydapp.eu` gehört dem Wirtschaftsteilnehmer und zeigt
-per DNS auf den Verwahrer:
+**First the name.** `dpp.oydapp.eu` belongs to the economic operator and points
+by DNS at the custodian:
 
 ```bash
 dig +short dpp.oydapp.eu
 ```
 
-Erwartet: `89.58.20.114` — die Adresse des Verwahrers. Der Verwahrer liefert
-also unter einem Namen aus, der ihm **nicht gehört**. Nichts wird weitergeleitet;
-ein Wechsel des Verwahrers ist ein Eintrag in der eigenen Zone, kein Neudruck.
+Expected: `89.58.20.114` — the custodian's address. The custodian therefore
+serves under a name that is **not its own**. Nothing is redirected; a change of
+custodian is a record in one's own zone, not a reprint.
 
-**Zweitens die Vollmacht.** Der Wirtschaftsteilnehmer stellt sie selbst aus und
-signiert sie; sie nennt Delegatar, Verwahrer, Collection, Produkt, erlaubte
-Operationen und Zweck. Der Dienst reicht sie im Header `X-DPP-Storage` weiter —
-**nicht** als Feld im Pass, denn ein proprietäres Attribut im Dokument würde die
-EN-18223-Konformität für jeden Leser brechen.
+**Second the delegation.** The economic operator issues and signs it itself; it
+names the delegate, the custodian, the collection, the product, the permitted
+operations and the purpose. The service passes it on in the `X-DPP-Storage`
+header — **not** as a field in the passport, because a proprietary attribute in
+the document would break EN 18223 conformance for every reader.
 
 ```bash
 PID3="https://dpp.oydapp.eu/01/09520123456788/21/000903"
@@ -351,20 +345,20 @@ STORAGE="{\"base_url\":\"https://dpp.go-data.at\",\"collection_id\":\"36\",\"del
 echo "$DELEG" | cut -d. -f2 | ruby -rbase64 -e 's = STDIN.read.strip; print Base64.urlsafe_decode64(s + "=" * ((4 - s.size % 4) % 4))' | jq .
 ```
 
-Erwartet: der Inhalt der Vollmacht im Klartext — Aussteller, Delegatar,
-Verwahrer, Collection, Produkt, Zweck, Laufzeit, Replay-Kennung.
+Expected: the content of the delegation in plain text — issuer, delegate,
+custodian, collection, product, purpose, lifetime, replay identifier.
 
-> Was der Dienst speichert, ist damit **kein Zugangsschlüssel** mehr. Die
-> Vollmacht nennt ihren Delegatar namentlich und ist ohne dessen privaten
-> Schlüssel wirkungslos. Ein Anbieter, der für viele Wirtschaftsteilnehmer
-> arbeitet, hielte sonst ein Geheimnis pro Kunde.
+> What the service stores is therefore **no longer an access key**. The
+> delegation names its delegate explicitly and is inert without that delegate's
+> private key. A provider working for many economic operators would otherwise
+> hold one secret per customer.
 
 ---
 
-## 5 — Alles zusammen
+## 5 — Everything together
 
-Eigene Kennung, eigener Name, Speicherung beim Intermediär. Der
-`serviceEndpoint` nennt jetzt die Langform **beim Verwahrer**.
+Our own identifier, our own name, storage at the intermediary. The
+`serviceEndpoint` now names the long form **at the custodian**.
 
 ```bash
 ENC3=$(printf %s "$PID3" | jq -sRr @uri)
@@ -405,110 +399,109 @@ curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorizat
 JSON
 ```
 
-### Der Moment, auf den die ganze Demo hinausläuft
+### The moment the whole demo builds up to
 
 ```bash
 curl -sS "https://dpp.oydapp.eu/01/09520123456788/21/000903" | jq .
 ```
 
-**Ein Aufruf. Kein Token, kein Auflösungsdienst, keine Weiterleitung.** Genau die
-Zeichenkette, die auf dem Produkt steht, liefert den Pass — das verlangt
-EN 18219:2026 Abschn. 4.5.2 (1).
+**One request. No token, no resolution service, no redirect.** Exactly the string
+printed on the product returns the passport — which is what EN 18219:2026
+cl. 4.5.2 (1) requires.
 
-Und die drei Kontrollen, jede einzeln nachweisbar:
+And the three checks, each provable on its own:
 
 ```bash
-echo "--- die Kennung gehoert uns: der Dienst hat sie nicht gepraegt ---"
+echo "--- the identifier is ours: the service did not mint it ---"
 curl -sS "https://oydid.ownyourdata.eu/1.0/identifiers/$DID3" | jq -c '.service[0].serviceEndpoint'
-echo "--- beide liefern aus, aber nur einer speichert ---"
-curl -sS -o /dev/null -w 'Verwahrer: %{http_code}\n' "https://dpp.go-data.at/dpp/v1/dppsByProductId/$ENC3"
-curl -sS -o /dev/null -w 'Dienst:    %{http_code}\n' "$BASE/dppsByProductId/$ENC3"
-echo "--- und der Verwahrer liefert NICHT unter seinem eigenen Namen aus ---"
-curl -sS -o /dev/null -w 'gleicher Pfad bei dpp.go-data.at: %{http_code}\n' "https://dpp.go-data.at/01/09520123456788/21/000903"
+echo "--- both serve it, but only one stores it ---"
+curl -sS -o /dev/null -w 'Custodian: %{http_code}\n' "https://dpp.go-data.at/dpp/v1/dppsByProductId/$ENC3"
+curl -sS -o /dev/null -w 'Service:   %{http_code}\n' "$BASE/dppsByProductId/$ENC3"
+echo "--- and the custodian does NOT serve under its own name ---"
+curl -sS -o /dev/null -w 'same path at dpp.go-data.at: %{http_code}\n' "https://dpp.go-data.at/01/09520123456788/21/000903"
 ```
 
-Erwartet: `serviceEndpoint` nennt den Verwahrer; **beide** antworten `200`; und
-der Trägerpfad unter dem Namen des Verwahrers `404`.
+Expected: the `serviceEndpoint` names the custodian; **both** answer `200`; and
+the carrier path under the custodian's own name `404`.
 
-> Dass auch der Dienst `200` liefert, ist kein Widerspruch: bei einem Pass beim
-> Verwahrer hält er den Inhalt nicht vor, sondern liest ihn bei jedem Zugriff
-> dort nach (`Dpp#document_content` → `pod_storage.read_payload`). Er bleibt
-> Durchreiche — nimmt man ihm die Vollmacht, hat er nichts mehr auszuliefern.
+> That the service answers `200` as well is no contradiction: for a passport held
+> at a custodian it does not keep the content, it reads it there on every access
+> (`Dpp#document_content` → `pod_storage.read_payload`). It stays a pass-through
+> — take the delegation away and it has nothing left to serve.
 
-> Die letzte Zeile ist die wichtigste: der Pfad ist der Suchschlüssel, aber der
-> Host muss der des Wirtschaftsteilnehmers sein. Sonst könnte ein Verwahrer den
-> Pass unter seiner eigenen Domain ausliefern und sich still zur Adresse auf dem
-> Produkt machen.
+> The last line is the important one: the path is the lookup key, but the host
+> has to be the economic operator's. Otherwise a custodian could serve the
+> passport under its own domain and quietly make itself the address on the
+> product.
 
-**Stand nach diesem Schritt.**
+**Where things stand after this step.**
 
 ```
-┌─ WIRTSCHAFTSTEILNEHMER ────────────────── dpp.oydapp.eu ─┐
-│ Identitätsschlüssel  ·  Passschlüssel                    │
-│ ▸ DNS-Zone zeigt auf den Verwahrer                       │
+┌─ ECONOMIC OPERATOR ────────────────────── dpp.oydapp.eu ─┐
+│ Identity key  ·  Passport keys                           │
+│ ▸ DNS zone points at the custodian                       │
 └──────────────────────────────────────────────────────────┘
-        │  Token  +  Passkennung  +  Vollmacht
+        │  Token  +  passport identifier  +  delegation
         ▼
 ┌─ DPP SERVICE ─────────────── dpp-service.ownyourdata.eu ─┐
-│ Metadaten je Pass  ·  Vollmacht im Klartext              │
-│ ▸ keine Nutzdaten mehr, liest sie durch                  │
+│ Metadata per passport  ·  Delegation in the clear        │
+│ ▸ no payload any more, reads it through                  │
 └──────────────────────────────────────────────────────────┘
-        │  Vollmacht im Header X-DPP-Storage
+        │  Delegation in the X-DPP-Storage header
         ▼
-┌─ VERWAHRER ───────────────────────────── dpp.go-data.at ─┐
-│ ▸ Nutzdaten  ·  Historie  ·  Zugriffslog                 │
-│ kennt den Pass nur als Objekt                            │
+┌─ CUSTODIAN ───────────────────────────── dpp.go-data.at ─┐
+│ ▸ Payload  ·  History  ·  Access log                     │
+│ knows the passport as an object                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 6 — Aufräumen, und der Unterschied wird sichtbar
+## 6 — Cleaning up, and the difference becomes visible
 
 ```bash
 E1=$(printf %s "$DID1" | jq -sRr @uri)
 E3=$(printf %s "$DID3" | jq -sRr @uri)
 TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
-curl -sS -o /dev/null -w 'Loeschen Pass 1: %{http_code}\n' -X DELETE "$BASE/dpps/$E1" -H "Authorization: Bearer $TOKEN"
-curl -sS -o /dev/null -w 'Loeschen Pass 3: %{http_code}\n' -X DELETE "$BASE/dpps/$E3" -H "Authorization: Bearer $TOKEN"
-echo "--- und was ist mit den Kennungen? ---"
-curl -sS -o /dev/null -w 'DID aus Schritt 1 (Dienst hielt den Schluessel): %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID1"
-curl -sS -o /dev/null -w 'DID aus Schritt 5 (wir halten den Schluessel):   %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID3"
+curl -sS -o /dev/null -w 'Delete passport 1: %{http_code}\n' -X DELETE "$BASE/dpps/$E1" -H "Authorization: Bearer $TOKEN"
+curl -sS -o /dev/null -w 'Delete passport 3: %{http_code}\n' -X DELETE "$BASE/dpps/$E3" -H "Authorization: Bearer $TOKEN"
+echo "--- and what about the identifiers? ---"
+curl -sS -o /dev/null -w 'DID from step 1 (service held the key): %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID1"
+curl -sS -o /dev/null -w 'DID from step 5 (we hold the key):      %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID3"
 ```
 
-Erwartet: beide Pässe `204`. Die vom Dienst geprägte Kennung ist **widerrufen**
-(`410`), die eigene löst **weiter auf** (`200`).
+Expected: `204` for both passports. The identifier the service minted is
+**revoked** (`410`); our own one **still resolves** (`200`).
 
-> Der Dienst kann nicht widerrufen, wofür er keinen Schlüssel hält. Das ist keine
-> Lücke, sondern der Punkt: **die Architektur kann den Ausstieg erzwingen, nicht
-> das Vergessen.**
+> The service cannot revoke what it holds no key for. That is not a gap but the
+> point: **the architecture can compel departure, not forgetting.**
 
 ---
 
-## Anhang — Fehlerbilder für Rückfragen
+## Appendix — failure modes, for questions from the floor
 
-| Situation | Antwort |
+| Situation | Answer |
 |---|---|
-| Kennung löst nicht auf | `400` `… does not resolve` |
-| `serviceEndpoint` nennt einen anderen Host | `400`, beide Hostnamen im Klartext |
-| deklarierte Granularität widerspricht dem Pfad | `400` `granularity 'model' contradicts the identifier path, which expresses 'item'` |
-| Kennung länger als 50 Zeichen | `400`, mit Angabe, um wie viel |
-| kein oder ungültiges Token | `401 ClientNotAuthorized` |
-| fremde DID will schreiben | `403 ClientForbidden` |
-| öffentliches Lesen | braucht nie ein Token |
+| identifier does not resolve | `400` `… does not resolve` |
+| `serviceEndpoint` names a different host | `400`, both hostnames in plain text |
+| declared granularity contradicts the path | `400` `granularity 'model' contradicts the identifier path, which expresses 'item'` |
+| identifier longer than 50 characters | `400`, stating by how much |
+| no token, or an invalid one | `401 ClientNotAuthorized` |
+| a foreign DID tries to write | `403 ClientForbidden` |
+| public reading | never needs a token |
 
-**Was hier bewusst nicht vorkommt:** kein `client_secret`, kein vom Dienst
-vergebenes Passwort, keine Registrierung beim Verwahrer, keine Abfrage beim
-EU-Register beim Lesen. Alles, was Zugriff gewährt, ist eine vom Inhaber
-signierte Aussage mit begrenzter Laufzeit.
+**What deliberately does not appear here:** no `client_secret`, no password
+handed out by the service, no registration with the custodian, no query to the
+EU registry when reading. Everything that grants access is a statement signed by
+the holder, with a limited lifetime.
 
-**Was heute noch nicht geht:** die abgestuften Leserechte für kontrollierte Daten
-(Behörden, Verwerter) sind spezifiziert, aber nicht ausgerollt — die Demo zeigt
-die öffentliche Ebene. Und die Bindung des *Inhalts* an die Kennung, mit der auch
-der Verwahrer nichts unbemerkt ändern könnte, ist entworfen und noch nicht in
-Betrieb; heute ist der **Ort** kryptografisch gebunden, nicht der Inhalt.
+**What is not possible today:** the graduated read rights for restricted data
+(authorities, recyclers) are specified but not deployed — this demo shows the
+public layer. And binding the *content* to the identifier, which would keep even
+the custodian from changing anything unnoticed, is designed and not yet in
+operation; today the **place** is cryptographically bound, not the content.
 
 ---
 
-*Belege zu allen Aussagen: `github.com/OwnYourData/dpp-service-public`,
-v3.0.0, `doi:10.5281/zenodo.22117494`, dort `docs/verification/`.*
+*Evidence for every claim above: `github.com/OwnYourData/dpp-service-public`,
+v3.0.0, `doi:10.5281/zenodo.22117494`, under `docs/verification/`.*

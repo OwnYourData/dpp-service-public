@@ -1,9 +1,9 @@
 # Delegation without a shared secret
 
-**Status:** Draft, not implemented yet. Fully replaces the storage JWT with
-`client_secret` from `X-DPP-Storage`. There is **no migration path** —
-existing pods, collections and OAuth applications are deleted and created
-anew.
+**Status:** Implemented and in production. The delegation fully replaces the
+storage JWT that carried `client_secret` in `X-DPP-Storage`; no `client_secret`
+is stored or accepted any more. There was **no migration path** — the pods,
+collections and OAuth applications from before were deleted and created anew.
 
 
 ---

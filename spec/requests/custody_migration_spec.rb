@@ -41,6 +41,7 @@ RSpec.describe "Changing the custodian", type: :request do
                            reachable!: true)
     store = {}
     allow(fake).to receive(:ensure_covers!).and_return(true)
+    allow(fake).to receive(:ensure_product!).and_return(true)
     allow(fake).to receive(:create_object).and_return(object_id)
     allow(fake).to receive(:write_payload) { |_id, doc| store[:doc] = doc; true }
     allow(fake).to receive(:read_payload) { store[:doc] || {} }

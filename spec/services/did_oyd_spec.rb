@@ -24,17 +24,17 @@ RSpec.describe DidOyd do
         "revocation_log" => { "op" => 1 } }
     end
 
-    it "passes the options oydid >= 0.6 requires" do
+    it "passes the options oydid requires" do
       allow(oydid).to receive(:create).and_return([result, ""])
 
       DidOyd.mint("https://id.example/01/1")
 
       expect(oydid).to have_received(:create) do |content, options|
-        # :key_type is mandatory since 0.5 — without it oydid raises
-        # NoMethodError (nil + "-priv") deep inside generate_base.
+        # :key_type is mandatory — without it oydid raises NoMethodError
+        # (nil + "-priv") deep inside generate_base.
         expect(options[:key_type]).to eq("ed25519")
         # :location lands in the identifier, :doc_location selects the
-        # repository. Before 0.5 a single :doc_location did both.
+        # repository; oydid reads them as two independent options.
         expect(options[:location]).to eq(DidOyd::DEFAULT_LOCATION)
         expect(options[:doc_location]).to eq(DidOyd::DEFAULT_LOCATION)
         expect(options[:return_secrets]).to be(true)

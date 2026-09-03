@@ -266,7 +266,7 @@ The header is still called `X-DPP-Storage`, its content in future is:
 
 | Artifact | Proposal | Rationale |
 |---|---|---|
-| Delegation | 90 days | long enough that read-through and updates run without the holder's involvement; short enough that a forgotten delegation expires by itself. Is renewed at the next write operation, where the holder signs anyway |
+| Delegation | 90 days | long enough that read-through and updates run without the holder's involvement; short enough that a forgotten delegation expires by itself. Renewal is a signed act of its own (§11), so the figure is the interval at which the holder has to reach for their key per passport |
 | Client assertion | 60 s | is created anew per token request |
 | DPoP proof | 30 s | is created anew per request |
 | Access token | 10 min | short, because it can be re-fetched at will |
@@ -275,7 +275,93 @@ The header is still called `X-DPP-Storage`, its content in future is:
 Public read paths need **no** token — by far the largest share of accesses
 therefore runs entirely without this apparatus.
 
-## 11. Revocation
+## 11. Renewal
+
+A mandate has a lifetime and a passport does not. Ninety days after it was
+signed, the delegation the service holds for a passport stops being redeemable,
+while the passport it is about goes on being updated and, eventually, deleted.
+Handing over a fresh one is therefore an ordinary operation, not an exception.
+
+```
+POST /dpp/v1/dpps/{dppId}/delegation
+X-DPP-Storage: {"base_url":"…","collection_id":"…","delegation":"<fresh JWT>"}
+```
+
+Answers `204` and nothing else. The passport is not touched, and the fresh
+mandate was signed by the caller moments earlier, so there is nothing to report
+back that they do not already hold. Failures answer with the Result object of
+EN 18222:2026 Table 12, mapped as in §15.
+
+The mandate in place is readable:
+
+```
+GET /dpp/v1/dpps/{dppId}/delegation
+```
+
+Answers `200` with `{ jti, exp, act, collection, base_url }`, read from the
+stored assertion without being verified — an expired mandate is exactly what the
+caller is here to find out about. The holder keeps its own record of what it
+signed, and after a restore from an older backup the two drift apart; the drift
+is otherwise silent, the holder counting a passport as provided for while the
+service sits on a mandate that no longer works. Nothing secret is disclosed:
+all five values were signed by the owner, who is the only one allowed to read
+them. Every value is `null` when the stored assertion can no longer be read,
+which is the same answer in a different shape — the service holds nothing it
+could redeem. `404` for a passport no custodian holds.
+
+**An operation of its own, not a header on `PATCH`.** `PATCH` carries RFC 7396
+semantics over the document (EN 18222:2026, Table 6). Replacing a mandate is an
+act about custody, not a field of the passport. Two meanings in one call blur
+both, and the client saves exactly one request.
+
+**The stored mandate is not an authority here.** The reason to be on this path
+is that it has expired, so nothing on it may depend on the stored delegation
+still being redeemable. It is still *read*, without being trusted, for the two
+comparisons in the table below; a stored mandate that can no longer be parsed
+leaves nothing to compare against and both fall away.
+
+What the service checks, in this order:
+
+| Check | Refusal |
+|---|---|
+| the caller owns the passport | `ClientForbidden` (403) |
+| the passport is held by a custodian at all | `ClientErrorBadRequest` (400) |
+| the fresh mandate names the same `aud` and `collection` as the one in place | `ClientErrorBadRequest` (400), pointing at `POST /dpps/{dppId}/custody` |
+| its `product_id` is the passport's `uniqueProductIdentifier` | `ClientForbidden` (403) |
+| its `act` covers everything the stored one covered | `ClientForbidden` (403), log reason `insufficient_scope` |
+| its `exp` lies after the stored `exp` | `ClientErrorBadRequest` (400) |
+| the pod issues a token for it | per §15 |
+
+The last one is the only evidence that the fresh mandate is worth anything, so
+it happens before the stored one is overwritten: a broken mandate must never
+replace a working one. The three before it guard against the mistake this path
+invites, which is handing over the wrong artefact — a mandate for a different
+passport, one that grants less than the one in place, or one that runs out
+sooner. None of the three is a case anyone means to be in.
+
+A mandate naming a *different* custodian is not refused because it is invalid
+but because it means something else: that is a handover, it moves the document,
+and it has its own operation (`POST /dpps/{dppId}/custody`).
+
+At the custodian a renewal supersedes what it replaces. The pod keeps one
+record per `(collection, product_id, sub)`, so redeeming the fresh mandate
+overwrites the record that named the previous one and puts that one's `jti` on
+the revocation list, where it stays until it would have expired anyway. Without
+that step the predecessor would remain a signed, redeemable artefact for the
+rest of its 90 days while the record naming it had been rewritten — leaving the
+holder nothing to withdraw it by. The order is what makes this safe: the
+service obtains a token with the fresh mandate before it replaces the stored
+one, so the predecessor lapses exactly when its successor has proven itself,
+and a renewal that fails leaves it untouched. Mandates held by *different*
+services for the same passport are unaffected (D1); each has a record of its
+own.
+
+`product_id` is checked at `CreateDPP` in the same way. A mandate that is
+redeemable but names another passport would otherwise be stored, and the
+mismatch would surface at the pod on the first write — after a DID had been
+minted for it.
+
+## 12. Revocation
 
 - **By the holder:** revoke the delegation in the pod (`jti` on a denylist).
   Takes effect immediately, affects exactly one passport at exactly one service.
@@ -284,7 +370,7 @@ therefore runs entirely without this apparatus.
   fails and all their delegations die. Careful: the positive cache window
   (300 s) is the delay with which this takes effect.
 
-## 12. Key loss
+## 13. Key loss
 
 This is the point that hurts the most in production. If the holder loses the
 document key of their identity DID, they can neither delegate nor write, and
@@ -303,7 +389,7 @@ Recommendations:
   bound to an identity check outside the system. It belongs in the contract,
   not only in the code.
 
-## 13. No compatibility mode
+## 14. No compatibility mode
 
 **What that does and does not cover.** It is a statement about the **DPP
 Service**: it holds no `client_secret`, so there is exactly one way for it into
@@ -321,7 +407,7 @@ true for anything that still authenticates with a shared secret. The claim this
 model earns is "the DPP path needs no shared secret", not "the intermediary
 works without shared secrets".
 
-## 14. Error mapping (EN 18222:2026 Table 16)
+## 15. Error mapping (EN 18222:2026 Table 16)
 
 `invalid_dpop_proof` (RFC 9449 §7.1) and `insufficient_scope` (RFC 6750 §3.1)
 are prescribed by their respective RFCs; where this table names one of them it
@@ -336,9 +422,10 @@ takes precedence over the `invalid_grant` default of §8.
 | DID not resolvable | `invalid_grant` | `ServerErrorBadGateway` (502) |
 | pod not reachable | — | `ServerErrorBadGateway` (502) |
 
-## 15. Decisions taken (2026-08-19)
+## 16. Decisions taken (2026-08-19)
 
-These three were settled before implementation started. They are binding for
+D1 to D3 were settled before implementation started, D4 in the first joint
+run, D5 and D6 in the architecture pass against the code. They are binding for
 both sides; changing one means changing this document first.
 
 **D1 — Several simultaneous delegations for the same `product_id`: permitted.**
@@ -413,18 +500,49 @@ names succeeds, reading a different subject in the same collection does not.
 Whoever changes that behaviour has to change those tests, which is where the
 next implementer will look.
 
-## 16. Open items
+**D5 — Where the pod builds this.** Nothing about the three assertions is
+DPP-specific, so nothing about them is built in the DPP-specific layer.
+`dc-base` gets the generic parts: resolving a foreign `did:oyd` with the cache
+discipline of rule 2, and verifying an EdDSA JWS against a key from a DID
+document. `dc-pod` gets the whole delegation apparatus: `controller_did` on the
+collection, the rules of §8, token issuance bound to `cnf.jkt`, the `jti`
+stores, revocation, and scopes **as a mechanism**. `pod-dpp` contributes one
+thing only — which field of a stored object the `product_id` of a delegation
+denotes. The wire claim stays `product_id`; inside `dc-pod` the column is
+called `subject_id`, because a layer that must not know what a passport is must
+not name its columns after one. Detail in
+`dc-pod/docs/Delegation-Implementation.md`.
 
-1. Own Doorkeeper grant or an extension? Doorkeeper does not ship
-   `urn:ietf:params:oauth:grant-type:jwt-bearer`. To be answered by the
-   architecture pass against the code, not in the abstract.
+**D6 — A registered Doorkeeper grant flow, not a separate endpoint.**
+Doorkeeper 5.9 does not ship `urn:ietf:params:oauth:grant-type:jwt-bearer`, but
+it does ship the registry for it: `Doorkeeper::GrantFlow.register` with an own
+strategy class, served by the stock tokens controller at the `POST
+{base_url}/oauth/token` of §7. The endpoint is contract, so a separate one was
+never a real option; the alternative of the `doorkeeper-grants_assertion` gem
+was rejected because it covers only the assertion and would have to be fought
+over client assertion, DPoP and `cnf.jkt`. The success and error bodies are
+built by hand: Doorkeeper's own token response hard-codes `token_type` as
+`Bearer`, and its error response maps everything but two client errors to
+HTTP 400 with an I18n description that does not exist for
+`invalid_dpop_proof`. This answers open item 1.
+
+## 17. Open items
+
+1. ~~Own Doorkeeper grant or an extension?~~ Answered by D6: a registered
+   grant flow at the stock token endpoint.
 2. How does the intermediary enter `controller_did` — UI, API, both?
-   API first; the UI can follow.
-3. Does the pod need a view of "which delegations exist"? Art. 12(c) implies
-   disclosure on request; a view would be the better implementation. D1 makes
-   this more pressing, since several may now be active at once.
-4. `jti` store: Redis or database? It has to survive a restart. Database
-   first, Redis is an optimisation.
+   API first; the UI can follow. Implemented as API: `collections#create` and
+   `#update` merge `data["meta"]`, so `controller_did` and `allowed_act` are
+   handed over at provisioning without a code change on the pod.
+3. ~~Does the pod need a view of "which delegations exist"?~~ Yes.
+   `GET /collection/:id/delegations` lists them and `DELETE /delegation/:id`
+   is the revocation of §12 — the same handle serves both purposes.
+4. ~~`jti` store: Redis or database?~~ Database; there is no Redis in the
+   deployment at all. Note which `jti` is stored where: the client assertion's
+   and the DPoP proof's, recorded **on success** rather than on passing their
+   rule, so that a request failing later cannot burn a legitimate assertion.
+   The delegation's `jti` is not stored at all — it is the revocation handle of
+   rule 5.
 5. Guided DID creation flow in onboarding — clarify responsibility. D2 makes
    this load-bearing: without signing capability at the holder, per-passport
    delegation does not work in practice.

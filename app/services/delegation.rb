@@ -46,7 +46,7 @@ class Delegation
 
   class Error < StandardError; end
 
-  # Refused delegation. +code+ is the OAuth error of §14, so the caller can map
+  # Refused delegation. +code+ is the OAuth error of §15, so the caller can map
   # it without re-deciding: invalid_grant, insufficient_scope, invalid_dpop_proof.
   class Invalid < Error
     attr_reader :code
@@ -110,7 +110,7 @@ class Delegation
     # collection is not ours to keep, and storing it would only move the failure
     # to the first token request, where the pod's log would carry the blame.
     #
-    # Returns the claims. Raises Invalid, carrying the §14 error code.
+    # Returns the claims. Raises Invalid, carrying the §15 error code.
     def verify!(token, audience:, collection_id: nil, service_did: ServiceDid.did,
                 now: Time.now.to_i)
       header, claims = decode(token)
@@ -160,7 +160,7 @@ class Delegation
         if product_id.empty? || product_id.include?("*")
 
       # Rule 10 / D3. Unknown values fail closed rather than being ignored,
-      # and both cases answer insufficient_scope per §14.
+      # and both cases answer insufficient_scope per §15.
       act = claims["act"]
       raise Invalid.new("act must be a non-empty array", code: "insufficient_scope") \
         unless act.is_a?(Array) && act.any?

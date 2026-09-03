@@ -21,11 +21,10 @@ gem "jwt"                    # verify bearer access tokens (oydid pulls jwt ~> 3
 # require:false — loaded lazily by DidOyd so the app boots without libsodium
 # (needed only when a DID is actually minted/revoked, e.g. in production).
 #
-# Pinned to >= 0.6.4: 0.5 split :doc_location into :location + :doc_location and
-# made :key_type mandatory, 0.6 corrected the public-key multicodec encoding
-# (z6Mv... -> z6Mk...). Anything below 0.6 mints DIDs whose keys carry the old,
-# non-conformant encoding, so this must not float downwards.
-gem "oydid", "~> 0.6", ">= 0.6.4", require: false
+# The pin is a floor, not a preference: DidOyd relies on :location and
+# :doc_location being separate options, on :key_type being accepted, and on
+# document keys being published under the ed25519-pub multicodec (z6Mk...).
+gem "oydid", "~> 0.9", ">= 0.9.5", require: false
 
 group :development, :test do
   gem "rspec-rails"

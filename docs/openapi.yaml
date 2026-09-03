@@ -39,6 +39,12 @@ tags:
     description: Registration of a DPP at the EC registry (EN 18222:2026, Clause 5).
   - name: Fine Granular Life Cycle API
     description: Access to individual data elements / collections (EN 18222:2026, Clause 6).
+  - name: Custody
+    description: >-
+      Beyond EN 18222:2026. The standard says what a service does with a
+      passport, not where it keeps it or on whose authority it reaches that
+      store. These operations carry no `x-semanticId`, because the standard
+      names no method they realise.
 
 security:
   - bearerAuth: []   # Public read data is accessible unauthenticated (prEN 18239 6.2); controlled data requires a token.
@@ -142,6 +148,113 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
+
+  /dpps/{dppId}/custody:
+    parameters:
+      - $ref: '#/components/parameters/DppId'
+      - $ref: '#/components/parameters/DppStorage'
+    post:
+      tags: [Custody]
+      summary: Change the custodian
+      description: >-
+        Hands a pod-backed passport to the custodian named by the mandate in
+        `X-DPP-Storage`: the service reads the document from the custodian that
+        still holds it, writes it to the new one and repoints the passport. No
+        identifier changes — neither `digitalProductPassportId` nor
+        `uniqueProductIdentifier`, which is what a carrier bears.
+
+        The previous custodian keeps serving unless `release_previous` is set;
+        the overlap is the rollback path while printed carriers may still
+        resolve to the old host.
+
+        Goes beyond EN 18222:2026, which names no method for it.
+      operationId: moveCustody
+      parameters:
+        - name: release_previous
+          in: query
+          required: false
+          description: End custody at the previous pod in the same call (soft delete).
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Success — the passport, unchanged, at its new custodian.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DigitalProductPassport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+
+  /dpps/{dppId}/delegation:
+    parameters:
+      - $ref: '#/components/parameters/DppId'
+    get:
+      tags: [Custody]
+      summary: Read the delegation in place
+      description: >-
+        Says which mandate the service currently holds for this passport, so
+        that the holder's own record of it can be checked against the service's
+        state — after a restore from an older backup the two drift apart, and
+        the drift is otherwise silent.
+
+        The claims are reported as stored, without being verified: an expired
+        or otherwise unusable mandate is what the caller is here to find out
+        about. All five values were signed by the owner, who is the only one
+        allowed to read them.
+
+        Every value is `null` when the stored mandate cannot be read at all —
+        the service then holds nothing it could redeem.
+
+        Goes beyond EN 18222:2026, which names no method for it.
+      operationId: readDelegation
+      responses:
+        '200':
+          description: Success — the mandate in place.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DelegationState' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: >-
+            ClientErrorResourceNotFound — no such passport, or one that is not
+            held by a custodian and therefore has no delegation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+    post:
+      parameters:
+        - $ref: '#/components/parameters/DppStorage'
+      tags: [Custody]
+      summary: Renew the delegation
+      description: >-
+        Replaces the mandate under which the service reaches the custodian that
+        holds this passport, without moving the passport. A mandate has a
+        lifetime (docs/Delegation.md §10) and a passport does not.
+
+        The mandate must name the same custodian and collection as the one in
+        place — a different one is a handover, `POST /dpps/{dppId}/custody`. It
+        must name this passport's `uniqueProductIdentifier`, cover at least what
+        the stored mandate covers, and expire later than it does. The service
+        obtains a token with it before the stored mandate is replaced.
+
+        The stored mandate is not required to be valid; the ordinary reason to
+        call this is that it has expired.
+
+        Goes beyond EN 18222:2026, which names no method for it.
+      operationId: renewDelegation
+      responses:
+        '204':
+          description: >-
+            SuccessNoContent — the fresh mandate is in place. No body: the
+            passport is untouched, and the mandate was signed by the caller.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/BadGateway' }
 
   /dppsByProductId/{productId}:
     parameters:
@@ -392,6 +505,19 @@ components:
       required: true
       description: The product identifier (enables a web link to the DPP).
       schema: { $ref: '#/components/schemas/Identifier' }
+    DppStorage:
+      name: X-DPP-Storage
+      in: header
+      required: true
+      description: >-
+        The custodian and the mandate to reach it, as JSON or the same object
+        base64url-encoded (docs/Delegation.md §9):
+        `{"base_url": "...", "collection_id": "...", "delegation": "<JWT>"}`.
+        A header rather than a field of the document, so the payload stays free
+        of proprietary attributes (EN 18223:2026). The delegation is a JWT the
+        economic operator signed for exactly this service, this pod and this
+        product.
+      schema: { type: string }
 
   ###########################################################################
   # Reusable error responses (EN 18222:2026 7.2, Tables 12-15)
@@ -479,6 +605,38 @@ components:
         timestamp:
           type: string
           format: date-time
+    DelegationState:
+      type: object
+      description: >-
+        The delegation the service holds for a passport, reported as stored
+        (docs/Delegation.md §11). Not part of any standard.
+      properties:
+        jti:
+          type: string
+          nullable: true
+          description: The mandate's name, and the handle its issuer revokes it by.
+          example: "b2f1c9e4a7d05386"
+        exp:
+          type: integer
+          nullable: true
+          description: Expiry as a POSIX timestamp, as signed.
+          example: 1794736000
+        act:
+          type: array
+          nullable: true
+          items: { type: string }
+          description: The operations the mandate covers.
+          example: ["create", "update", "delete"]
+        collection:
+          type: string
+          nullable: true
+          example: "4"
+        base_url:
+          type: string
+          nullable: true
+          description: The custodian the mandate is addressed to (its `aud` claim).
+          example: "https://dpp.go-data.at"
+
     Result:
       type: object
       description: Result object returned on failed method execution (EN 18222:2026 Table 12).

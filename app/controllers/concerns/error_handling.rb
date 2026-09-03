@@ -35,7 +35,7 @@ module ErrorHandling
     # Anything that went wrong with the hosting pod already carries the generic
     # status code it should answer with: a malformed X-DPP-Storage header is a
     # client error, a refused delegation is 401 or 403 per docs/Delegation.md
-    # §14, an unreachable pod is 502. Without this the same failures surfaced as
+    # §15, an unreachable pod is 502. Without this the same failures surfaced as
     # 500, which reads as "our bug" when it is usually a mandate problem.
     rescue_from PodStorage::Error do |e|
       render_result(e.status_code, text: e.message)

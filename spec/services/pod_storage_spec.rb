@@ -6,7 +6,7 @@ require "digest"
 # HTTP layer of the pod client. Net::HTTP is stubbed so the specs run without a
 # network; what is checked is which requests the client builds and how it maps
 # the pod's answers onto the generic status codes of EN 18222:2026 (Table 16) and
-# the OAuth errors of docs/Delegation.md §14.
+# the OAuth errors of docs/Delegation.md §15.
 RSpec.describe PodStorage do
   let(:base_url)    { "https://dpp.go-data.at" }
   let(:holder)      { Ed25519::SigningKey.new(Digest::SHA256.digest("pod-storage-spec/holder")) }
@@ -184,6 +184,29 @@ RSpec.describe PodStorage do
     end
   end
 
+  # D2: one delegation names one passport. The name has to be the passport the
+  # request is about, or the mandate is redeemable but not for this object.
+  describe "#ensure_product!" do
+    let(:named) { "https://id.lumina.example/01/09520123456791" }
+
+    it "passes for the product the delegation names" do
+      expect(storage.ensure_product!(named)).to be(true)
+    end
+
+    it "refuses another product with ClientForbidden" do
+      expect { storage.ensure_product!("https://id.lumina.example/01/09520123456788") }
+        .to raise_error(described_class::DelegationError) { |e|
+          expect(e.status_code).to eq("ClientForbidden")
+          expect(e.message).to include(named)
+        }
+    end
+
+    it "refuses a blank product" do
+      expect { storage.ensure_product!(nil) }
+        .to raise_error(described_class::DelegationError)
+    end
+  end
+
   describe "#token" do
     it "presents the delegation, a client assertion and a DPoP proof (§7)" do
       requests = stub_pod([token_response])
@@ -339,7 +362,7 @@ RSpec.describe PodStorage do
     end
   end
 
-  describe "error mapping (EN 18222:2026 Tables 12-15, docs/Delegation.md §14)" do
+  describe "error mapping (EN 18222:2026 Tables 12-15, docs/Delegation.md §15)" do
     {
       404 => "ClientErrorResourceNotFound",
       500 => "ServerErrorBadGateway",

@@ -29,7 +29,7 @@ require "digest"
 # Deliberately without extra gems: Net::HTTP from the standard library.
 class PodStorage
   # Pod failures are mapped onto the generic status codes of EN 18222:2026
-  # (Table 16); docs/Delegation.md §14 fixes the mapping for the OAuth errors.
+  # (Table 16); docs/Delegation.md §15 fixes the mapping for the OAuth errors.
   class Error < StandardError
     attr_reader :status_code
 
@@ -46,7 +46,7 @@ class PodStorage
   end
 
   # The delegation itself is not acceptable — wrong service, wrong pod, expired,
-  # or an operation it does not cover. +status_code+ carries the §14 answer.
+  # or an operation it does not cover. +status_code+ carries the §15 answer.
   class DelegationError < Error; end
 
   # The Registry's 50-character budget no longer constrains this value. Since
@@ -62,7 +62,7 @@ class PodStorage
   # re-fetched with the same delegation.
   DEFAULT_TOKEN_TTL = 600
 
-  # §14, seen from this service: the pod deliberately does not say *why* a grant
+  # §15, seen from this service: the pod deliberately does not say *why* a grant
   # failed, so invalid_grant covers both "expired or revoked" and "not the
   # controller of this collection". It becomes 401 here; the pod's log is where
   # the distinction lives.
@@ -121,7 +121,7 @@ class PodStorage
     if dpp.storage_delegation.blank?
       raise ConfigError,
             "No delegation stored for this passport — it predates the delegation " \
-            "changeover and has to be created again (docs/Delegation.md §13)"
+            "changeover and has to be created again (docs/Delegation.md §14)"
     end
 
     new(base_url:      dpp.storage_base_url,
@@ -156,6 +156,25 @@ class PodStorage
 
     raise DelegationError.new(
       "the delegation for this passport does not cover #{operation}",
+      status_code: "ClientForbidden"
+    )
+  end
+
+  # Does the delegation name the passport it is being used for? D2 makes a
+  # delegation a statement about one object, so the name of that object is part
+  # of the mandate and has to match the passport the request is about. The pod
+  # would catch a mismatch too, but only at the first write and with a bare
+  # OAuth code -- and by then a DID may already have been minted.
+  def covers_product?(product_id)
+    delegation_claims["product_id"].to_s == product_id.to_s
+  end
+
+  def ensure_product!(product_id)
+    return true if covers_product?(product_id)
+
+    raise DelegationError.new(
+      "the delegation is for product #{delegation_claims['product_id'].inspect}, " \
+      "not #{product_id.to_s.inspect}",
       status_code: "ClientForbidden"
     )
   end
@@ -391,7 +410,7 @@ class PodStorage
     end
   end
 
-  # The pod answers a refused grant with an OAuth error code (§14). It says
+  # The pod answers a refused grant with an OAuth error code (§15). It says
   # nothing about *which* rule failed — deliberately, because a precise message
   # is a manual for forging the next attempt — so the log line here records what
   # we asked for, and the client gets the mapped status code.

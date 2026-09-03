@@ -33,6 +33,13 @@ Rails.application.routes.draw do
       # rests on.
       post "dpps/:dpp_id/custody", to: "api/v1/dpps#move_custody"
 
+      # Also outside EN 18222:2026: the mandate under which this service reaches
+      # the custodian has a lifetime, the passport does not. GET says which
+      # mandate is held, POST hands over a fresh one; neither moves the
+      # passport.
+      get  "dpps/:dpp_id/delegation", to: "api/v1/dpps#show_delegation"
+      post "dpps/:dpp_id/delegation", to: "api/v1/dpps#renew_delegation"
+
       # --- 6  Fine Granular Life Cycle API — Table 19 ---------------------
       get   "dpps/:dpp_id/collections/:element_id",
             to: "api/v1/data_element_collections#show"   # ReadDataElementCollection

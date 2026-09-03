@@ -146,7 +146,10 @@ class DidTokenVerifier
       info = Timeout.timeout(RESOLVE_TIMEOUT) { Oydid.read(did, {}).first }
       return nil if info.nil? || info["error"].to_i != 0
 
-      multibase = info.dig("doc", "key").to_s.split(":").first
+      # The "key" field is positional: slot 0 is the document key (which
+      # signs), slot 1 the revocation key. Index explicitly — a further slot
+      # would otherwise be picked up silently.
+      multibase = info.dig("doc", "key").to_s.split(":")[0]
       return nil if multibase.blank?
 
       # multi_decode yields the multicodec prefix followed by the key; for

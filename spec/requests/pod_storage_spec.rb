@@ -48,6 +48,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
                            storage_delegation: delegation,
                            reachable!: true)
     allow(fake).to receive(:create_object).and_return("4711")
+    allow(fake).to receive(:ensure_product!).and_return(true)
     allow(fake).to receive(:write_payload) { |_id, doc| @written = doc; true }
     allow(fake).to receive(:read_payload) { @written || {} }
     allow(fake).to receive(:delete_object).and_return(true)

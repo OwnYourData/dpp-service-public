@@ -361,7 +361,7 @@ README = """# Delegation conformance vectors
 
 Fixture set for the delegation model in `docs/Delegation.md`. Eleven requests
 against the token endpoint: one that has to succeed, ten that have to be
-refused, each with the error code `Delegation.md` §14 prescribes.
+refused, each with the error code `Delegation.md` §15 prescribes.
 
 The point of these files is that the pod and the DPP Service can be built
 **independently**. The pod runs them as a test fixture without a DPP Service
@@ -425,7 +425,7 @@ architecture pass, and if so, say it in `Delegation.md`.
 
 **Rule 5 cannot mean what it currently says.** §8 rule 5 reads "`jti` not seen
 before → store until `exp`", applied to the *delegation*. But §10 says the
-delegation lives 90 days and is presented again at every token request, and §11
+delegation lives 90 days and is presented again at every token request, and §12
 uses its `jti` as the revocation handle. A one-shot nonce and a 90-day reusable
 artefact cannot be the same field: implemented literally, rule 5 would make
 every delegation single-use, and the second token request of the day would be
@@ -440,10 +440,10 @@ is for in these fixtures.
 `05-jti-replay` therefore replays the **client assertion** of `01-valid`, not
 the delegation. §8 rule 5 should be reworded accordingly.
 
-**§8 and §14 disagree on error codes.** §8 says every failure is
-`invalid_grant`; §14 maps the DPoP case to `invalid_dpop_proof` and the scope
-case to `insufficient_scope`. These vectors follow §14, because RFC 9449 and
-RFC 6750 prescribe those two codes. §8 should read "`invalid_grant`, unless §14
+**§8 and §15 disagree on error codes.** §8 says every failure is
+`invalid_grant`; §15 maps the DPoP case to `invalid_dpop_proof` and the scope
+case to `insufficient_scope`. These vectors follow §15, because RFC 9449 and
+RFC 6750 prescribe those two codes. §8 should read "`invalid_grant`, unless §15
 names a more specific code".
 
 ## Where the jti store commits

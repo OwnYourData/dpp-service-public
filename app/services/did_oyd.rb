@@ -22,9 +22,9 @@ class DidOyd
   # once, at CreateDPP, so this is not on a hot path -- but it must not hang.
   RESOLVE_TIMEOUT = ENV.fetch("DID_RESOLVE_TIMEOUT", 10).to_i
 
-  # oydid >= 0.5 supports several key types and no longer defaults to ed25519;
-  # without this Oydid.create raises NoMethodError (nil + "-priv") inside
-  # generate_base.
+  # oydid supports several key types and defaults to none, so this option is
+  # mandatory: without it Oydid.create raises NoMethodError (nil + "-priv")
+  # inside generate_base.
   KEY_TYPE = "ed25519"
 
   # OYDID repository / VDR that the DID document is published to and resolved
@@ -75,10 +75,9 @@ class DidOyd
 
     # :location goes into the identifier itself (the "@<repo>" suffix that
     # normalize_did strips again for the default repo), :doc_location is the
-    # repository document and log are published to. Up to oydid 0.4 a single
-    # :doc_location covered both; since 0.5 they are separate options, and
-    # passing only :doc_location silently mints a DID without its location
-    # suffix — resolvable only at the default repository.
+    # repository document and log are published to. They are separate options
+    # and both are needed: passing only :doc_location silently mints a DID
+    # without its location suffix — resolvable only at the default repository.
     result, msg = Oydid.create(content, { return_secrets: true,
                                           key_type: KEY_TYPE,
                                           location: location,

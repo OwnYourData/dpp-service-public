@@ -458,6 +458,46 @@ curl -sS "$BASE/dppsByIdAndDate/$ENC?date=$NOW" | jq '.dppStatus'
 
 ---
 
+## 13. Renew the delegation (POST /dpps/{dppId}/delegation)
+
+For a passport held in a hosting pod. The mandate in `X-DPP-Storage` is signed
+by the economic operator for one service, one pod and one product, and it
+expires (`docs/Delegation.md` §10). This replaces it without moving the
+passport.
+
+```bash
+# The fresh mandate, signed by the holder for the same pod and collection,
+# with a later exp than the one in place.
+STORAGE_NEW='{"base_url":"https://dpp.go-data.at","collection_id":"4","delegation":"'"$DELEGATION_NEW"'"}'
+
+# Expect 204 — no body, the passport is untouched.
+curl -sS -o /dev/null -w "renew: %{http_code}\n" \
+  -X POST "$BASE/dpps/$ENC/delegation" "${AUTH[@]}" \
+  -H "X-DPP-Storage: $STORAGE_NEW"
+```
+
+A mandate naming a different custodian is refused with `400` and a pointer to
+`POST /dpps/{dppId}/custody`: that is a handover, and it moves the document.
+
+Which mandate the service holds is readable, so your own record can be checked
+against it:
+
+```bash
+curl -sS "$BASE/dpps/$ENC/delegation" "${AUTH[@]}" | jq .
+```
+
+```json
+{ "jti": "b2f1c9e4a7d05386", "exp": 1794736000,
+  "act": ["create", "update", "delete"], "collection": "4",
+  "base_url": "https://dpp.go-data.at" }
+```
+
+The values come back as stored, unverified — an expired mandate is what you are
+asking about — and `null` throughout when the stored assertion can no longer be
+read.
+
+---
+
 ## Appendix — Generic status codes (EN 18222:2026, Table 15)
 
 | Generic code | HTTP |

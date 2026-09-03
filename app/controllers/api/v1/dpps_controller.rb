@@ -5,8 +5,11 @@ module Api
     # EN 18222:2026 Clause 4 — Life Cycle API (Main Methods).
     class DppsController < ApplicationController
       # Reads of public data are unauthenticated; writes require an actor.
-      before_action :authenticate_actor!, only: %i[create update destroy move_custody]
-      before_action :find_dpp, only: %i[show update destroy move_custody]
+      before_action :authenticate_actor!,
+                    only: %i[create update destroy move_custody
+                             show_delegation renew_delegation]
+      before_action :find_dpp, only: %i[show update destroy move_custody
+                                        show_delegation renew_delegation]
 
       # POST /dpp/v1/dpps  — CreateDPP (§4.6, Table 5)
       #
@@ -30,11 +33,6 @@ module Api
       #                it bears the product identifier, whose host is the operator's.
       def create
         storage = pod_storage_param     # nil unless X-DPP-Storage is present
-        # Reachability and credentials are verified BEFORE anything permanent
-        # happens — a DID whose serviceEndpoint points at an unreachable pod
-        # could only be corrected with a DID update.
-        storage&.reachable!
-
         dpp = Dpp.from_document(dpp_document_param)
 
         # The product identifier is what the carrier bears (EN 18219:2026
@@ -49,6 +47,18 @@ module Api
             return render_result("ClientErrorBadRequest", text: e.message)
           end
         end
+
+        # The mandate names one passport (D2). That name has to be the one of
+        # the passport being created, otherwise the delegation is redeemable but
+        # not for this object — a mismatch the pod would only notice at the
+        # first write, after a DID had already been minted.
+        storage&.ensure_product!(dpp.product_id)
+
+        # Reachability and credentials are verified BEFORE anything permanent
+        # happens — a DID whose serviceEndpoint points at an unreachable pod
+        # could only be corrected with a DID update.
+        storage&.reachable!
+
         # A client-supplied did:oyd (Variante B) is checked before anything
         # permanent happens: it has to resolve, and its serviceEndpoint has to
         # name the host that will actually hold this passport. Both are
@@ -196,6 +206,111 @@ module Api
         render_dpp(@dpp.to_document)
       end
 
+      # GET /dpp/v1/dpps/:dpp_id/delegation  — which mandate this service holds
+      # for this passport.
+      #
+      # The holder keeps its own record of what it signed, but until now had no
+      # way to ask what the service actually holds. The two drift apart after a
+      # restore from an older backup, and the drift is silent: the holder counts
+      # a passport as provided for while the service sits on an expired mandate.
+      # This makes that state readable.
+      #
+      # An account of our own state, not an authorisation: the claims are read
+      # with Delegation.peek and nothing about them is checked, because an
+      # expired or otherwise unusable mandate is precisely what the caller is
+      # here to find out about. Nothing secret is disclosed -- all five values
+      # were signed by the owner, who is the only one allowed to read them.
+      #
+      # Both are nil when the stored mandate cannot be read at all, which is the
+      # same answer in a different shape: the service holds nothing it could
+      # redeem, and the holder has to send a fresh one.
+      def show_delegation
+        return unless authorize_owner!(@dpp)
+
+        unless @dpp.pod?
+          return render_result("ClientErrorResourceNotFound",
+                               text: "This passport is not held by a custodian, " \
+                                     "so there is no delegation for it")
+        end
+
+        claims = Delegation.peek(@dpp.storage_delegation) || {}
+        render_dpp({
+                     "jti"        => claims["jti"],
+                     "exp"        => claims["exp"],
+                     "act"        => claims["act"],
+                     "collection" => claims["collection"],
+                     "base_url"   => claims["aud"]
+                   })
+      end
+
+      # POST /dpp/v1/dpps/:dpp_id/delegation  — replace the mandate under which
+      # this service holds the passport at its custodian.
+      #
+      # Not part of EN 18222:2026, for the same reason as custody: the standard
+      # says what a service does with a passport, not on whose authority it
+      # reaches the store it keeps it in. A mandate has a lifetime (§10) and a
+      # passport does not, so the mandate outlives its usefulness long before
+      # the passport does and there has to be a way to hand over a fresh one.
+      #
+      # Why an operation of its own rather than X-DPP-Storage on PATCH: PATCH
+      # carries RFC 7396 semantics over the document (EN 18222:2026, Table 6).
+      # Replacing a mandate is an act about custody, not a field of the
+      # passport; two meanings in one call would blur both, and the client saves
+      # exactly one request.
+      #
+      # The stored mandate is deliberately NOT consulted for authority here --
+      # the ordinary reason to be on this path is that it has expired. What it
+      # is still read for, without being trusted, is the comparison in the two
+      # rules below; if it is no longer even readable, those two are skipped.
+      def renew_delegation
+        return unless authorize_owner!(@dpp)
+
+        unless @dpp.pod?
+          return render_result("ClientErrorBadRequest",
+                               text: "This passport is not held by a custodian")
+        end
+
+        storage = pod_storage_param
+        if storage.nil?
+          return render_result("ClientErrorBadRequest",
+                               text: "X-DPP-Storage carrying the fresh delegation is required")
+        end
+
+        # A mandate for somewhere else is a change of custodian, which moves the
+        # document and is therefore a different act with a different endpoint.
+        unless same_custody?(storage)
+          return render_result(
+            "ClientErrorBadRequest",
+            text: "The delegation names a different collection or custodian; " \
+                  "handing the passport to another one is POST /dpps/{dppId}/custody"
+          )
+        end
+
+        storage.ensure_product!(@dpp.product_id)
+        return unless delegation_widens_or_matches?(storage)
+
+        # Before anything is overwritten: fetch a real token. It is the only
+        # evidence that the fresh mandate is redeemable, and a broken one must
+        # never replace a working one.
+        storage.reachable!
+
+        @dpp.update!(storage_delegation: storage.storage_delegation)
+        Rails.logger.info(
+          "[delegation] #{@dpp.dpp_id} renewed at #{@dpp.storage_base_url} " \
+          "collection #{@dpp.storage_collection_id}, jti " \
+          "#{storage.delegation_claims['jti']}, exp #{storage.delegation_claims['exp']}"
+        )
+
+        # 204 rather than the Result object of EN 18222:2026 Table 12: that
+        # object is the answer to a failed execution (7.2), and the passport
+        # itself is untouched by this call -- returning the document would
+        # suggest otherwise and would mean reading it back out of the pod for
+        # nothing. Everything a client could learn from a body -- product, act,
+        # exp -- it signed itself moments earlier. Failures do use the Result
+        # object, mapped per docs/Delegation.md §15.
+        render_dpp(nil, status_code: "SuccessNoContent")
+      end
+
       # GET /dpp/v1/dppsByProductId/:product_id  — ReadDPPByProductId (§4.3, Table 2)
       def by_product_id
         dpp = Dpp.active.where(product_id: params[:product_id]).order(last_update: :desc).first!
@@ -262,13 +377,54 @@ module Api
       # refused here rather than at the first write.
       #
       # Raises PodStorage::ConfigError (-> 400) if the header is malformed and
-      # PodStorage::DelegationError (-> 401/403 per §14) if the mandate does not
+      # PodStorage::DelegationError (-> 401/403 per §15) if the mandate does not
       # hold.
       def pod_storage_param
         raw = request.headers["X-DPP-Storage"].presence
         return nil if raw.nil?
 
         PodStorage.from_header(raw)
+      end
+
+      # Same custodian, same collection -- the condition for a renewal as
+      # opposed to a handover. Read from the columns, never from the stored
+      # mandate: on this path that one may be long expired.
+      def same_custody?(storage)
+        storage.base_url.to_s == @dpp.storage_base_url.to_s &&
+          storage.collection_id.to_s == @dpp.storage_collection_id.to_s
+      end
+
+      # Two guards against the most likely mistake on this path, which is
+      # handing over the wrong artefact: a mandate that grants less than the one
+      # in place, or one that runs out no later. Both are compared against the
+      # stored claims read WITHOUT verification -- they are not being trusted for
+      # authority, only for the comparison, and an expired mandate still has to
+      # be readable for it. A mandate that can no longer be parsed leaves
+      # nothing to compare against, so both checks fall away.
+      def delegation_widens_or_matches?(storage)
+        stored = Delegation.peek(@dpp.storage_delegation)
+        return true if stored.nil?
+
+        fresh   = storage.delegation_claims
+        dropped = Array(stored["act"]).map(&:to_s) - Array(fresh["act"]).map(&:to_s)
+        if dropped.any?
+          Rails.logger.info(
+            "[delegation] #{@dpp.dpp_id} renewal refused, insufficient_scope: " \
+            "the fresh mandate drops #{dropped.inspect}"
+          )
+          render_result("ClientForbidden",
+                        text: "The fresh delegation does not cover " \
+                              "#{dropped.join(', ')}, which the stored one does")
+          return false
+        end
+
+        if fresh["exp"].to_i <= stored["exp"].to_i
+          render_result("ClientErrorBadRequest",
+                        text: "The fresh delegation expires no later than the stored one")
+          return false
+        end
+
+        true
       end
 
       # Opt-in: end custody at the previous pod in the same call. Off by

@@ -68,6 +68,7 @@ All settings come from environment variables.
 | `RAILS_LOG_LEVEL` | `info` | |
 | `DPP_AUTH_MODE` | `permissive` | `did` enables signature verification of the bearer tokens and owner binding |
 | `DPP_AUTH_AUDIENCE` | same as `DPP_SERVICE_ENDPOINT_BASE` | value the `aud` claim must carry |
+| `DPP_FORCE_SSL` | `true` | redirect http to https. Right behind a proxy that terminates TLS, wrong on a machine with nothing in front of it — the compose file below switches it off |
 | `DID_AUTH_CACHE_TTL` | `300` | how long a resolved public key stays valid |
 | `DID_AUTH_MAX_LIFETIME` | `900` | longest accepted token lifetime in seconds |
 
@@ -157,6 +158,11 @@ explains nothing.
 address this instance will really be reachable at. It is written into the DID
 document of every passport the service mints, and a DID's endpoint cannot be
 changed afterwards.
+
+**Before you put it on a network**, set `DPP_FORCE_SSL=true` in `.env` and put a
+proxy with a certificate in front of it. The compose file turns that redirect off
+so that `http://localhost:3000` answers at all; on a machine reachable from
+outside, that is not what you want, and EN 18216:2026 §6.2 says so too.
 
 ### With your own database
 

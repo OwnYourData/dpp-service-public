@@ -24,6 +24,12 @@ x-service-env: &service-env
   DPP_DB_PASSWORD: ${DPP_DB_PASSWORD:?set DPP_DB_PASSWORD in .env — see .env.example}
   DPP_SERVICE_ENDPOINT_BASE: ${DPP_SERVICE_ENDPOINT_BASE:-http://localhost:3000}
   DPP_AUTH_MODE: ${DPP_AUTH_MODE:-permissive}
+  # Off here, on everywhere else. The application redirects http to https by
+  # default, which is right behind a load balancer that terminates TLS and
+  # fatal on a machine that has nothing in front of it: the redirect points at
+  # a port nobody is listening on. Set it to `true` in .env once this instance
+  # is reachable over TLS.
+  DPP_FORCE_SSL: ${DPP_FORCE_SSL:-false}
   OYDID_LOCATION: ${OYDID_LOCATION:-https://oydid.ownyourdata.eu}
   RAILS_LOG_TO_STDOUT: "1"
 

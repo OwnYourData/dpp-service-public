@@ -105,6 +105,10 @@ are installed at that moment, which is why the button takes a second. From here
 on it works with the network unplugged, up to the point where something has to
 leave the computer.
 
+The overview is where the passports will be, on the left, with the file that
+holds them beside it. There are none yet and the setup has not been done, so it
+offers the one thing that has to happen first.
+
 ---
 
 ## 2 — Setup: the service, an identity, and two keys

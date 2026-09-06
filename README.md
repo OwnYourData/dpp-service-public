@@ -65,6 +65,16 @@ says which identifier is which.
 
 ## Documentation
 
+Two demonstrations of the same lifecycle, one from each side. Start with
+whichever matches how you would use it.
+
+| Demo | What it shows |
+|---|---|
+| [docs/DPP-Service-Demo.md](docs/DPP-Service-Demo.md) | **the API, on the command line** — a passport created, corrected, handed to a custodian and ended, as `curl` calls to paste |
+| [docs/DPP-Manager-Demo.md](docs/DPP-Manager-Demo.md) | **the application, with screenshots** — the same lifecycle as an economic operator sees it, in the DPP Manager on their own computer |
+
+The rest:
+
 | File | What it covers |
 |---|---|
 | [docs/Standalone.md](docs/Standalone.md) | running the service on your own, without the intermediary's pod |

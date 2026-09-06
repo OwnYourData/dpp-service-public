@@ -46,75 +46,47 @@ holds what:
 
 ## 0 — Getting it, and starting it
 
-The DPP Manager runs on the operator's own computer. It is published as a
-container image, which is how an application is shipped together with everything
-it needs — here a database engine, a Ruby runtime and the SOyA toolchain, none
-of which anybody should have to install by hand.
+The DPP Manager runs on the operator's own computer, and it is published as a
+container image — an application shipped together with everything it needs, here
+a database engine, a Ruby runtime and the SOyA toolchain, none of which anybody
+should have to install by hand.
 
-**Once:** install [Docker Desktop](https://www.docker.com/products/docker-desktop),
-free, for macOS, Windows or Linux. Start it once and leave it be.
+So there are two installations, not one, and it is worth saying so plainly
+rather than calling the second of them "the whole installation": first a program
+that can run containers, then the DPP Manager inside it.
 
-**Then:** make a folder, put one file in it, and run one command.
+**[docs/Install.md](https://github.com/OwnYourData/dpp-manager-public/blob/main/docs/Install.md)
+is the guide** — three container programs to choose from with what each costs,
+a route that is only clicking and a route that is one command, and what to do
+when it does not work. It takes about ten minutes the first time.
 
-```yaml
-# docker-compose.yml
-services:
-  dpp-manager:
-    image: oydeu/dpp-manager:latest
-    container_name: dpp-manager
-    volumes:
-      - ./data:/data
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
+The short version, for a reader who has Docker running already:
+
 ```
-
-```bash
-mkdir "DPP Manager" && cd "DPP Manager"
-# put the file above in here, then:
+mkdir -p ~/Documents/dpp-manager && cd ~/Documents/dpp-manager
+curl -fsSLO https://raw.githubusercontent.com/OwnYourData/dpp-manager-public/main/docker-compose.yml
 docker compose up -d
 ```
 
 Then open **http://localhost:3000**.
 
-That is the whole installation. The first `up` downloads the image, which takes
-a minute or two; every later start is instant. `restart: unless-stopped` means
-the application is simply there after the computer is switched on again — there
-is nothing to start each morning.
-
-| | |
-|---|---|
-| stop it | `docker compose down` — the folder is untouched |
-| start it again | `docker compose up -d` |
-| a newer version | `docker compose pull && docker compose up -d` |
-
-After the first start, Docker Desktop's own window is enough for the rest:
-the container appears under *Containers* with a stop button, a start button and
-its log. Nobody has to type a second command.
-
-**The folder is the point.** `./data` is a folder on the computer, next to the
-compose file, and after the first start there is exactly one thing in it:
+**The folder is the point.** Everything the application holds is one encrypted
+file in a folder on the computer:
 
 ```
-DPP Manager/
+dpp-manager/
 ├── docker-compose.yml
 └── data/
     └── dpp.db      everything: passports, keys, settings, the event log
 ```
 
-That file is encrypted with the passphrase from the next section, and it is the
-whole state of the application. Copying the folder is a backup. Copying it to
-another computer and starting there is a move. Losing it with no copy is losing
-the passports — which is the price of nobody else having them.
+Copying that folder is a backup. Copying it to another computer and starting
+there is a move. Losing it with no copy is losing the passports — which is the
+price of nobody else having them.
 
 > A named volume would be the tidier Docker default and the wrong choice here.
 > It puts the file somewhere the operator cannot see, and "back up your
 > passports" would become a command to look up rather than a folder to copy.
->
-> On Linux the folder has to belong to user id 1000, the user inside the
-> container: `mkdir -p data && sudo chown 1000:1000 data`. macOS and Windows
-> handle this themselves. The application says so plainly if it cannot write
-> there.
 
 ---
 

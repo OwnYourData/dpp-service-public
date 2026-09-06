@@ -162,17 +162,21 @@ nowhere else.
 > and neither can we. The revocation key is kept apart from the document key
 > because it is the only way to end an identity cleanly.
 
-Step three is a custodian, and it is skipped here — this demo keeps the
-passports in the service's own database. The screen is worth one look anyway,
-because of what it asks for:
+The last step asks where the passports are to live, and it is skipped here — this
+demo keeps them in the service's own database. The screen is worth one look
+anyway, because of what it asks for and what it does not:
 
-![Setup, step 4](images/dpp-manager-demo/06-setup-custodian.png)
+![Where the passport lives](images/dpp-manager-demo/06-setup-custodian.png)
 
-> A base URL and a collection. No password, no client secret, no registration —
-> the custodian is told the operator's DID once, and every later write is
-> authorised by a statement this application signs. That is milestone 5, and it
-> is implemented; what is missing for a live demo is a provisioned collection,
-> not code.
+> A custodian is a data intermediary, not storage space: it holds the document,
+> and what it may do with it is one signed sentence about one passport, which
+> the operator can take back at any time. What the screen asks for is an address
+> and a collection number — no password, no client secret, no registration. The
+> intermediary is told the operator's DID once, and every later write is
+> authorised by a statement this application signs.
+>
+> One intermediary is offered by name because "custodian" on its own is an empty
+> word; anyone else is a field below it.
 
 ---
 
@@ -213,6 +217,11 @@ A draft saves whether or not it validates, and what is missing is said rather
 than enforced. The check runs through soya-web-cli — the same code as the `soya`
 command line tool — because a validation written here would be a second opinion
 about a structure that already has one.
+
+There are two saves. **Save** stores the answers and stays on the passport,
+because everything that comes after the form — the identifier, the submission,
+the custodian — is further down that same page; **Save and close** returns to
+the list, which is what was pressed here.
 
 ---
 
@@ -371,9 +380,12 @@ One compose file, one folder.
 **What is implemented but not shown here:** custody at a data intermediary — the
 mandate the operator signs (`Delegation.md` §5), its renewal, the comparison
 with what the service holds, and handing a passport to a different custodian,
-identifier and all. All of it is in the application and under test; the live
-demo needs a collection at a pod whose controller is this installation's
-identity DID.
+identifier and all. That path has been run end to end against a live pod: a
+passport minted for `dpp.go-data.at`, submitted with a signed mandate, read
+publicly at both the pod and the service, handed to a second collection and
+finally ended, with nothing served afterwards. It is left out of the walkthrough
+above because it needs a collection whose controller is the reader's own
+identity, which a demo cannot hand out.
 
 **What is not possible yet:** graduated read rights for restricted data
 (authorities, recyclers) are specified and not deployed — everything above is

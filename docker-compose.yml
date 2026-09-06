@@ -1,0 +1,72 @@
+# The DPP Service on one machine.
+#
+#   cp .env.example .env       then fill in the three secrets it asks for
+#   docker compose up -d       start it; the database is set up on first start
+#   docker compose down        stop it; the database volume is kept
+#   docker compose pull        fetch a newer version, then `up -d` again
+#
+# Unlike the DPP Manager, this is a service and not a personal application: it
+# needs a database next to it. That is what the second container is for, and why
+# there is a compose file at all.
+
+name: dpp-service
+
+# One set of variables for both application containers. The migration runs with
+# exactly the same configuration as the service, which is the point of sharing
+# it here rather than repeating it twice and letting the two drift.
+x-service-env: &service-env
+  RAILS_ENV: production
+  SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE in .env — see .env.example}
+  KEY_VAULT_KEK: ${KEY_VAULT_KEK:?set KEY_VAULT_KEK in .env — see .env.example}
+  DPP_DB_HOST: db
+  DPP_DB_NAME: ${DPP_DB_NAME:-dpp_service_production}
+  DPP_DB_USER: ${DPP_DB_USER:-dpp}
+  DPP_DB_PASSWORD: ${DPP_DB_PASSWORD:?set DPP_DB_PASSWORD in .env — see .env.example}
+  DPP_SERVICE_ENDPOINT_BASE: ${DPP_SERVICE_ENDPOINT_BASE:-http://localhost:3000}
+  DPP_AUTH_MODE: ${DPP_AUTH_MODE:-permissive}
+  OYDID_LOCATION: ${OYDID_LOCATION:-https://oydid.ownyourdata.eu}
+  RAILS_LOG_TO_STDOUT: "1"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DPP_DB_NAME:-dpp_service_production}
+      POSTGRES_USER: ${DPP_DB_USER:-dpp}
+      POSTGRES_PASSWORD: ${DPP_DB_PASSWORD:?set DPP_DB_PASSWORD in .env}
+    volumes:
+      - db:/var/lib/postgresql/data
+    # The service must not start against a database that is listening but not
+    # yet ready to answer: the migration would fail and the container would
+    # restart in a loop that says nothing useful.
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DPP_DB_USER:-dpp} -d ${DPP_DB_NAME:-dpp_service_production}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Migrations do not run when the service starts, and they should not: two
+  # service containers starting at once would run them twice. This one runs
+  # once, exits, and the service waits for it.
+  migrate:
+    image: oydeu/dpp-service:latest
+    command: [ "bin/rails", "db:prepare" ]
+    environment: *service-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  service:
+    image: oydeu/dpp-service:latest
+    environment: *service-env
+    ports:
+      - "${DPP_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  db:

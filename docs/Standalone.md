@@ -118,8 +118,51 @@ what makes the printed string resolvable.
 
 ## 4. With Docker
 
+The image is published, so nothing has to be built: **`oydeu/dpp-service`**, for
+`linux/amd64` and `linux/arm64`. Together with the `docker-compose.yml` in this
+repository it brings its own PostgreSQL, runs the migrations once and starts.
+
 ```bash
-docker build -t dpp-service .
+curl -fsSLO https://raw.githubusercontent.com/OwnYourData/dpp-service-public/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/OwnYourData/dpp-service-public/main/.env.example
+cp .env.example .env
+```
+
+Then open `.env` and fill in the three values it asks for — two generated
+secrets and a database password. The file says how to generate them. Compose
+refuses to start with a clear message if one is missing, rather than starting
+with an improvised value that would be different after the next restart.
+
+```bash
+docker compose up -d
+```
+
+The service listens on `http://localhost:3000`, the Swagger UI is at
+`http://localhost:3000/api-docs`.
+
+```bash
+docker compose logs -f service     what it is doing
+docker compose down                stop it; the database volume is kept
+docker compose pull && docker compose up -d    a newer version
+```
+
+Two things about that compose file are deliberate. The migration is a container
+of its own that runs once and exits, because two service containers starting
+together would otherwise run the migrations twice. And the service waits for
+PostgreSQL to answer, not merely to listen — against a database that is up but
+not ready, the migration fails and the container restarts in a loop that
+explains nothing.
+
+**Before the first passport**, set `DPP_SERVICE_ENDPOINT_BASE` in `.env` to the
+address this instance will really be reachable at. It is written into the DID
+document of every passport the service mints, and a DID's endpoint cannot be
+changed afterwards.
+
+### With your own database
+
+If PostgreSQL is already running somewhere, the service is a single container:
+
+```bash
 docker run --rm -p 3000:3000 \
   -e RAILS_ENV=production \
   -e SECRET_KEY_BASE="$(openssl rand -hex 64)" \
@@ -129,13 +172,23 @@ docker run --rm -p 3000:3000 \
   -e DPP_DB_USER=postgres \
   -e DPP_DB_PASSWORD=postgres \
   -e DPP_SERVICE_ENDPOINT_BASE=https://dpp.example.org \
-  dpp-service
+  oydeu/dpp-service:latest
 ```
 
-Migrations do not run automatically:
+Keep those two generated secrets — written like that they are new on every
+start, which loses the sessions and, worse, the DID keys of every passport this
+service minted itself.
+
+Migrations do not run automatically on this path:
 
 ```bash
-docker run --rm -e RAILS_ENV=production ... dpp-service bin/rails db:prepare
+docker run --rm -e RAILS_ENV=production ... oydeu/dpp-service:latest bin/rails db:prepare
+```
+
+Building it yourself stays possible and is one command:
+
+```bash
+docker build -t dpp-service .
 ```
 
 ---

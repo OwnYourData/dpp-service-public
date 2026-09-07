@@ -9,7 +9,7 @@ info:
       * EN 18223:2026 — System interoperability (payload / semantic data model)
       * EN 18216:2026 — Data exchange protocols (TLS, JSON/XML/JSON-LD/HTML, error handling)
       * prEN 18239 — Access rights, information security, business confidentiality
-      * EN 18219:2026 — Unique identifiers (incl. W3C DIDs — relevant for DID FlexCo)
+      * EN 18219:2026 — Unique identifiers (incl. W3C DIDs — the scheme used here is did:oyd)
 
     NOTE: The source standards are 2025 drafts (Entwurf / CEN Enquiry) and are
     technology-neutral. This specification is one concrete REST realisation of
@@ -25,12 +25,15 @@ info:
     an identifier are preserved.
   version: 0.1.0
   contact:
-    name: DPP Service (DID FlexCo)
+    name: DPP Service (OwnYourData)
   license:
     name: Proprietary
 servers:
   - url: https://api.example.org/dpp/v1
-    description: DPP service (custodian / service provider) — HTTPS/TLS 1.3 required
+    description: >-
+      DPP Service, operated by OwnYourData. The payload is optionally held by a
+      custodian (a data intermediary), never by this service in that case.
+      HTTPS/TLS 1.3 required.
 
 tags:
   - name: Life Cycle API

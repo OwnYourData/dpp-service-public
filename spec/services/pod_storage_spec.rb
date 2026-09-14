@@ -19,7 +19,7 @@ RSpec.describe PodStorage do
     now = Time.now.to_i
     payload = { "iss" => holder_did, "sub" => service_did, "aud" => base_url,
                 "collection" => "4",
-                "product_id" => "https://id.lumina.example/01/09520123456791",
+                "product_id" => "https://id.lumina.example/01/09520123456795",
                 "act" => %w[create update delete], "purpose" => "dpp-hosting",
                 "iat" => now, "nbf" => now, "exp" => now + (90 * 86_400),
                 "jti" => "b2f1c9e4a7d05386" }.merge(overrides)
@@ -60,10 +60,9 @@ RSpec.describe PodStorage do
   end
 
   describe "validation of the storage configuration" do
-    # No length rule any more. Since the carrier redesign the identifier the
-    # carrier bears is the ProductID under a host of the operator's own, and
-    # this base_url is the custodian's own address, which never gets printed.
-    # The 50-character budget therefore lives in ProductIdentifier.
+    # No length rule. The identifier the carrier bears is the ProductID under a
+    # host of the operator's own, and this base_url is the custodian's own
+    # address, which never gets printed.
     it "accepts a base_url of any length, since it never reaches a carrier" do
       long = "https://#{'a' * 40}.example.org"
       expect { described_class.new(**config.merge(base_url: long, verify: false)) }
@@ -187,7 +186,7 @@ RSpec.describe PodStorage do
   # D2: one delegation names one passport. The name has to be the passport the
   # request is about, or the mandate is redeemable but not for this object.
   describe "#ensure_product!" do
-    let(:named) { "https://id.lumina.example/01/09520123456791" }
+    let(:named) { "https://id.lumina.example/01/09520123456795" }
 
     it "passes for the product the delegation names" do
       expect(storage.ensure_product!(named)).to be(true)

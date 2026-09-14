@@ -8,16 +8,16 @@ require "rails_helper"
 # be that — the custodian reconstructs the lookup key from the request path and
 # does no parsing of its own, so exactly one spelling may ever be written.
 RSpec.describe ProductIdentifier do
-  let(:item)  { "https://dpp.oydapp.eu/01/09520123456791/21/000123" }
-  let(:batch) { "https://dpp.oydapp.eu/01/09520123456791/10/LOT42" }
-  let(:model) { "https://dpp.oydapp.eu/01/09520123456791" }
+  let(:item)  { "https://dpp.oydapp.eu/01/09520123456795/21/000123" }
+  let(:batch) { "https://dpp.oydapp.eu/01/09520123456795/10/LOT42" }
+  let(:model) { "https://dpp.oydapp.eu/01/09520123456795" }
 
   describe "the host-independent lookup key" do
     it "is the path, so one store can serve any number of operator hostnames" do
       a = described_class.parse!(item)
-      b = described_class.parse!("https://p.other.eu/01/09520123456791/21/000123")
+      b = described_class.parse!("https://p.other.eu/01/09520123456795/21/000123")
 
-      expect(a.product_key).to eq("/01/09520123456791/21/000123")
+      expect(a.product_key).to eq("/01/09520123456795/21/000123")
       expect(b.product_key).to eq(a.product_key)
       expect(b.host).not_to eq(a.host)
     end
@@ -38,19 +38,18 @@ RSpec.describe ProductIdentifier do
     end
   end
 
-  describe "the carrier budget (DPP Registry User Guide: https, at most 50 characters)" do
-    it "accepts an item-level identifier that fits" do
+  describe "what the registry constrains (DPP Registry User Guide v1.02: https, resolvable)" do
+    it "reports the length, so a carrier decision can be made against it" do
       expect(described_class.parse!(item).length).to eq(49)
     end
 
-    it "says how many characters are over, not merely that it is invalid" do
-      long = "https://dpp.a-rather-long-operator-domain.example/01/09520123456791/21/000123"
-      expect { described_class.parse!(long) }
-        .to raise_error(described_class::InvalidError, /#{long.length - 50} over the 50-character limit/)
+    it "imposes no maximum: what a carrier bears is the operator's decision" do
+      long = "https://dpp.a-rather-long-operator-domain.example/01/09520123456795/21/000123"
+      expect(described_class.parse!(long).length).to eq(long.length)
     end
 
     it "refuses plain http" do
-      expect { described_class.parse!("http://dpp.oydapp.eu/01/09520123456791") }
+      expect { described_class.parse!("http://dpp.oydapp.eu/01/09520123456795") }
         .to raise_error(described_class::InvalidError, /https/)
     end
   end
@@ -121,11 +120,11 @@ RSpec.describe ProductIdentifier do
     end
 
     it "refuses an application identifier outside the accepted set" do
-      expect(described_class).not_to be_valid("https://dpp.oydapp.eu/01/09520123456791/99/x")
+      expect(described_class).not_to be_valid("https://dpp.oydapp.eu/01/09520123456795/99/x")
     end
 
     it "refuses the same qualifier twice" do
-      expect(described_class).not_to be_valid("https://dpp.oydapp.eu/01/09520123456791/21/a/21/b")
+      expect(described_class).not_to be_valid("https://dpp.oydapp.eu/01/09520123456795/21/a/21/b")
     end
 
     it "refuses a query string, which would let two identifiers share one key" do

@@ -18,6 +18,11 @@ class DidOyd
   # The service entry a passport DID carries (EN 18220:2026 discovery).
   SERVICE_TYPE = "DigitalProductPassport"
 
+  # Attribute of that service entry holding the commitment to the delivered
+  # payload. prEN 18246 makes no stipulation on the name (docs/Integrity.md
+  # section 9, open item 1), so it is fixed here in one place.
+  PAYLOAD_HASH = "payloadHash"
+
   # Resolving goes over the network. A client-supplied identifier is checked
   # once, at CreateDPP, so this is not on a hot path -- but it must not hang.
   RESOLVE_TIMEOUT = ENV.fetch("DID_RESOLVE_TIMEOUT", 10).to_i
@@ -90,6 +95,80 @@ class DidOyd
       rev_key: result["revocation_key"],
       rev_log: result["revocation_log"]
     }
+  end
+
+  # Fetch the content of the DID document as oydid published it, in the shape
+  # Oydid.update expects back. Two shapes occur: what this service mints sits
+  # under "doc", older documents carry the service array at the top level. The
+  # "key" field is oydid's own bookkeeping and is rebuilt on every write, so it
+  # is dropped here rather than fed back in.
+  def self.document_content(did)
+    require "oydid"
+
+    info = Timeout.timeout(RESOLVE_TIMEOUT) { Oydid.read(did.to_s, {}).first }
+    raise DidError, "#{did} does not resolve" if info.nil? || info["error"].to_i != 0
+
+    content = info.dig("doc", "doc") || info["doc"]
+    raise DidError, "#{did} resolves to an empty document" if content.blank?
+
+    content.is_a?(Hash) ? content.except("key") : content
+  rescue Timeout::Error
+    raise DidError, "#{did} did not resolve within #{RESOLVE_TIMEOUT}s"
+  end
+
+  # Append a signed UPDATE entry that commits to the payload the custodian
+  # delivers (prEN 18246 integrity, docs/Integrity.md section 4). Variante A
+  # only -- it needs the key material of the passport DID.
+  #
+  # Three properties of oydid decide the shape of this method:
+  #
+  #   * an update needs BOTH old keys. It rebuilds the revocation record of the
+  #     previous document, and that record is signed with the old *revocation*
+  #     key -- the document key alone is not enough, and the failure message
+  #     ("invalid or missing old private document key") points at the wrong one.
+  #   * the new key pair comes from :doc_enc / :rev_enc when set, and is
+  #     generated freshly otherwise. Both are set to the current pair here, so
+  #     writing a commitment does not silently rotate what this service stores.
+  #   * the identifier that comes back is the hash over the NEW document and
+  #     therefore a new string. It is the head of the log, not the passport
+  #     identifier: a resolver replays the log from the original identifier and
+  #     reports the head as canonicalId. dpp_id therefore stays what it was --
+  #     EN 18223:2026 Table 1 wants a stable DigitalProductPassportId, the
+  #     carrier is printed, and the EU registry stores a string without
+  #     following a log chain.
+  #
+  # The revocation log in the result belongs to the new document and replaces
+  # the stored one; the previous record is spent once the update is published.
+  #
+  # Returns { head:, doc_key:, rev_key:, rev_log: }, or nil when the document
+  # already commits to this hash -- oydid would otherwise be asked to write an
+  # entry that changes nothing.
+  def self.update(did, payload_hash:, doc_key:, rev_key:)
+    require "oydid"
+
+    content  = document_content(did)
+    services = Array(content["service"])
+    entry    = services.find { |e| e.is_a?(Hash) && e["type"].to_s == SERVICE_TYPE }
+    raise DidError, "#{did} carries no #{SERVICE_TYPE} service entry" if entry.nil?
+    return nil if entry[PAYLOAD_HASH].to_s == payload_hash.to_s
+
+    entry[PAYLOAD_HASH]  = payload_hash.to_s
+    content["service"]   = services
+
+    result, msg = Oydid.update(content, did.to_s, { return_secrets: true,
+                                                   key_type:     KEY_TYPE,
+                                                   location:     location,
+                                                   doc_location: location,
+                                                   doc_enc:      doc_key,
+                                                   rev_enc:      rev_key,
+                                                   old_doc_enc:  doc_key,
+                                                   old_rev_enc:  rev_key })
+    raise DidError, (msg.presence || "Oydid.update returned no result") if result.nil?
+
+    { head:    normalize_did(result["did"]),
+      doc_key: result["private_key"],
+      rev_key: result["revocation_key"],
+      rev_log: result["revocation_log"] }
   end
 
   # Revoke a service-managed did:oyd using the stored keys (Variante A only).

@@ -193,11 +193,11 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
 
     it "writes an update to the pod and does not archive locally" do
       patch "/dpp/v1/dpps/#{encoded}",
-            params: { "facilityId" => "https://id.lumina.example/414/0952012345002" }.to_json,
+            params: { "facilityId" => "https://id.lumina.example/414/0952012345016" }.to_json,
             headers: { "Content-Type" => "application/merge-patch+json", "Authorization" => token }
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["facilityId"]).to eq("https://id.lumina.example/414/0952012345002")
+      expect(JSON.parse(response.body)["facilityId"]).to eq("https://id.lumina.example/414/0952012345016")
       # EN 18221:2026 is satisfied by the pod's own history — no second copy here.
       expect(DppVersion.count).to eq(0)
       expect(pod).to have_received(:write_payload).twice

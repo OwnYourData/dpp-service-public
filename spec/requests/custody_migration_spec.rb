@@ -20,7 +20,7 @@ RSpec.describe "Changing the custodian", type: :request do
   let(:delegation_a) { "eyJhbGciOiJFZERTQSJ9.YQ.c2ln" }
   let(:delegation_b) { "eyJhbGciOiJFZERTQSJ9.Yg.c2ln" }
 
-  let(:product_id) { "https://dpp.oydapp.eu/01/09520123456791/21/000123" }
+  let(:product_id) { "https://dpp.oydapp.eu/01/09520123456795/21/000123" }
   let(:minted) do
     { did: "did:oyd:zPODhash123456", doc_key: "doc-secret", rev_key: "rev-secret", rev_log: "rev-log" }
   end
@@ -108,7 +108,7 @@ RSpec.describe "Changing the custodian", type: :request do
         "SELECT content, storage_backend FROM dpps WHERE dpp_id = '#{dpp_id}'"
       )
       expect(row["storage_backend"]).to eq("pod")
-      expect(row["content"].to_s).not_to include("09520123456791")
+      expect(row["content"].to_s).not_to include("09520123456795")
     end
   end
 

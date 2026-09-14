@@ -17,7 +17,7 @@ RSpec.describe "Carrier identifier", type: :request do
   # The host belongs to the economic operator and is pointed at the custodian
   # by CNAME, which is what keeps a printed carrier alive across a change of
   # custodian (§4.6.2 (3), §4.5.2 (4), §3.12).
-  let(:product_id) { "https://dpp.oydapp.eu/01/09520123456791/21/000123" }
+  let(:product_id) { "https://dpp.oydapp.eu/01/09520123456795/21/000123" }
 
   let(:dpp_document) do
     {
@@ -40,11 +40,10 @@ RSpec.describe "Carrier identifier", type: :request do
   end
 
   describe "the identifier itself" do
-    it "is the uniqueProductIdentifier, and stays within the Registry's 50-character limit" do
+    it "is the uniqueProductIdentifier, echoed back unchanged" do
       body = create_dpp!
       expect(response).to have_http_status(:created)
       expect(body["uniqueProductIdentifier"]).to eq(product_id)
-      expect(product_id.length).to be <= 50
     end
 
     it "carries no separate UPI attribute, which EN 18223:2026 Table 1 does not define" do
@@ -55,17 +54,25 @@ RSpec.describe "Carrier identifier", type: :request do
     it "records the host-independent path as the lookup key for the custodian" do
       create_dpp!
       expect(Dpp.find_by(product_id: product_id).product_key)
-        .to eq("/01/09520123456791/21/000123")
+        .to eq("/01/09520123456795/21/000123")
     end
   end
 
   describe "refusals at creation" do
-    it "refuses an identifier that would not fit on the carrier" do
-      long = "https://dpp.a-rather-long-operator-domain.example/01/09520123456791/21/000123"
+    it "accepts a long identifier: how much a carrier bears is the operator's call" do
+      long = "https://dpp.a-rather-long-operator-domain.example/01/09520123456795/21/000123"
       create_dpp!(dpp_document.merge("uniqueProductIdentifier" => long))
 
+      expect(response).to have_http_status(:created)
+    end
+
+    it "still refuses plain http, which the registry rejects" do
+      create_dpp!(dpp_document.merge(
+        "uniqueProductIdentifier" => "http://dpp.oydapp.eu/01/09520123456795/21/000123"
+      ))
+
       expect(response).to have_http_status(:bad_request)
-      expect(response.body).to match(/over the 50-character limit/)
+      expect(response.body).to match(/https/)
     end
 
     it "refuses a granularity the path contradicts" do
@@ -89,7 +96,7 @@ RSpec.describe "Carrier identifier", type: :request do
     end
 
     it "refuses plain http" do
-      create_dpp!(dpp_document.merge("uniqueProductIdentifier" => "http://dpp.oydapp.eu/01/09520123456791"))
+      create_dpp!(dpp_document.merge("uniqueProductIdentifier" => "http://dpp.oydapp.eu/01/09520123456795"))
 
       expect(response).to have_http_status(:bad_request)
     end

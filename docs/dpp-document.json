@@ -5,7 +5,7 @@
   "dppSchemaVersion": "EN 18223:2026",
   "dppStatus": "Active",
   "economicOperatorId": "did:web:lumina.example",
-  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "facilityId": "https://id.lumina.example/414/0952012345009",
   "elements": [
     {
       "elementId": "ProductIdentification",

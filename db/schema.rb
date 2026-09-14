@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_08_25_000009) do
+ActiveRecord::Schema[7.2].define(version: 2026_09_13_000010) do
   create_table "dpp_versions", force: :cascade do |t|
     t.string "dpp_id", null: false
     t.string "product_id", null: false
@@ -48,6 +48,10 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_25_000009) do
     t.string "owner_did"
     t.text "storage_delegation"
     t.string "product_key"
+    t.string "payload_hash"
+    t.string "did_head"
+    t.string "did_commit_state"
+    t.index ["did_commit_state"], name: "index_dpps_on_did_commit_state"
     t.index ["dpp_id"], name: "index_dpps_on_dpp_id", unique: true
     t.index ["owner_did"], name: "index_dpps_on_owner_did"
     t.index ["product_id", "dpp_status"], name: "index_dpps_on_product_id_and_dpp_status"

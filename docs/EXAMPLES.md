@@ -228,7 +228,7 @@ own document, so an address containing the DID would be part of its own
 computation.
 
 ```bash
-PIDB="https://id.lumina.example/01/09520123456789"
+PIDB="https://id.lumina.example/01/09520123456801"
 ENDPOINT="https://dpp-service.ownyourdata.eu/dpp/v1/dppsByProductId/$(enc "$PIDB")"
 
 RESPB=$(curl -sS -X POST https://oydid.ownyourdata.eu/1.0/create \
@@ -260,7 +260,7 @@ curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d "{
 Expected (`201 Created`) — the identifier comes back exactly as supplied:
 
 ```json
-{"digitalProductPassportId":"did:oyd:zQmExampleHashB456","uniqueProductIdentifier":"https://id.lumina.example/01/09520123456789","dppStatus":"Active"}
+{"digitalProductPassportId":"did:oyd:zQmExampleHashB456","uniqueProductIdentifier":"https://id.lumina.example/01/09520123456801","dppStatus":"Active"}
 ```
 
 A supplied `did:oyd` is resolved before anything is created, and refused with
@@ -356,7 +356,7 @@ The previous version is archived automatically (EN 18221:2026 4.2).
 ```bash
 curl -sS -X PATCH "$BASE/dpps/$ENC" \
   -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
-  -d '{ "facilityId": "https://id.lumina.example/414/0952012345002" }' \
+  -d '{ "facilityId": "https://id.lumina.example/414/0952012345016" }' \
   | jq '{ facilityId, lastUpdated }'
 ```
 

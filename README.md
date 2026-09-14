@@ -81,6 +81,8 @@ The rest:
 | [docs/EXAMPLES.md](docs/EXAMPLES.md) | the walkthrough: issuing a token, then every endpoint as copy-paste `curl` calls |
 | [docs/examples-lightbulb.md](docs/examples-lightbulb.md) | one complete worked example (an LED lamp) with full request and response payloads |
 | [docs/Identifiers.md](docs/Identifiers.md) | the six things called "identifier" in the DPP context, how they relate, and which of them ends up on the data carrier |
+| [docs/Integrity.md](docs/Integrity.md) | how the identifier, the version chain and the payload commitment fit together, and what a reader can verify without trusting anyone |
+| [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
 | [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
 | [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract: an OpenAPI 3.0 description of every endpoint, which the service also serves through a Swagger UI at `/api-docs` |
 
@@ -134,7 +136,7 @@ element path: the elementId of each level, separated by `/`.
 | prEN 18239 | Access rights and security | `TokenAuthenticatable` |
 | EN 18221:2026 | Storage, archiving, versioning | `DppVersion`, `Dpp#archive_current_version!` |
 | EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, [`did:oyd`](https://ownyourdata.github.io/oydid/) and `did:web` |
-| prEN 18246 | Authenticity and integrity | DID document as anchor |
+| prEN 18246 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, `bin/verify_dpp` |
 | DIN DKE SPEC 99100 | Battery passport attributes | `db/seeds.rb` example content |
 
 Errors return a **Result** object (`statusCode` plus `message[]`) per EN 18222:2026
@@ -162,8 +164,14 @@ bundle exec rspec
 4. **Data dictionary (EN 18223:2026 §4.3).** The element-path resolver walks the
    document structurally instead of validating against a product-group
    dictionary.
-5. **Data integrity (prEN 18246).** Signing and electronic attestation of
-   attributes (EAA) are not implemented.
+5. **Data integrity (prEN 18246).** The content is bound to the identifier:
+   every change appends a signed log entry carrying `payloadHash`, the hash of
+   the payload as the custodian delivers it, and `bin/verify_dpp` checks that
+   from the public web alone. Two things are not covered. Where the holder keeps
+   the document key, the service can only report the expected hash and leave the
+   passport `pending` — it cannot sign in their place. And the trust anchor is
+   self-managed: 4.8.2 and 5.2.2 ask for an accredited one, so electronic
+   attestation of attributes (EAA) remains open.
 
 ## Citing this
 

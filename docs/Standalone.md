@@ -106,10 +106,11 @@ the passport, and cl. 4.5.2 (1) requires that same string to be retrievable from
 the data carrier. The service therefore issues no second token: what you send as
 `uniqueProductIdentifier` is what is registered and what goes on the carrier.
 
-The registry limits it to 50 characters over `https`, so the service refuses a
-longer one at creation and says how many characters are over. Its host should
-belong to the economic operator, not to whoever stores the passport — that is
-what lets the passport move without a reprint.
+The registry requires it to use `https` and to resolve to the passport, and the
+service refuses one that does not. It imposes no maximum length — what a
+carrier can bear is the economic operator's decision. Its host should belong to
+the economic operator, not to whoever stores the passport; that is what lets
+the passport move without a reprint.
 
 This service does not serve the carrier path itself; `ReadDPPByProductId` is the
 read path. Pointing the operator's host at a deployment that does serve it is
@@ -290,7 +291,7 @@ Reading needs no token.
 curl -sS -X PATCH "$BASE/dpps/$EDID" \
   -H "Content-Type: application/merge-patch+json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"facilityId": "https://id.example.org/414/0952012345002"}' | jq -c '{facilityId, lastUpdated}'
+  -d '{"facilityId": "https://id.example.org/414/0952012345016"}' | jq -c '{facilityId, lastUpdated}'
 ```
 
 Every update archives the previous state in `dpp_versions`. The state at a

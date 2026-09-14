@@ -18,10 +18,10 @@ hosting pod of the data intermediary.
 | Role | Value |
 |---|---|
 | Economic operator's identity DID | `did:oyd:zQmX493GLVxE8Wasc8ANTdZmq4YUsvdk5j6Daf7iQaPECt6` |
-| Product identifier = carrier string | `https://p.lumina.at/01/09520123456791/21/000123` (47 characters) |
-| Facility identifier | `https://p.lumina.at/414/0952012345002` |
+| Product identifier = carrier string | `https://p.lumina.at/01/09520123456795/21/000123` (47 characters) |
+| Facility identifier | `https://p.lumina.at/414/0952012345016` |
 | Passport identifier | `did:oyd:zQmSE1hzumtZ7AoK1qhHf4t5kiKsujMsJSHqoXtWrdd7K7W` |
-| Long form (`serviceEndpoint`) | `https://dpp.data-vault.eu/dpp/v1/dppsByProductId/https%3A%2F%2Fp.lumina.at%2F01%2F09520123456791%2F21%2F000123` |
+| Long form (`serviceEndpoint`) | `https://dpp.data-vault.eu/dpp/v1/dppsByProductId/https%3A%2F%2Fp.lumina.at%2F01%2F09520123456795%2F21%2F000123` |
 | Backup identifier | identifier of the backup service provider — still open |
 | Registration identifier | assigned by the registry, format unspecified |
 | DPP service provider's DID | `did:oyd:zQmZBWgKreVE9VK4fxxU9RrkQ6LzcryfU15tFgDvtgtBbZd` |
@@ -63,7 +63,7 @@ needs an address; everything that assigns responsibility needs an identity.
    Data carrier (QR, NFC)
         │   encodes exactly ONE string
         ▼
-   uniqueProductIdentifier   https://p.lumina.at/01/09520123456791/21/000123
+   uniqueProductIdentifier   https://p.lumina.at/01/09520123456795/21/000123
         │                      └─ host: economic operator
         │                                   └─ path: scheme A or B
         │   DNS record, no redirect
@@ -107,7 +107,7 @@ here, and they trade differently.
 **A — GS1 Digital Link** (EN 18219 cl. 5.2)
 
 ```
-https://p.lumina.at/01/09520123456791/21/000123     47 characters
+https://p.lumina.at/01/09520123456795/21/000123     47 characters
 ```
 
 Descriptive: a scanner reads GTIN and serial number from the path without a
@@ -129,12 +129,24 @@ DID. No issuing agency, and the string commits to a document rather than merely
 addressing one. Price: the path describes nothing, and `granularity` has to be
 believed.
 
-**The character budget.** The registry limits the identifier to 50 characters
-over HTTPS. Usable path = 41 − length of host. A 144-bit BLAKE2b digest yields
-28 characters, so scheme B needs a host of at most 13 characters. The digest
-size is a one-way decision: it is fixed with the first carrier printed, and
-increasing it later would require a shorter host — which changes every carrier
-already in the field.
+**How long may it be.** The registry constrains the form, not the size: the UPI
+must be an https URL that resolves to the passport, and its stated maximum is
+2000 characters (DPP Registry User Guide for Economic Operators, DG GROW,
+v1.02 of 2026-08-24). Neither EN 18219:2026 nor EN 18220:2026 states a
+character limit, and Implementing Regulation (EU) 2026/1778 states no format
+rule at all. The service therefore enforces no maximum.
+
+What does limit the string is the carrier: module count and print area for a
+QR code, NDEF capacity for an NFC tag, and the fact that EN 18220:2026 Table 2
+gives a UHF RFID tag no way to bear a URI at all. That is an engineering
+decision about a specific product, and it belongs to the economic operator.
+
+It is also a one-way decision, which is the reason to make it deliberately: the
+identifier is fixed with the first carrier printed. For scheme B the length
+follows from the digest — a full 256-bit BLAKE2b digest yields a 48-character
+path, a 144-bit digest 28 characters — and lengthening the digest later would
+invalidate every carrier already in the field. Absent a reason to truncate,
+take the full digest.
 
 **Not admissible on the carrier: a bare DID.** It is not an https URL. On the
 software question the published edition is quieter than the draft was: Annex B
@@ -156,13 +168,14 @@ outside the standard:
 | 5.3 identification link | EN IEC 61406-1, self-issuing | **B** |
 | 5.4 DID | W3C DID | out — carrier-capable only behind a web resolver |
 | 5.5 products and product groups | binary encoding in an RFID tag | out — different carrier type |
-| 5.6 DOI | ISO 26324 | out — foreign resolver, too long |
+| 5.6 DOI | ISO 26324 | out — foreign resolver |
 
-The three external constraints: the **registry** requires https and at most 50
-characters; **cl. 4.6.2 (2)** forbids requiring software downloads on the
-consumer path; and our own **anti-lock-in criterion** admits no third party's
-resolver in the access path. The standard permits the latter explicitly
-(cl. 4.4.3 (2)) — we simply do not want it.
+The three external constraints: the **registry** requires https and a value
+that resolves to the passport; **cl. 4.6.2 (2)** forbids requiring software
+downloads on the consumer path; and our own **anti-lock-in criterion** admits
+no third party's resolver in the access path. The standard permits the latter
+explicitly (cl. 4.4.3 (2)) — we simply do not want it. That last criterion
+alone excludes both the DOI and the resolver form of a DID.
 
 The path and the query string are one scheme in the published edition, and
 the query half is excluded by our own decision: `…/01/0952…` and

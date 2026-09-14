@@ -6,7 +6,7 @@
   "dppStatus": "Active",
   "lastUpdated": "2026-07-13T09:14:02Z",
   "economicOperatorId": "did:web:lumina.example",
-  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "facilityId": "https://id.lumina.example/414/0952012345009",
   "elements": [ "… wie im Request …" ],
   "dataElements": [ "… wie im Request …" ]
 }

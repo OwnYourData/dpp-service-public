@@ -1,8 +1,7 @@
 # Identifiers, version chain and integrity
 
-**Status:** describes partly what exists, partly what still has to be closed.
-Section 6 names what is **not** implemented today — and the integrity claim we
-make in the paper depends on exactly that.
+**Status:** describes what the service does. Section 6 says how the state of a
+commitment is reported, section 9 what is still open.
 
 Reference: EN 18219:2026 (identifiers), prEN 18246 (authenticity and integrity),
 EN 18221:2026 (storage, archiving, persistence).
@@ -69,7 +68,7 @@ Both are handed out by the registrar **exactly once** and are stored nowhere.
 {
   "service": [{
     "type": "DigitalProductPassport",
-    "serviceEndpoint": "https://dpp.go-data.at/dpp/v1/dppsByProductId/https%3A%2F%2Fid.lumina.example%2F01%2F09520123456791",
+    "serviceEndpoint": "https://dpp.go-data.at/dpp/v1/dppsByProductId/https%3A%2F%2Fid.lumina.example%2F01%2F09520123456795",
     "payloadHash": "z4Fu…"
   }]
 }
@@ -123,12 +122,20 @@ because it does not have the document key.
 ```
 Client  → Service : PATCH /dpp/v1/dpps/{DID}  (Merge Patch)
 Service → Pod     : read current document
-Service           : apply Merge Patch, new bytes B', sha256(B')
+Service           : apply Merge Patch
 Service → Pod     : write B' (the pod archives by itself)
+Service → Pod     : read B' back from the public serviceEndpoint
+Service           : sha256(B') over the bytes as delivered
 Service           : decrypt document key (KeyVault)
 Service → VDR     : log entry with payloadHash = sha256(B'), signed
-Service → Client  : 200
+Service → Client  : 200 + X-DPP-Payload-Hash, X-DPP-Commit-State: committed
 ```
+
+The read-back is not a detour. A reader hashes the bytes the custodian hands
+them, so those bytes are the only correct subject of the hash -- and the
+custodian's byte-identical delivery is re-checked on every write instead of
+assumed.
+
 
 ### Variant B — the holder holds the key
 
@@ -143,29 +150,40 @@ Client  → VDR     : publish the entry
 The difference is decisive: **in variant B the service cannot set the commitment
 itself.** It can only request it and keep track of it.
 
-## 6. What is missing today
+## 6. Reporting the state
 
-For the integrity claim to hold in variant B, three things are needed, and
-none of them is implemented today:
+Every write asks for a fresh commitment, and every read says which state the
+passport is in. The state travels in headers:
 
-1. **`payloadHash` in the DID document.** The `serviceEndpoint` is written at
-   minting time, a payload commitment does not exist so far.
-2. **Returning the expected hash** to the client on every write operation,
-   together with a marker that a DID update is outstanding.
-3. **Keeping track of the state.** The service has to know and be able to
-   display whether the commitment matches the current payload. Proposal: a
-   column `did_commit_state` with `committed` / `pending` / `stale`, set on
-   writing, resolved by a check against the VDR.
+```
+X-DPP-Payload-Hash: zQme9xtkmy2wFUjDtSAZvGTuxmgbXXi6Ws5LDqf2uyy3S6h
+X-DPP-Commit-State: committed
+```
 
-Until 1–3 are in place: **in variant B the integrity is only as good as the
-discipline of the client.** The paper must accordingly not claim more.
+| state | meaning |
+|---|---|
+| `committed` | the DID document commits to the payload as it is delivered now |
+| `pending` | the hash is known, the log entry is not written. In variant B that is the normal state until the holder signs; in variant A it means the VDR could not be reached |
+| `stale` | the commitment refers to an earlier payload |
 
-Open design question on this: should the service **reject** write operations as
-long as a previous commitment is outstanding? Availability argues against it —
-the client may be offline. In favour argues that otherwise a chain of
-uncommitted versions arises in which nobody can say any more which state is the
-attested one. My proposal: do not reject, but report `stale` in every read
-response, so that the state is visible instead of silent.
+**In headers, not in the document.** A reader of the DPP document has to find
+exactly the attributes of EN 18223:2026 Table 1 there; a proprietary field would
+break conformance for every reader. That is the same reason the storage
+configuration arrives in `X-DPP-Storage`. A passport that has never been through
+a commitment carries neither header — nothing is asserted about it.
+
+**A write is never refused because a commitment is outstanding.** The client may
+be offline, and the passport has already been accepted by the custodian; a
+failure reported after the fact would be a lie about work that succeeded. What
+the service does instead is record the state and show it, so an uncommitted
+version is visible rather than silent.
+
+**The commitment is not written on two paths.** After a change of custodian the
+`serviceEndpoint` still names the previous one, so a commitment would attest that
+custodian's bytes; repointing the endpoint is its own operation. And
+`ReadDPPVersionByIdAndDate` serves an archived version, which the commitment is
+not about.
+
 
 ## 7. Relationship to the version history in the pod
 
@@ -197,11 +215,22 @@ attestation can only be verified via the previously stored log chain.
 
 ## 9. Open items
 
-1. Attribute name for the commitment: `payloadHash` in the service entry, or a
-   separate service entry? prEN 18246 makes no stipulation on this.
+1. The commitment is the `payloadHash` attribute of the `DigitalProductPassport`
+   service entry. prEN 18246 makes no stipulation on the name, so it is fixed in
+   one place in the code (`DidOyd::PAYLOAD_HASH`) rather than spelled out at
+   every call site.
 2. Does `payloadHash` have to be carried along on a pure endpoint change?
    (Yes — otherwise an entry without a payload reference can arise.)
 3. Collision behaviour on concurrent updates: the service knows the expected
    predecessor hash and could lock optimistically (`If-Match`).
-4. Verification tool for consumers: a minimal verifier that executes steps 1–6
-   from section 4 would be the best demonstration of the whole construction.
+4. `bin/verify_dpp <carrier URL>` executes steps 1–6 for a consumer. It needs
+   nothing but the public web — no token, no access to this service — and it
+   separates what it checks from what it does not establish: that the signing key
+   belongs to the economic operator rather than to a service acting for them
+   (EN 18219:2026 6.4.2 b) wants a Verifiable Credential at the operator DID for
+   that), and that the trust anchor is an accredited one (prEN 18246 4.8.2 /
+   5.2.2 ask for a trusted list; a self-managed DID log is not one). It also
+   compares the carrier link with the endpoint the DID document names: different
+   hosts are the normal case, because the carrier bears a name the economic
+   operator owns and points at the custodian by CNAME, but different *bytes* mean
+   a consumer scanning the carrier does not get the attested document.

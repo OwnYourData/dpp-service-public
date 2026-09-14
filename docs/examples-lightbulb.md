@@ -90,7 +90,7 @@ Authorization: Bearer <token>
   "dppSchemaVersion": "EN 18223:2026",
   "dppStatus": "Active",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "facilityId": "https://id.lumina.example/414/0952012345009",
   "elements": [
     {
       "elementId": "ProductIdentification",
@@ -268,7 +268,7 @@ The stored passport, enriched with `lastUpdated` (server timestamp):
   "dppStatus": "Active",
   "lastUpdated": "2026-07-13T09:14:02Z",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "facilityId": "https://id.lumina.example/414/0952012345001",
+  "facilityId": "https://id.lumina.example/414/0952012345009",
   "elements": [ "… as in the request …" ]
 }
 ```
@@ -392,7 +392,7 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "facilityId": "https://id.lumina.example/414/0952012345002"
+  "facilityId": "https://id.lumina.example/414/0952012345016"
 }
 ```
 
@@ -409,7 +409,7 @@ The complete document after the patch — `facilityId` new, `lastUpdated` refres
   "dppStatus": "Active",
   "lastUpdated": "2026-07-13T10:02:47Z",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "facilityId": "https://id.lumina.example/414/0952012345002",
+  "facilityId": "https://id.lumina.example/414/0952012345016",
   "elements": [ "… unchanged …" ]
 }
 ```

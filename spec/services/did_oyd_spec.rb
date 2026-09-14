@@ -64,6 +64,107 @@ RSpec.describe DidOyd do
     end
   end
 
+  # Appending the payload commitment. The examples pin down what oydid is
+  # handed, because an update fails in confusing ways when an option is missing:
+  # without :old_rev_enc it complains about the *document* key.
+  describe ".update" do
+    let(:published) do
+      { "error" => 0,
+        "doc" => { "key" => "zPub:zRev",
+                   "doc" => { "service" => [{
+                     "type" => "DigitalProductPassport",
+                     "serviceEndpoint" => "https://pod.example/dpp/v1/dppsByProductId/x"
+                   }] } } }
+    end
+
+    let(:updated) do
+      { "did" => "did:oyd:zHEAD@https://oydid.ownyourdata.eu",
+        "private_key" => "z1S5doc", "revocation_key" => "z1S5rev",
+        "revocation_log" => { "op" => 1, "ts" => 2 } }
+    end
+
+    before { allow(oydid).to receive(:read).and_return([published, ""]) }
+
+    it "hands oydid both old keys and keeps the current pair" do
+      allow(oydid).to receive(:update).and_return([updated, ""])
+
+      DidOyd.update("did:oyd:zABC", payload_hash: "zPAY",
+                                    doc_key: "z1S5doc", rev_key: "z1S5rev")
+
+      expect(oydid).to have_received(:update) do |_content, did, options|
+        expect(did).to eq("did:oyd:zABC")
+        # An update rebuilds the revocation record of the previous document and
+        # signs it with the old revocation key, so both old keys are required.
+        expect(options[:old_doc_enc]).to eq("z1S5doc")
+        expect(options[:old_rev_enc]).to eq("z1S5rev")
+        # Setting the new pair to the current one stops oydid from generating
+        # fresh material, which would leave the stored keys behind.
+        expect(options[:doc_enc]).to eq("z1S5doc")
+        expect(options[:rev_enc]).to eq("z1S5rev")
+        expect(options[:key_type]).to eq("ed25519")
+        expect(options[:doc_location]).to eq(DidOyd::DEFAULT_LOCATION)
+        expect(options[:return_secrets]).to be(true)
+      end
+    end
+
+    it "adds the commitment to the existing entry and leaves the endpoint alone" do
+      allow(oydid).to receive(:update).and_return([updated, ""])
+
+      DidOyd.update("did:oyd:zABC", payload_hash: "zPAY",
+                                    doc_key: "a", rev_key: "b")
+
+      expect(oydid).to have_received(:update) do |content, _did, _options|
+        entry = content["service"].first
+        expect(entry["payloadHash"]).to eq("zPAY")
+        expect(entry["serviceEndpoint"])
+          .to eq("https://pod.example/dpp/v1/dppsByProductId/x")
+        # oydid rebuilds "key" on every write; feeding the old one back in would
+        # be published as part of the document content.
+        expect(content).not_to have_key("key")
+      end
+    end
+
+    # The identifier that comes back is the hash over the new document. It is
+    # the head of the log; the passport keeps the identifier it was created
+    # with, which is what the carrier and the registry entry name.
+    it "returns the new head and the revocation log of the new document" do
+      allow(oydid).to receive(:update).and_return([updated, ""])
+
+      result = DidOyd.update("did:oyd:zABC", payload_hash: "zPAY",
+                                             doc_key: "a", rev_key: "b")
+
+      expect(result[:head]).to eq("did:oyd:zHEAD")   # default location stripped
+      expect(result[:rev_log]).to eq("op" => 1, "ts" => 2)
+    end
+
+    it "writes nothing when the document already commits to this hash" do
+      published["doc"]["doc"]["service"].first["payloadHash"] = "zPAY"
+      allow(oydid).to receive(:update)
+
+      result = DidOyd.update("did:oyd:zABC", payload_hash: "zPAY",
+                                             doc_key: "a", rev_key: "b")
+
+      expect(result).to be_nil
+      expect(oydid).not_to have_received(:update)
+    end
+
+    it "refuses a document without a passport service entry" do
+      published["doc"]["doc"] = { "service" => [{ "type" => "SomethingElse" }] }
+
+      expect { DidOyd.update("did:oyd:zABC", payload_hash: "zPAY",
+                                             doc_key: "a", rev_key: "b") }
+        .to raise_error(DidOyd::DidError, /no DigitalProductPassport service entry/)
+    end
+
+    it "raises DidError when oydid reports a problem" do
+      allow(oydid).to receive(:update).and_return([nil, "cannot resolve DID (on updating DID)"])
+
+      expect { DidOyd.update("did:oyd:zABC", payload_hash: "zPAY",
+                                             doc_key: "a", rev_key: "b") }
+        .to raise_error(DidOyd::DidError, /on updating DID/)
+    end
+  end
+
   describe ".revoke" do
     it "hands the key material to oydid under the names it actually reads" do
       allow(oydid).to receive(:revoke).and_return(["did:oyd:zABC", ""])

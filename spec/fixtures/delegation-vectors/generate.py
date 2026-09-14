@@ -27,7 +27,7 @@ DAY = 86400
 POD = "https://dpp.go-data.at"
 TOKEN_ENDPOINT = POD + "/oauth/token"
 COLLECTION = "4"
-PRODUCT_ID = "https://id.lumina.example/01/09520123456791"
+PRODUCT_ID = "https://id.lumina.example/01/09520123456795"
 ALLOWED_ACT = ["create", "update", "delete"]
 DELEGATION_LIFETIME = 90 * DAY
 

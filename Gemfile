@@ -24,7 +24,14 @@ gem "jwt"                    # verify bearer access tokens (oydid pulls jwt ~> 3
 # The pin is a floor, not a preference: DidOyd relies on :location and
 # :doc_location being separate options, on :key_type being accepted, and on
 # document keys being published under the ed25519-pub multicodec (z6Mk...).
-gem "oydid", "~> 0.9", ">= 0.9.5", require: false
+#
+# The floor is 0.9.7 for the reason that surfaces when a DID update fails:
+# earlier versions report every rejection by the repository as "invalid response
+# from <location>/doc", because they call parsed_response with an argument and
+# swallow the real message in a rescue. 0.9.7 passes the repository's own reason
+# through — which is what makes a failed payload commitment diagnosable instead
+# of a guessing game.
+gem "oydid", "~> 0.9", ">= 0.9.7", require: false
 
 group :development, :test do
   gem "rspec-rails"

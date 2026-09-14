@@ -22,6 +22,7 @@ module Api
         element = resolve_path(@dpp.to_document, path_segments)
         return render_result("ClientErrorResourceNotFound", text: "Element not found") if element.nil?
 
+        report_commitment(@dpp)
         render_dpp(element)
       end
 
@@ -39,6 +40,7 @@ module Api
 
         assign_path(document, path_segments, JsonMergePatch.apply(element, merge_patch_body))
         @dpp.apply_merge_patch!(document)
+        commit_payload(@dpp)
         render_dpp(resolve_path(@dpp.to_document, path_segments))
       end
 

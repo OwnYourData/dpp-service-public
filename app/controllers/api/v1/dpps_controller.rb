@@ -101,11 +101,13 @@ module Api
           raise
         end
 
+        commit_payload(dpp)
         render_dpp(dpp.to_document, status_code: "SuccessCreated")
       end
 
       # GET /dpp/v1/dpps/:dpp_id  — ReadDPPById (§4.2, Table 1)
       def show
+        report_commitment(@dpp)
         render_dpp(@dpp.to_document)
       end
 
@@ -114,6 +116,7 @@ module Api
         return unless authorize_owner!(@dpp)
 
         @dpp.apply_merge_patch!(merge_patch_body)
+        commit_payload(@dpp)
         render_dpp(@dpp.to_document)
       end
 
@@ -314,6 +317,7 @@ module Api
       # GET /dpp/v1/dppsByProductId/:product_id  — ReadDPPByProductId (§4.3, Table 2)
       def by_product_id
         dpp = Dpp.active.where(product_id: params[:product_id]).order(last_update: :desc).first!
+        report_commitment(dpp)
         render_dpp(dpp.to_document)
       end
 

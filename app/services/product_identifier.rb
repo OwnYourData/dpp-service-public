@@ -11,8 +11,8 @@ require "uri"
 # retrievable from the data carrier. There is therefore no second, separate
 # carrier token: the product identifier and the UPI are the same value.
 #
-#   uniqueProductIdentifier = https://dpp.oydapp.eu/01/09520123456791/21/000123
-#   product_key                            /01/09520123456791/21/000123
+#   uniqueProductIdentifier = https://dpp.oydapp.eu/01/09520123456795/21/000123
+#   product_key                            /01/09520123456795/21/000123
 #
 # The +product_key+ is the host-independent remainder. It is the lookup key in
 # the custodian's store, which is what allows one store to serve any number of
@@ -48,19 +48,29 @@ require "uri"
 # identifier has to be "parsed and resolved", where every other scheme reads
 # "no additional software needed". That annex is informative, so this is a
 # reading of the standard rather than a requirement of it -- worth knowing
-# before leaning on it. See docs/Identifiers.md for the character budget that
-# settles the question anyway.
+# before leaning on it. What is not in doubt is the plain form: a DID is not an
+# https URL, and every path here is one.
 class ProductIdentifier
   class InvalidError < StandardError; end
 
-  # DPP Registry User Guide for Economic Operators (DG GROW): "The UPI is a
-  # mandatory value conforming to a URL format compliant with JTC 24 standards.
-  # Max length is 50 chars." The https requirement has the same source ("Enter a
-  # URL starting with https://"). Checked 2026-08: Implementing Regulation (EU)
-  # 2026/1778 sets no length and no scheme constraint - the words character,
-  # length, https and URL do not occur in it. This is a registry implementation
-  # rule, not a legal one, and can change without a change in the law.
-  MAX_LENGTH = 50
+  # What the registry actually constrains, per the DPP Registry User Guide for
+  # Economic Operators (DG GROW, v1.02 of 2026-08-24): the UPI is "a mandatory
+  # value conforming to a URL format compliant with JTC 24 standards", it must
+  # "resolve to where you have hosted the DPP Data", and it must start with
+  # https ("Invalid URL format. Enter a URL starting with https://"). The stated
+  # maximum is 2000 characters -- far above anything a carrier would bear, so it
+  # is not worth enforcing here.
+  #
+  # Implementing Regulation (EU) 2026/1778 sets no length and no scheme
+  # constraint at all: the words character, length, https and URL do not occur
+  # in it, and Art. 8 (9) / Art. 9 (2) name the identifier without a format
+  # rule. Neither EN 18219:2026 nor EN 18220:2026 states a character limit.
+  #
+  # So no length is enforced. What limits a printed identifier is the carrier --
+  # module count and print area for a QR code, NDEF capacity for an NFC tag --
+  # and that is the economic operator's decision about their own product, made
+  # once and irreversibly with the first print run. This class will not make it
+  # for them. See docs/Identifiers.md for the guidance that belongs with it.
 
   DIGITAL_LINK        = :digital_link
   IDENTIFICATION_LINK = :identification_link
@@ -133,7 +143,8 @@ class ProductIdentifier
     "model"
   end
 
-  # The carrier string is the identifier itself, so its length is the budget.
+  # The identifier is the string that goes on the carrier, so its length is what
+  # a carrier decision has to be made against. Reported, never enforced.
   def length
     value.length
   end
@@ -143,13 +154,6 @@ class ProductIdentifier
 
     unless value.start_with?("https://")
       raise InvalidError, "uniqueProductIdentifier must use https (DPP Registry User Guide; EN 18216:2026 6.2)"
-    end
-
-    if length > MAX_LENGTH
-      raise InvalidError,
-            "uniqueProductIdentifier is #{length} characters, #{length - MAX_LENGTH} " \
-            "over the #{MAX_LENGTH}-character limit of the EU DPP registry; a shorter host " \
-            "or a shorter serial is needed"
     end
 
     # A query string would hold GS1 data attributes, not identity. Allowing it

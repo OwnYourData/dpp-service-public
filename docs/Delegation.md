@@ -103,7 +103,7 @@ Payload:
   "sub":        "did:oyd:zQmSERVICE…",
   "aud":        "https://dpp.go-data.at",
   "collection": "4",
-  "product_id": "https://id.lumina.example/01/09520123456791",
+  "product_id": "https://id.lumina.example/01/09520123456795",
   "act":        ["create", "update", "delete"],
   "purpose":    "dpp-hosting",
   "iat":        1786960000,
@@ -200,7 +200,7 @@ Response:
 
 ```json
 { "access_token": "…", "token_type": "DPoP", "expires_in": 600,
-  "scope": "collection:4 product:https%3A%2F%2Fid.lumina.example%2F01%2F09520123456791 act:create,update" }
+  "scope": "collection:4 product:https%3A%2F%2Fid.lumina.example%2F01%2F09520123456795 act:create,update" }
 ```
 
 No refresh token. If the access token expires, a new one is fetched with the

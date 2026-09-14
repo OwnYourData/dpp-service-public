@@ -18,7 +18,7 @@ RSpec.describe "Renewing the delegation", type: :request do
 
   let(:base_url)      { "https://dpp.go-data.at" }
   let(:collection_id) { "4" }
-  let(:product_id)    { "https://dpp.oydapp.eu/01/09520123456791/21/000123" }
+  let(:product_id)    { "https://dpp.oydapp.eu/01/09520123456795/21/000123" }
   let(:minted) do
     { did: "did:oyd:zPODhash123456", doc_key: "doc-secret", rev_key: "rev-secret", rev_log: "rev-log" }
   end
@@ -316,7 +316,7 @@ RSpec.describe "Renewing the delegation", type: :request do
 
     it "refuses a mandate for another product" do
       other = custodian(claims(exp: now + (90 * 86_400),
-                               product: "https://dpp.oydapp.eu/01/09520123456791/21/000999"))
+                               product: "https://dpp.oydapp.eu/01/09520123456795/21/000999"))
       allow(PodStorage).to receive(:from_header).and_return(other)
 
       renew(other)

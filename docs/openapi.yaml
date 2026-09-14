@@ -71,6 +71,9 @@ paths:
               $ref: '#/components/schemas/DigitalProductPassport'
       responses:
         '201':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: SuccessCreated — DPP created.
           content:
             application/json:
@@ -93,6 +96,9 @@ paths:
       x-semanticId: https://jtc24/dpp/API/ReadDPPById/1/0
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — requested DPP.
           content:
             application/json:
@@ -129,6 +135,9 @@ paths:
               dppStatus: "Archived"
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — updated DPP.
           content:
             application/json:
@@ -270,6 +279,9 @@ paths:
       x-semanticId: https://jtc24/dpp/API/ReadDPPByProductId/1/0
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — latest active DPP.
           content:
             application/json:
@@ -410,6 +422,9 @@ paths:
       x-semanticId: https://jtc24/dpp/API/ReadDataElementCollection/1/0
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — requested DataElementCollection.
           content:
             application/json:
@@ -431,6 +446,9 @@ paths:
             schema: { $ref: '#/components/schemas/DataElementCollection' }
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — updated DataElementCollection.
           content:
             application/json:
@@ -454,6 +472,9 @@ paths:
       x-semanticId: https://jtc24/dpp/API/ReadDataElement/1/0
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — requested data element.
           content:
             application/json:
@@ -474,6 +495,9 @@ paths:
             schema: { $ref: '#/components/schemas/DataElement' }
       responses:
         '200':
+          headers:
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
           description: Success — updated data element.
           content:
             application/json:
@@ -494,6 +518,31 @@ components:
         OAuth 2.0 / OpenID Connect access token (JWT). Public data is readable
         without authentication; controlled data requires an authenticated actor
         with an appropriate role (authority, refurbisher, consumer, ...) per prEN 18239.
+
+  ###########################################################################
+  # Payload commitment (prEN 18246; docs/Integrity.md)
+  ###########################################################################
+  headers:
+    PayloadHash:
+      description: >-
+        The hash of the payload as the custodian delivers it — sha2-256,
+        multibase-encoded, formed over the bytes returned by the
+        `serviceEndpoint` of the DID document without any canonicalisation. It is
+        the value the DID document commits to, or the value it is expected to
+        commit to while the state is `pending`. Absent for a passport that has
+        never been through a commitment.
+      schema: { type: string, example: zQme9xtkmy2wFUjDtSAZvGTuxmgbXXi6Ws5LDqf2uyy3S6h }
+    CommitState:
+      description: >-
+        `committed` — the DID document commits to the payload as delivered now.
+        `pending` — the hash is known, the signed log entry is not written; the
+        normal state where the holder keeps the document key.
+        `stale` — the commitment refers to an earlier payload.
+        A header rather than a field of the document, so the payload stays free
+        of proprietary attributes (EN 18223:2026 Table 1) — the same reason
+        `X-DPP-Storage` is a header. A write is never refused because a
+        commitment is outstanding; the state is reported instead.
+      schema: { type: string, enum: [committed, pending, stale] }
 
   parameters:
     DppId:

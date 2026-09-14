@@ -84,11 +84,11 @@ RSpec.describe "DPP API", type: :request do
       create_dpp!
 
       patch "/dpp/v1/dpps/#{enc_dpp}",
-            params: { "facilityId" => "https://id.lumina.example/414/0952012345002" }.to_json,
+            params: { "facilityId" => "https://id.lumina.example/414/0952012345016" }.to_json,
             headers: patch_headers
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["facilityId"]).to end_with("0952012345002")
+      expect(JSON.parse(response.body)["facilityId"]).to end_with("0952012345016")
     end
 
     it "rejects writes without a bearer token" do

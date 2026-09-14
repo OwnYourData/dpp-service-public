@@ -48,7 +48,7 @@ RSpec.describe Delegation do
         kid: "#{holder_did}#key-doc",
         payload: { "iss" => holder_did, "sub" => service_did, "aud" => pod,
                    "collection" => "4",
-                   "product_id" => "https://id.lumina.example/01/09520123456791",
+                   "product_id" => "https://id.lumina.example/01/09520123456795",
                    "act" => %w[create update delete],
                    "purpose" => "dpp-hosting",
                    "iat" => now, "nbf" => now, "exp" => now + (90 * 86_400),
@@ -102,7 +102,7 @@ RSpec.describe Delegation do
     def delegation(overrides = {}, signing_key = nil)
       payload = { "iss" => holder_did, "sub" => service_did, "aud" => pod,
                   "collection" => "4",
-                  "product_id" => "https://id.lumina.example/01/09520123456791",
+                  "product_id" => "https://id.lumina.example/01/09520123456795",
                   "act" => %w[create update], "purpose" => "dpp-hosting",
                   "iat" => now, "nbf" => now, "exp" => now + (90 * 86_400),
                   "jti" => "b2f1c9e4a7d05386" }.merge(overrides)

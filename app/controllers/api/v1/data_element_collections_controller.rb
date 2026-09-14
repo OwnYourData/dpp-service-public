@@ -19,6 +19,7 @@ module Api
         collection = find_collection(params[:element_id])
         return render_result("ClientErrorResourceNotFound", text: "Collection not found") if collection.nil?
 
+        report_commitment(@dpp)
         render_dpp(collection)
       end
 
@@ -35,6 +36,7 @@ module Api
 
         collections[idx] = JsonMergePatch.apply(collections[idx], merge_patch_body)
         @dpp.apply_merge_patch!("elements" => collections)
+        commit_payload(@dpp)
         render_dpp(collections[idx])
       end
 

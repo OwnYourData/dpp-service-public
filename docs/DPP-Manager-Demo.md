@@ -187,7 +187,20 @@ The lower half is **not this application's**: it is soya-form, rendering the
 structure the operator imported. Tabs, labels, help texts and validation all
 come from the SOyA overlays. Nothing about lamps is written in the DPP Manager.
 
-![Saved](images/dpp-manager-demo/10-passport-saved.png)
+Twenty-four fields is a lot to type in front of an audience, and an operator who
+already holds the data in another system has it in a file long before they have
+it in a form. So the answers can come from one:
+
+![Loaded from a file](images/dpp-manager-demo/10-passport-loaded.png)
+
+**Load file** takes a JSON object whose keys are the attribute names of the
+structure — [`docs/examples/led-lamp.json`](https://github.com/OwnYourData/dpp-manager-public/blob/main/docs/examples/led-lamp.json)
+in the DPP Manager's repository is the one used here. Nothing is uploaded: the
+file is read in the browser, and the form is drawn again from it. It replaces
+what is in the form rather than merging into it, and nothing is saved until Save
+is pressed.
+
+![Saved](images/dpp-manager-demo/11-passport-saved.png)
 
 A draft saves whether or not it validates, and what is missing is said rather
 than enforced. The check runs through soya-web-cli — the same code as the `soya`
@@ -203,13 +216,13 @@ the list, which is what was pressed here.
 
 ## 5 — The identifier
 
-![Before minting](images/dpp-manager-demo/11-passport-before-minting.png)
+![Before minting](images/dpp-manager-demo/12-passport-before-minting.png)
 
 This is the step that leaves the computer, and the warning is exact about what
 becomes irreversible: the identifier is published, and the address inside it —
 where this passport will be readable — is frozen with it.
 
-![The passport's keys](images/dpp-manager-demo/12-passport-keys.png)
+![The passport's keys](images/dpp-manager-demo/13-passport-keys.png)
 
 > Every passport gets **its own** DID and its own two keys, minted here. That is
 > variant B, and it is the difference the service demo builds up to: the service
@@ -220,16 +233,41 @@ where this passport will be readable — is frozen with it.
 
 ## 6 — Submitting
 
-![Before submitting](images/dpp-manager-demo/13-passport-before-submitting.png)
+![Before submitting](images/dpp-manager-demo/14-passport-before-submitting.png)
 
 The document is assembled here: the envelope from the settings and the identity,
 the elements from the product type's transformation. The bearer token is issued
 by this application to itself and signed with the identity key — there is no
 registration and no password anywhere in this exchange.
 
-![Submitted](images/dpp-manager-demo/14-passport-submitted.png)
+![Submitted](images/dpp-manager-demo/15-passport-submitted.png)
 
-![The list](images/dpp-manager-demo/15-passports-list.png)
+### And the content is bound to the identifier
+
+Further down the page a section appears that was not there before the passport
+was submitted:
+
+![Content binding](images/dpp-manager-demo/15a-passport-attested.png)
+
+The service reports, in two response headers, the hash it computed over the
+bytes the custodian delivers. This application takes that hash and writes it
+into the passport's DID document, signed with the passport's **document key** —
+the key that never left this computer. That is variant B of
+[Integrity.md](Integrity.md) section 5: the service can compute the commitment
+but cannot sign it, and it does not need to, because the party that owns the
+identifier is sitting here.
+
+It happens by itself, after every submission and after every correction. The
+"Attest the payload" button appears only when that failed — an unreachable
+registry, say — so a passport never sits silently unattested.
+
+> What is bound is what the custodian **delivers**, byte for byte, not what this
+> application sent: a reader gets the former, and it is the former they will
+> recompute. Anyone can do that with
+> `bundle exec ruby bin/verify_dpp <carrier link>`, needing nothing from this
+> application and nothing from the service.
+
+![The list](images/dpp-manager-demo/16-passports-list.png)
 
 ---
 
@@ -238,7 +276,7 @@ registration and no password anywhere in this exchange.
 A saved answer stays here. Sending it is a separate act, and the page only
 offers it when the two actually differ:
 
-![It differs](images/dpp-manager-demo/16-passport-differs.png)
+![It differs](images/dpp-manager-demo/17-passport-differs.png)
 
 > The comparison is a fingerprint over the answers and the facility — not a flag
 > somebody has to remember to set, and not a question asked of the service. A
@@ -246,13 +284,13 @@ offers it when the two actually differ:
 > at all, because an update that changes nothing would still be archived there
 > as a new version.
 
-![Corrected](images/dpp-manager-demo/17-passport-corrected.png)
+![Corrected](images/dpp-manager-demo/18-passport-corrected.png)
 
 ---
 
 ## 8 — Reading, with no identity at all
 
-![Read a passport](images/dpp-manager-demo/18-lookup-empty.png)
+![Read a passport](images/dpp-manager-demo/19-lookup-empty.png)
 
 Reading needs no token and no permission — whoever holds the product holds its
 identifier, and that is the whole point of a passport being public. Two kinds of
@@ -261,12 +299,12 @@ identifier are accepted, and they take different routes to the same document.
 The product identifier from the data carrier is looked up at the configured
 service:
 
-![Read by product identifier](images/dpp-manager-demo/19-lookup-by-product.png)
+![Read by product identifier](images/dpp-manager-demo/20-lookup-by-product.png)
 
 The passport's own identifier is resolved at the registry first, and the
 passport is then read **wherever its own document says it lives**:
 
-![Read by passport identifier](images/dpp-manager-demo/21-lookup-by-did.png)
+![Read by passport identifier](images/dpp-manager-demo/22-lookup-by-did.png)
 
 > Nothing in this application decides where a foreign passport is. The DID says
 > it, its holder published that statement, and the address in it is where the
@@ -276,11 +314,11 @@ Both show the document as it stands — including a passport no product type her
 can read. Below it, when a type carries the transformation for the reading
 direction, the same passport in the shape of that type's form:
 
-![As a form](images/dpp-manager-demo/20-lookup-as-a-form.png)
+![As a form](images/dpp-manager-demo/21-lookup-as-a-form.png)
 
 > This is the round trip: answers → EN 18223 elements → answers, both directions
 > published as SOyA transformations and both run by soya-web-cli. Note the
-> warranty of five years — the correction from step 7, read back out of the
+> warranty of seven years — the correction from step 7, read back out of the
 > service. "Start a draft from this" makes a local passport with these answers
 > and deliberately **without** the product identifier: it names somebody else's
 > product.
@@ -289,7 +327,7 @@ direction, the same passport in the shape of that type's form:
 
 ## 9 — The log and the file
 
-![Event log](images/dpp-manager-demo/22-events.png)
+![Event log](images/dpp-manager-demo/23-events.png)
 
 Every action is in the log, and each entry carries a seal over the entry before
 it. That does not make the log tamper-proof — whoever has the passphrase can
@@ -297,7 +335,7 @@ recompute the chain — but it makes it tamper-**evident** against the realistic
 case, which is an edit after the fact. The page says the chain is intact and
 names the entry where it is not.
 
-![The data file](images/dpp-manager-demo/23-vault.png)
+![The data file](images/dpp-manager-demo/24-vault.png)
 
 One file, in the folder from section 0. Changing the passphrase re-encrypts it;
 a backup is a copy of it. No `-wal`, no `-shm`, nothing beside it — which is why
@@ -307,7 +345,7 @@ a backup is a copy of it. No `-wal`, no `-shm`, nothing beside it — which is w
 
 ## 10 — Ending it, and what the difference is
 
-![Before ending](images/dpp-manager-demo/24-passport-before-ending.png)
+![Before ending](images/dpp-manager-demo/25-passport-before-ending.png)
 
 Ending a passport is two acts against two systems, and the order is not
 arbitrary: the service withdraws the passport first — keeping the final state as
@@ -316,13 +354,13 @@ keys it holds. The other way round, the world would read a document whose
 identifier no longer resolves, and no reader could tell a retired product from a
 forgery.
 
-![Ended](images/dpp-manager-demo/25-passport-ended.png)
+![Ended](images/dpp-manager-demo/26-passport-ended.png)
 
 > The service cannot do the second half. It holds no key for this DID, and that
 > is the property the whole construction is for: **the architecture can compel
 > departure, not forgetting.**
 
-![Nothing served](images/dpp-manager-demo/26-lookup-after-ending.png)
+![Nothing served](images/dpp-manager-demo/27-lookup-after-ending.png)
 
 The passport is now a record in the local file, and the row may go. The
 identifier resolves nowhere, for good.
@@ -331,7 +369,7 @@ identifier resolves nowhere, for good.
 
 ## 11 — The same application, in German
 
-![In German](images/dpp-manager-demo/27-german.png)
+![In German](images/dpp-manager-demo/28-german.png)
 
 The language is a setting in the file, it applies to every explanation, and the
 form follows it: soya-form renders the German overlay of the same structure.

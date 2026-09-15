@@ -1,0 +1,229 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# attest_payload -- bind the content of a passport to its identifier, as the
+# holder.
+#
+#   bundle exec ruby bin/attest_payload <carrier URL | did:oyd:...> --keys keys.json
+#
+# This is the command-line counterpart of the "Inhaltsbindung" button in the DPP
+# Manager, and it exists for the same reason: in variant B the holder keeps the
+# document key, so the service can compute the hash of what it delivered but
+# cannot sign it (docs/Integrity.md section 5). Without a tool of their own a
+# holder outside the Manager would have no way to move a passport from "pending"
+# to "committed".
+#
+# What is hashed is what the custodian *delivers* -- the bytes returned by the
+# serviceEndpoint the DID document names, uncanonicalised. That is what
+# bin/verify_dpp recomputes on the consumer side, so anything else would attest
+# a document nobody reads.
+#
+# The keys never travel as arguments: a document key in ARGV lands in the shell
+# history and in the process list. They come from a JSON file (--keys) or from
+# the environment (DPP_DOC_KEY / DPP_REV_KEY).
+
+require "json"
+require "net/http"
+require "uri"
+
+# oydid reads data with CSV, which aborts when the default external encoding is
+# not UTF-8 -- and aborts from inside a method this script does not call. Set it
+# here so the tool does not depend on the locale of whoever runs it.
+Encoding.default_external = Encoding::UTF_8
+
+begin
+  require "oydid"
+rescue LoadError
+  abort("attest_payload needs the oydid gem: run it as `bundle exec ruby bin/attest_payload ...`")
+end
+
+DIGEST_OPTIONS   = { digest: "sha2-256", encode: "base58btc" }.freeze
+SERVICE_TYPE     = "DigitalProductPassport"
+PAYLOAD_HASH     = "payloadHash"
+KEY_TYPE         = "ed25519"
+DEFAULT_LOCATION = ENV.fetch("OYDID_LOCATION", "https://oydid.ownyourdata.eu")
+
+EXIT_OK         = 0
+EXIT_FAILED     = 1
+EXIT_INCOMPLETE = 3
+
+def say(text)   = puts(text)
+def step(text)  = puts("\n#{text}")
+def ok(text)    = puts("  [ ok ] #{text}")
+def no(text)    = puts("  [FAIL] #{text}")
+def note(text)  = puts("  [note] #{text}")
+
+def fetch(url)
+  uri = URI.parse(url)
+  response = Net::HTTP.start(uri.hostname, uri.port,
+                             use_ssl: uri.scheme == "https",
+                             open_timeout: 5, read_timeout: 15) do |http|
+    http.request(Net::HTTP::Get.new(uri, "Accept" => "application/json"))
+  end
+  [response.code.to_i, response.body.to_s]
+rescue StandardError => e
+  abort("cannot reach #{url}: #{e.class}: #{e.message}")
+end
+
+# --- arguments --------------------------------------------------------------
+USAGE = <<~TEXT
+  usage: bundle exec ruby bin/attest_payload <carrier URL | did:oyd:...> [options]
+
+    --keys <file>      JSON with "document_key" and "revocation_key"
+                       (a file as written by `oydid create`, or by hand)
+    --location <url>   the repository the DID lives at
+                       (default: #{DEFAULT_LOCATION}, or $OYDID_LOCATION)
+
+  Without --keys the keys are read from $DPP_DOC_KEY and $DPP_REV_KEY.
+  They are only needed to write: a run against an already attested passport
+  reports that and stops before touching them.
+TEXT
+
+args     = ARGV.dup
+target   = nil
+keyfile  = nil
+location = DEFAULT_LOCATION
+
+until args.empty?
+  case (arg = args.shift)
+  when "--keys"     then keyfile  = args.shift
+  when "--location" then location = args.shift
+  when "-h", "--help" then abort(USAGE)
+  else
+    abort(USAGE) unless target.nil?
+    target = arg
+  end
+end
+abort(USAGE) if target.to_s.empty?
+
+doc_key = ENV["DPP_DOC_KEY"].to_s
+rev_key = ENV["DPP_REV_KEY"].to_s
+
+if keyfile
+  abort("no such file: #{keyfile}") unless File.exist?(keyfile)
+  keys = begin
+    JSON.parse(File.read(keyfile))
+  rescue JSON::ParserError => e
+    abort("#{keyfile} is not JSON: #{e.message}")
+  end
+  doc_key = keys["document_key"].to_s if keys["document_key"]
+  rev_key = keys["revocation_key"].to_s if keys["revocation_key"]
+end
+
+# --- 1  which passport ------------------------------------------------------
+say("Attesting #{target}")
+
+step("1    identify the passport")
+did =
+  if target.start_with?("did:oyd:")
+    target
+  else
+    code, body = fetch(target)
+    abort("  [FAIL] the carrier link answered #{code}") if code != 200
+    document = begin
+      JSON.parse(body)
+    rescue JSON::ParserError => e
+      abort("  [FAIL] the carrier link did not return JSON: #{e.message}")
+    end
+    document["digitalProductPassportId"].to_s
+  end
+abort("  [FAIL] no passport identifier found") if did.empty?
+abort("  [FAIL] #{did} is not a did:oyd -- there is no log to write to") unless did.start_with?("did:oyd:")
+ok(did)
+
+# --- 2  resolve it ----------------------------------------------------------
+step("2    resolve the identifier")
+info, msg = Oydid.read(did, {})
+abort("  [FAIL] does not resolve: #{msg}") if info.nil?
+ok("resolved, #{Array(info['log']).length} log entries")
+
+# The "key" field is oydid's own bookkeeping and is rebuilt on every write, so
+# it is dropped rather than fed back in.
+content = info.dig("doc", "doc") || info["doc"] || {}
+content = content.except("key") if content.is_a?(Hash)
+
+services = Array(content["service"])
+entry    = services.find { |e| e.is_a?(Hash) && e["type"].to_s == SERVICE_TYPE }
+if entry.nil?
+  no("the DID document carries no #{SERVICE_TYPE} service entry")
+  exit EXIT_INCOMPLETE
+end
+endpoint = entry["serviceEndpoint"].to_s
+abort("  [FAIL] the service entry names no serviceEndpoint") if endpoint.empty?
+ok("serviceEndpoint: #{endpoint}")
+
+# --- 3  hash what the custodian delivers ------------------------------------
+step("3    hash the bytes the custodian delivers")
+code, body = fetch(endpoint)
+if code != 200
+  no("the endpoint named in the DID document answered #{code} -- nothing to attest")
+  exit EXIT_INCOMPLETE
+end
+bytes = body.dup.force_encoding(Encoding::BINARY)
+computed, hash_msg = Oydid.multi_hash(bytes, DIGEST_OPTIONS)
+abort("  [FAIL] cannot hash the payload: #{hash_msg}") if computed.to_s.empty?
+ok("#{bytes.bytesize} bytes -> #{computed}")
+
+# --- 4  is it already attested? ---------------------------------------------
+step("4    compare with what the DID document already commits to")
+committed = entry[PAYLOAD_HASH].to_s
+if committed.empty?
+  say("  committed: -")
+elsif committed == computed
+  say("  committed: #{committed}")
+  ok("already attested -- nothing to write")
+  exit EXIT_OK
+else
+  say("  committed: #{committed}")
+  note("the passport commits to different content; this run replaces that commitment")
+end
+
+# --- 5  write the entry -----------------------------------------------------
+# The keys are only needed from here on, which is why they are checked here and
+# not at the start: reading the state of a passport is something a holder should
+# be able to do without unlocking the file the keys live in.
+#
+# Both are needed, and not because both sign: oydid rewrites the revocation
+# entry on every update, so an update that cannot re-encrypt it would leave the
+# passport unrevocable.
+abort("  [FAIL] no document key: pass --keys <file> or set DPP_DOC_KEY") if doc_key.empty?
+abort("  [FAIL] no revocation key: pass --keys <file> or set DPP_REV_KEY") if rev_key.empty?
+
+step("5    write the commitment into the DID document")
+entry[PAYLOAD_HASH] = computed
+content["service"]  = services
+
+# authentication: false because a passport identifier names a thing, not a
+# party -- it has no authentication method, and adding one on an update would
+# change the shape of a document that readers already resolve.
+result, message = Oydid.update(content, did.to_s, {
+  return_secrets: true,
+  key_type:       KEY_TYPE,
+  authentication: false,
+  doc_enc:        doc_key,
+  old_doc_enc:    doc_key,
+  rev_enc:        rev_key,
+  old_rev_enc:    rev_key,
+  location:       location,
+  doc_location:   location
+})
+if result.nil?
+  no(message.to_s.empty? ? "Oydid.update returned no result" : message.to_s)
+  exit EXIT_FAILED
+end
+# oydid appends "@<repository>" to the identifier it returns whenever a
+# location was passed. For the default repository that suffix is noise -- the
+# resolver and bin/verify_dpp both print the identifier without it, and two
+# spellings of the same thing in one demo invite the wrong question.
+head = result["did"].to_s.sub(/@#{Regexp.escape(location)}\z/, "")
+ok("new log head: #{head}")
+
+step("what to keep")
+note("the document and revocation keys are unchanged -- keep using the same file")
+note("the revocation log below replaces the previous one; without it this")
+note("passport can no longer be ended cleanly")
+say("")
+say(result["revocation_log"].to_json)
+
+step("VERDICT  content attested -- check it with bin/verify_dpp #{target}")
+exit EXIT_OK

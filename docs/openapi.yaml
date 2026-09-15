@@ -536,7 +536,9 @@ components:
       description: >-
         `committed` — the DID document commits to the payload as delivered now.
         `pending` — the hash is known, the signed log entry is not written; the
-        normal state where the holder keeps the document key.
+        normal state where the holder keeps the document key. Such a passport is
+        re-checked when it is read, at most once per minute, so the state moves to
+        `committed` on its own once the holder has published the entry.
         `stale` — the commitment refers to an earlier payload.
         A header rather than a field of the document, so the payload stays free
         of proprietary attributes (EN 18223:2026 Table 1) — the same reason

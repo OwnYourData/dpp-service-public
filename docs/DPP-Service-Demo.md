@@ -434,6 +434,77 @@ the carrier path under the custodian's own name `404`.
 > passport under its own domain and quietly make itself the address on the
 > product.
 
+### The fourth proof: the content is the one the holder attested
+
+The three checks above are about *where* the passport is served from. They say
+nothing about *what* is served. Ask the service what it delivered:
+
+```bash
+curl -sS -D - -o /dev/null "$BASE/dppsByProductId/$ENC3" | grep -i 'x-dpp'
+```
+
+Expected:
+
+```
+x-dpp-payload-hash: zQmUEkrLW24kZmP8uXVYaiZrzApAS6rxGqRTs2XtBAzLPg5
+x-dpp-commit-state: pending
+```
+
+**`pending` is the correct answer here, not a defect.** The service fetched the
+payload back from the custodian, hashed the bytes it delivers, and says so — and
+it says in the same breath that it cannot sign them. In step 5 we minted the
+identifier ourselves and kept the document key; the service has no key to write
+a log entry with. Whoever holds the key attests, and nobody else can.
+
+> The headers come from the **service**, not from the carrier link. The carrier
+> points by CNAME at the custodian, which serves the payload straight out of the
+> pod and knows nothing of this service. That is no gap: a consumer scanning the
+> carrier does not need to be told the state, they recompute it — which is the
+> next command but one.
+
+So attest it, as the holder, with the keys the registrar handed back in step 5:
+
+```bash
+echo "$RESP3" | jq '{document_key: .didState.secret.documentKey, revocation_key: .didState.secret.revocationKey}' > tmp/demo-keys.json
+chmod 600 tmp/demo-keys.json
+bundle exec ruby bin/attest_payload "$PID3" --keys tmp/demo-keys.json
+```
+
+Expected: the hash of the delivered bytes, `committed: -` because nothing is
+bound yet, a new log head — and a fresh revocation log, which replaces the one
+from step 5. The document key does not change.
+
+> `bin/attest_payload` is the command-line counterpart of the "Inhaltsbindung"
+> button in the DPP Manager (docs/DPP-Manager-Demo.md). Both do the same thing
+> with the same key; neither goes through this service.
+
+And now the check that needs nobody's cooperation:
+
+```bash
+bundle exec ruby bin/verify_dpp "$PID3"
+```
+
+Expected: the delivered hash and the committed hash are the same string, the log
+entry verifies against the document key of this version, and the verdict reads
+`content attested and unchanged`. Note what the tool prints under *what this does
+NOT establish* — that the signing key belongs to the economic operator rather
+than to a service acting for them, and that the trust anchor is an accredited
+one. Both are open by the standards' own measure, and a tool that printed a
+green tick over them would be lying.
+
+Finally, the service agrees:
+
+```bash
+sleep 65
+curl -sS -D - -o /dev/null "$BASE/dppsByProductId/$ENC3" | grep -i 'x-dpp'
+```
+
+Expected: the same hash, now `x-dpp-commit-state: committed`. A waiting passport
+is re-checked when it is read — the service resolves the DID and sees the entry
+appear — and that check is throttled to once a minute per passport, so that a
+crawler cannot decide how much work the service does. Without the pause the
+remembered state would still be showing.
+
 **Where things stand after this step.**
 
 ```
@@ -485,7 +556,7 @@ Expected: `204` for both passports. The identifier the service minted is
 | identifier does not resolve | `400` `… does not resolve` |
 | `serviceEndpoint` names a different host | `400`, both hostnames in plain text |
 | declared granularity contradicts the path | `400` `granularity 'model' contradicts the identifier path, which expresses 'item'` |
-| identifier longer than 50 characters | `400`, stating by how much |
+| identifier not over `https` | `400`, naming the scheme requirement |
 | no token, or an invalid one | `401 ClientNotAuthorized` |
 | a foreign DID tries to write | `403 ClientForbidden` |
 | public reading | never needs a token |

@@ -18,7 +18,10 @@ RSpec.configure do |config|
   # has its own spec (spec/services/payload_commitment_spec.rb), and the wiring
   # into the write paths is checked in spec/requests/payload_commitment_spec.rb
   # against this very stub.
-  config.before(type: :request) { allow(PayloadCommitment).to receive(:call) }
+  config.before(type: :request) do
+    allow(PayloadCommitment).to receive(:call)
+    allow(PayloadCommitment).to receive(:refresh)
+  end
 
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!

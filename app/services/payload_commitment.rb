@@ -38,7 +38,30 @@ class PayloadCommitment
   OPEN_TIMEOUT = ENV.fetch("DPP_DELIVERY_OPEN_TIMEOUT", 5).to_i
   READ_TIMEOUT = ENV.fetch("DPP_DELIVERY_READ_TIMEOUT", 10).to_i
 
+  # How long a checked state is trusted before the DID is resolved again. The
+  # read paths call +refresh+, so without this a crawler on a pending passport
+  # would decide how much work the service does.
+  RECHECK_INTERVAL = ENV.fetch("DPP_COMMIT_RECHECK_INTERVAL", 60).to_i
+
   def self.call(dpp) = new(dpp).call
+
+  # Read side: has the holder published the entry in the meantime?
+  #
+  # Variante B only ever reaches "pending" through a write — the service holds no
+  # document key and cannot sign. What it can do is look: resolve the DID and see
+  # whether the document now commits to the payload the service last delivered.
+  # Nothing is written to the VDR here, and nothing raises; a passport whose state
+  # cannot be determined keeps the one it has.
+  def self.refresh(dpp)
+    return dpp&.did_commit_state unless dpp&.did_commit_state == PENDING
+    return PENDING unless dpp.dpp_id.to_s.start_with?("did:oyd:")
+    return PENDING if dpp.payload_hash.blank?
+    if dpp.payload_checked_at.present? && dpp.payload_checked_at > RECHECK_INTERVAL.seconds.ago
+      return PENDING
+    end
+
+    new(dpp).refresh
+  end
 
   # The hash of a payload, as a reader would compute it. Binary encoding on
   # purpose: this hashes bytes, and a body that arrives as UTF-8 and one that
@@ -71,9 +94,35 @@ class PayloadCommitment
     commit(hash) ? record(hash, COMMITTED) : record(hash, PENDING)
   end
 
+  # Compare the commitment in the DID document with the payload this service
+  # delivered. Committed when they agree; stale when the document attests some
+  # other payload, which is what a reader has to be told rather than left to
+  # discover.
+  def refresh
+    committed = commitment_in_document
+    state = if committed.blank?
+              PENDING
+            elsif committed == dpp.payload_hash
+              COMMITTED
+            else
+              STALE
+            end
+    record(dpp.payload_hash, state, checked: true)
+  rescue DidOyd::DidError, Error => e
+    log("cannot re-check the commitment: #{e.message}")
+    record(dpp.payload_hash, PENDING, checked: true)
+  end
+
   private
 
   attr_reader :dpp
+
+  def commitment_in_document
+    content = DidOyd.document_content(dpp.dpp_id)
+    entry = Array(content["service"])
+            .find { |e| e.is_a?(Hash) && e["type"].to_s == DidOyd::SERVICE_TYPE }
+    entry && entry[DidOyd::PAYLOAD_HASH].to_s.presence
+  end
 
   # The bytes a reader gets, hashed. For a pod-backed passport that is a public
   # GET against the serviceEndpoint -- no token, exactly the request a consumer
@@ -148,10 +197,13 @@ class PayloadCommitment
     value.is_a?(String) || value.nil? ? value : JSON.generate(value)
   end
 
-  def record(hash, state)
-    dpp.payload_hash     = hash
-    dpp.did_commit_state = state
-    dpp.did_head         = @head if @head.present?
+  # +checked+ marks a state that came from looking at the VDR rather than from
+  # writing to it — that is what the throttle counts.
+  def record(hash, state, checked: false)
+    dpp.payload_hash       = hash
+    dpp.did_commit_state   = state
+    dpp.did_head           = @head if @head.present?
+    dpp.payload_checked_at = Time.now.utc if checked
     dpp.save!
     state
   end

@@ -310,6 +310,41 @@ Public, no token required. The identifier is percent-encoded into the path.
 curl -sS "$BASE/dpps/$ENC" | jq .
 ```
 
+### What the response headers say about the content
+
+Every read carries the state of the payload commitment (prEN 18246;
+docs/Integrity.md section 6):
+
+```bash
+curl -sS -D - -o /dev/null "$BASE/dpps/$ENC" | grep -i 'x-dpp'
+```
+
+```
+x-dpp-payload-hash: zQmUEkrLW24kZmP8uXVYaiZrzApAS6rxGqRTs2XtBAzLPg5
+x-dpp-commit-state: committed
+```
+
+| `x-dpp-commit-state` | What it means |
+|---|---|
+| `committed` | the DID document commits to exactly these bytes |
+| `pending` | the hash is known, the log entry is not written yet — the normal state while a passport whose key the holder keeps is waiting to be attested |
+| `stale` | the document commits to different bytes than the ones delivered |
+
+Both headers are **omitted entirely** for a passport that has never been through
+a commitment, so nothing is asserted about passports predating this.
+
+They live in headers and not in the document on purpose: a reader of the DPP
+document must find exactly the attributes of EN 18223:2026 Table 1 there, and a
+proprietary field would break conformance for every reader — the same reason the
+storage configuration arrives in `X-DPP-Storage`.
+
+Two things this is *not*. It is not a verification: the service is telling you
+what it believes about content it serves, which is worth exactly as much as your
+trust in the service. The check that needs nobody's cooperation is
+`bundle exec ruby bin/verify_dpp <carrier URL>`. And it is not visible on the
+carrier link: a passport held at a custodian is served there directly, out of
+the pod, and the custodian does not set these headers.
+
 ---
 
 ## 4. Read a DPP by Product ID (ReadDPPByProductId)

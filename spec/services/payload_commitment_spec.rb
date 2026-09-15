@@ -207,6 +207,109 @@ RSpec.describe PayloadCommitment do
     end
   end
 
+  # The read side of variant B. The holder signs the entry, so the only thing the
+  # service can do is look -- and looking costs a DID resolution, which is why it
+  # is throttled.
+  describe ".refresh" do
+    def pending_dpp(payload_hash: "zPAY", checked_at: nil)
+      dpp = build_dpp(did_managed: false)
+      dpp.update_columns(did_commit_state: PayloadCommitment::PENDING,
+                         payload_hash: payload_hash,
+                         payload_checked_at: checked_at)
+      dpp.reload
+    end
+
+    def document_with(hash)
+      content = { "service" => [{ "type" => "DigitalProductPassport",
+                                  "serviceEndpoint" => "https://pod.example/x" }] }
+      content["service"].first["payloadHash"] = hash if hash
+      allow(DidOyd).to receive(:document_content).and_return(content)
+    end
+
+    it "sets committed once the document attests the payload the service delivered" do
+      document_with("zPAY")
+      dpp = pending_dpp
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::COMMITTED)
+      expect(dpp.reload.did_commit_state).to eq(PayloadCommitment::COMMITTED)
+    end
+
+    # Not a failure of the commitment but of its currency: the holder attested
+    # some other payload. A reader has to be told rather than left to find out.
+    it "reports stale when the document attests a different payload" do
+      document_with("zOLD")
+      dpp = pending_dpp
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::STALE)
+    end
+
+    it "stays pending while the document carries no commitment" do
+      document_with(nil)
+      dpp = pending_dpp
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::PENDING)
+    end
+
+    it "stays pending and does not raise when the DID no longer resolves" do
+      allow(DidOyd).to receive(:document_content).and_raise(DidOyd::DidError, "does not resolve")
+      dpp = pending_dpp
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::PENDING)
+    end
+
+    # The throttle has to hold after a failure too, otherwise an unresolvable DID
+    # is the most expensive passport in the database.
+    it "records the check time even when nothing changed" do
+      allow(DidOyd).to receive(:document_content).and_raise(DidOyd::DidError, "boom")
+      dpp = pending_dpp
+
+      described_class.refresh(dpp)
+
+      expect(dpp.reload.payload_checked_at).to be_within(5).of(Time.now.utc)
+    end
+
+    it "does not resolve again inside the interval" do
+      document_with("zPAY")
+      dpp = pending_dpp(checked_at: 5.seconds.ago)
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::PENDING)
+      expect(DidOyd).not_to have_received(:document_content)
+    end
+
+    it "resolves again once the interval has passed" do
+      document_with("zPAY")
+      dpp = pending_dpp(checked_at: (PayloadCommitment::RECHECK_INTERVAL + 10).seconds.ago)
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::COMMITTED)
+    end
+
+    it "leaves a state that is not pending alone" do
+      allow(DidOyd).to receive(:document_content)
+      dpp = build_dpp
+      dpp.update_columns(did_commit_state: PayloadCommitment::COMMITTED, payload_hash: "zPAY")
+
+      expect(described_class.refresh(dpp.reload)).to eq(PayloadCommitment::COMMITTED)
+      expect(DidOyd).not_to have_received(:document_content)
+    end
+
+    it "does nothing for a passport that is not identified by a did:oyd" do
+      allow(DidOyd).to receive(:document_content)
+      dpp = pending_dpp
+      dpp.update_column(:dpp_id, "https://dpp.lumina.example/01/09520123456788/8546")
+
+      expect(described_class.refresh(dpp.reload)).to eq(PayloadCommitment::PENDING)
+      expect(DidOyd).not_to have_received(:document_content)
+    end
+
+    it "does nothing when no hash has been recorded to compare against" do
+      allow(DidOyd).to receive(:document_content)
+      dpp = pending_dpp(payload_hash: nil)
+
+      expect(described_class.refresh(dpp)).to eq(PayloadCommitment::PENDING)
+      expect(DidOyd).not_to have_received(:document_content)
+    end
+  end
+
   # An https identifier has no log to write into. Not a degenerate case: it is
   # what every passport looked like before did:oyd, and EN 18223:2026 Table 1
   # does not require a DID.

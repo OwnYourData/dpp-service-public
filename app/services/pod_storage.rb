@@ -49,11 +49,10 @@ class PodStorage
   # or an operation it does not cover. +status_code+ carries the §15 answer.
   class DelegationError < Error; end
 
-  # The Registry's 50-character budget no longer constrains this value. Since
-  # the carrier redesign the UPI is the product identifier under a host of the
-  # operator's own (see ProductIdentifier), while this base_url is the
-  # custodian's own address and never reaches a carrier. The length check moved
-  # to ProductIdentifier, where the string that actually gets printed lives.
+  # No length constraint applies to this value. Since the carrier redesign the
+  # UPI is the product identifier under a host of the operator's own (see
+  # ProductIdentifier), while this base_url is the custodian's own address and
+  # never reaches a carrier.
 
   OPEN_TIMEOUT = Integer(ENV.fetch("POD_OPEN_TIMEOUT", 5))
   READ_TIMEOUT = Integer(ENV.fetch("POD_READ_TIMEOUT", 15))

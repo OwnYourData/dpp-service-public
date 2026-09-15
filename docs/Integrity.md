@@ -150,6 +150,22 @@ Client  → VDR     : publish the entry
 The difference is decisive: **in variant B the service cannot set the commitment
 itself.** It can only request it and keep track of it.
 
+The holder needs a tool of their own for the last two lines, and there are two.
+The DPP Manager writes the entry with the passport keys it keeps in its vault,
+automatically after every submission and correction, with a button as the
+fallback when that fails. `bin/attest_payload` does the same from the command
+line for a holder who keeps their keys elsewhere:
+
+```
+bundle exec ruby bin/attest_payload <carrier URL | did:oyd:…> --keys <file>
+```
+
+It resolves the identifier, fetches the payload back from the endpoint the DID
+document names, hashes those bytes and appends the entry — the same procedure as
+section 4, run by the party that holds the key. Neither tool goes through this
+service, which is the point: a commitment the service could produce would not
+prove that the holder made it.
+
 ## 6. Reporting the state
 
 Every write asks for a fresh commitment, and every read says which state the
@@ -163,7 +179,7 @@ X-DPP-Commit-State: committed
 | state | meaning |
 |---|---|
 | `committed` | the DID document commits to the payload as it is delivered now |
-| `pending` | the hash is known, the log entry is not written. In variant B that is the normal state until the holder signs; in variant A it means the VDR could not be reached |
+| `pending` | the hash is known, the log entry is not written. In variant B that is the normal state until the holder signs, and a read re-checks it; in variant A it means the VDR could not be reached |
 | `stale` | the commitment refers to an earlier payload |
 
 **In headers, not in the document.** A reader of the DPP document has to find
@@ -171,6 +187,21 @@ exactly the attributes of EN 18223:2026 Table 1 there; a proprietary field would
 break conformance for every reader. That is the same reason the storage
 configuration arrives in `X-DPP-Storage`. A passport that has never been through
 a commitment carries neither header — nothing is asserted about it.
+
+**A passport waiting for the holder is re-checked when it is read.** In variant B
+the service holds no document key, so no write of its own could ever turn
+`pending` into `committed` — the holder signs the entry, and the service only
+gets to look. It does that on its own read paths: resolve the DID, compare the
+`payloadHash` in the document with the payload last delivered, and record
+`committed` or `stale`. Nothing is written to the VDR, and a check that fails
+leaves the state untouched.
+
+Resolving a DID costs a second or two, so a passport is re-checked at most once
+per `DPP_COMMIT_RECHECK_INTERVAL` (60 seconds by default), and the timestamp is
+recorded even when the check failed — otherwise a DID that no longer resolves
+would be the most expensive passport in the database. A `committed` passport is
+never re-resolved on a read. The public delivery path is unaffected either way:
+it is served by the custodian, not by this service.
 
 **A write is never refused because a commitment is outstanding.** The client may
 be offline, and the passport has already been accepted by the custodian; a

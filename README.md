@@ -83,6 +83,7 @@ The rest:
 | [docs/Identifiers.md](docs/Identifiers.md) | the six things called "identifier" in the DPP context, how they relate, and which of them ends up on the data carrier |
 | [docs/Integrity.md](docs/Integrity.md) | how the identifier, the version chain and the payload commitment fit together, and what a reader can verify without trusting anyone |
 | [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
+| [bin/attest_payload](bin/attest_payload) | the holder side of the same coin: hash what the custodian delivers and sign the entry with your own document key: `bundle exec ruby bin/attest_payload <carrier URL> --keys <file>` |
 | [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
 | [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract: an OpenAPI 3.0 description of every endpoint, which the service also serves through a Swagger UI at `/api-docs` |
 
@@ -167,11 +168,13 @@ bundle exec rspec
 5. **Data integrity (prEN 18246).** The content is bound to the identifier:
    every change appends a signed log entry carrying `payloadHash`, the hash of
    the payload as the custodian delivers it, and `bin/verify_dpp` checks that
-   from the public web alone. Two things are not covered. Where the holder keeps
-   the document key, the service can only report the expected hash and leave the
-   passport `pending` — it cannot sign in their place. And the trust anchor is
-   self-managed: 4.8.2 and 5.2.2 ask for an accredited one, so electronic
-   attestation of attributes (EAA) remains open.
+   from the public web alone. Where the holder keeps the document key, the
+   service can only report the expected hash and leave the passport `pending` —
+   it cannot sign in their place. The holder does that themselves, with
+   `bin/attest_payload` or the DPP Manager, and the service picks the change up
+   when the passport is next read. What remains open is the trust anchor: it is
+   self-managed, 4.8.2 and 5.2.2 ask for an accredited one, so electronic
+   attestation of attributes (EAA) is not covered.
 
 ## Citing this
 

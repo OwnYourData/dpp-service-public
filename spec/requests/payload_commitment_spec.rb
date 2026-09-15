@@ -128,6 +128,41 @@ RSpec.describe "Payload commitment", type: :request do
     end
   end
 
+  # Variant B: the service holds no document key, so no write of its own can ever
+  # turn `pending` into `committed`. The read path is where the state moves.
+  describe "a passport waiting for the holder to sign" do
+    before do
+      create_dpp!
+      Dpp.find(dpp_id).update_columns(payload_hash: "zPAY",
+                                      did_commit_state: PayloadCommitment::PENDING)
+    end
+
+    it "is re-checked on a read" do
+      get "/dpp/v1/dpps/#{enc_dpp}"
+
+      expect(response).to have_http_status(:ok)
+      expect(PayloadCommitment).to have_received(:refresh).with(
+        having_attributes(dpp_id: dpp_id)
+      )
+    end
+
+    it "reports the expected hash while it waits" do
+      get "/dpp/v1/dpps/#{enc_dpp}"
+
+      expect(response.headers["X-DPP-Payload-Hash"]).to eq("zPAY")
+      expect(response.headers["X-DPP-Commit-State"]).to eq(PayloadCommitment::PENDING)
+    end
+
+    # A committed passport is not worth a DID resolution on every read.
+    it "is not re-checked once it is committed" do
+      Dpp.find(dpp_id).update_column(:did_commit_state, PayloadCommitment::COMMITTED)
+
+      get "/dpp/v1/dpps/#{enc_dpp}"
+
+      expect(PayloadCommitment).not_to have_received(:refresh)
+    end
+  end
+
   # Nothing is asserted about a passport that has never been through a
   # commitment -- the ones that predate this say nothing rather than "pending".
   it "says nothing when there is nothing to say" do

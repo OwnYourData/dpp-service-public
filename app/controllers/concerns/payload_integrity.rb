@@ -29,9 +29,19 @@ module PayloadIntegrity
     report_commitment(dpp)
   end
 
-  # On a read: say which state the passport is in without changing anything.
+  # On a read: say which state the passport is in.
+  #
+  # A passport waiting for the holder to sign is re-checked here, because in
+  # variant B nothing else would ever move it: the service holds no document key,
+  # so no write of its own can turn `pending` into `committed`. The check resolves
+  # the DID, which costs a second or two, and is therefore throttled per passport
+  # (PayloadCommitment::RECHECK_INTERVAL) — a crawler on a pending passport must
+  # not decide how much work the service does. Every other state is reported as
+  # it stands, and a failed check changes nothing.
   def report_commitment(dpp)
     return if dpp.nil?
+
+    PayloadCommitment.refresh(dpp) if dpp.did_commit_state == PayloadCommitment::PENDING
 
     response.set_header(HASH_HEADER, dpp.payload_hash) if dpp.payload_hash.present?
     response.set_header(STATE_HEADER, dpp.did_commit_state) if dpp.did_commit_state.present?

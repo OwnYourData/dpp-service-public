@@ -16,6 +16,7 @@ gem "rswag-ui"
 
 # --- Auth (prEN 18239 / prEN 18216: OAuth 2.0 / OpenID Connect, JWT) ---------
 gem "jwt"                    # verify bearer access tokens (oydid pulls jwt ~> 3.1)
+gem "httpx", "~> 1.8"        # outbound HTTPS over HTTP/2 to custodians (EN 18216:2026 4)
 
 # --- Decentralized identifiers (prEN 18219: W3C DID; did:oyd) -----------------
 # require:false — loaded lazily by DidOyd so the app boots without libsodium
@@ -32,6 +33,11 @@ gem "jwt"                    # verify bearer access tokens (oydid pulls jwt ~> 3
 # through — which is what makes a failed payload commitment diagnosable instead
 # of a guessing game.
 gem "oydid", "~> 0.9", ">= 0.9.7", require: false
+
+# RFC 8785: the controlled part of a split passport is named by a digest over
+# its canonical JSON (PassportSplit). Already a dependency of oydid; named here
+# because this service relies on it directly.
+gem "json-canonicalization", "~> 1.0"
 
 group :development, :test do
   gem "rspec-rails"

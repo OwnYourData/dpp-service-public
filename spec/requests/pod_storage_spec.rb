@@ -49,15 +49,23 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
                            reachable!: true)
     allow(fake).to receive(:create_object).and_return("4711")
     allow(fake).to receive(:ensure_product!).and_return(true)
+    allow(fake).to receive(:ensure_covers!).and_return(true)
     allow(fake).to receive(:write_payload) { |_id, doc| @written = doc; true }
-    allow(fake).to receive(:read_payload) { @written || {} }
     allow(fake).to receive(:delete_object).and_return(true)
+    fake
+  end
+
+  # Its public read paths: what was written last, without a token.
+  let(:reader) do
+    fake = instance_double(PodStorage::PublicReader, base_url: base_url)
+    allow(fake).to receive(:document) { @written || {} }
     fake
   end
 
   before do
     allow(PodStorage).to receive(:from_header).and_return(pod)
     allow(PodStorage).to receive(:for).and_return(pod)
+    allow(PodStorage::PublicReader).to receive(:new).with(base_url).and_return(reader)
     allow(DidOyd).to receive(:mint).and_return(minted)
   end
 
@@ -183,12 +191,12 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
 
     before { post "/dpp/v1/dpps", params: document.to_json, headers: headers }
 
-    it "reads the document back from the pod" do
+    it "reads the document back over the pod's public path" do
       get "/dpp/v1/dpps/#{encoded}"
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body)["uniqueProductIdentifier"]).to eq(product_id)
-      expect(pod).to have_received(:read_payload).at_least(:once)
+      expect(reader).to have_received(:document).with(minted[:did]).at_least(:once)
     end
 
     it "writes an update to the pod and does not archive locally" do
@@ -217,7 +225,7 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
             headers: { "Content-Type" => "application/merge-patch+json", "Authorization" => token }
 
       expect(response).to have_http_status(:ok)
-      expect(JSON.parse(response.body)["value"]).to eq(900)
+      expect(JSON.parse(response.body)).to eq(900)
     end
 
     it "archives the final state in the pod and removes the object on delete" do
@@ -232,17 +240,17 @@ RSpec.describe "CreateDPP with a hosting pod (S2)", type: :request do
     end
 
     it "delegates ReadDPPVersionByIdAndDate to the pod" do
-      allow(pod).to receive(:version_at).and_return({ "dppStatus" => "Active", "facilityId" => "F-1" })
+      allow(reader).to receive(:version_at).and_return({ "dppStatus" => "Active", "facilityId" => "F-1" })
 
       get "/dpp/v1/dppsByIdAndDate/#{CGI.escape(minted[:did])}?date=2026-08-12T12:00:00Z"
 
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body)["facilityId"]).to eq("F-1")
-      expect(pod).to have_received(:version_at)
+      expect(reader).to have_received(:version_at)
     end
 
     it "returns 404 when the pod has no version for that date" do
-      allow(pod).to receive(:version_at).and_return(nil)
+      allow(reader).to receive(:version_at).and_return(nil)
 
       get "/dpp/v1/dppsByIdAndDate/#{CGI.escape(minted[:did])}?date=2020-01-01T00:00:00Z"
 

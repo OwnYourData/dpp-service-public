@@ -246,4 +246,58 @@ RSpec.describe Delegation do
         .to raise_error(described_class::Error, /non-ASCII/)
     end
   end
+  describe ".verify_access_grant!" do
+    let(:now)         { 1_786_960_000 }
+    let(:issuer)      { key_for("grant-issuer") }
+    let(:issuer_did)  { "did:oyd:zGrantIssuer" }
+    let(:service_did) { "did:oyd:zServiceTestIdentity" }
+
+    def grant(overrides = {}, signing_key = nil, typ = described_class::TYP_GRANT)
+      payload = { "iss" => issuer_did, "sub" => "did:oyd:zReader", "aud" => service_did,
+                  "roles" => ["legitimateInterest"], "dpps" => ["did:oyd:zPassport"],
+                  "iat" => now, "nbf" => now, "exp" => now + (30 * 86_400), "jti" => "g1" }
+      payload = payload.merge(overrides).compact
+      described_class.sign(signing_key || issuer, typ: typ, kid: "#{issuer_did}#key-doc", payload: payload)
+    end
+
+    def verify(token) = described_class.verify_access_grant!(token, service_did: service_did, now: now)
+
+    before do
+      allow(DidTokenVerifier).to receive(:public_key_for).with(issuer_did).and_return(issuer.verify_key)
+    end
+
+    it "accepts a well-formed grant and returns its claims" do
+      expect(verify(grant)).to include("sub" => "did:oyd:zReader", "roles" => ["legitimateInterest"])
+    end
+
+    it "accepts scope issuer instead of a list of passports, and a purpose" do
+      expect(verify(grant("dpps" => nil, "scope" => "issuer", "purpose" => "repair"))["scope"]).to eq("issuer")
+    end
+
+    {
+      "another typ" => [{}, nil, Delegation::TYP_DELEGATION, /typ/],
+      "a signature by another key" => [{}, Ed25519::SigningKey.generate, Delegation::TYP_GRANT, /signature/],
+      "another service" => [{ "aud" => "did:oyd:zElsewhere" }, nil, Delegation::TYP_GRANT, /aud/],
+      "a subject that is not a DID" => [{ "sub" => "reader" }, nil, Delegation::TYP_GRANT, /sub/],
+      "no roles" => [{ "roles" => [] }, nil, Delegation::TYP_GRANT, /roles/],
+      "a role that is no class" => [{ "roles" => ["recycler"] }, nil, Delegation::TYP_GRANT, /roles/],
+      "a grant for public" => [{ "roles" => ["public"] }, nil, Delegation::TYP_GRANT, /public/],
+      "both dpps and scope" => [{ "scope" => "issuer" }, nil, Delegation::TYP_GRANT, /either/],
+      "neither dpps nor scope" => [{ "dpps" => nil }, nil, Delegation::TYP_GRANT, /either/],
+      "another scope" => [{ "dpps" => nil, "scope" => "all" }, nil, Delegation::TYP_GRANT, /scope/],
+      "a wildcard passport" => [{ "dpps" => ["*"] }, nil, Delegation::TYP_GRANT, /dpps/],
+      "an expired grant" => [{ "iat" => 1, "nbf" => 1, "exp" => 2 }, nil, Delegation::TYP_GRANT, /expired/],
+      "more than a year" => [{ "exp" => 1_786_960_000 + (400 * 86_400) }, nil, Delegation::TYP_GRANT, /lifetime/]
+    }.each do |label, (overrides, key, typ, message)|
+      it "refuses #{label}" do
+        expect { verify(grant(overrides, key, typ)) }.to raise_error(described_class::Invalid, message)
+      end
+    end
+
+    it "refuses an issuer whose DID does not resolve" do
+      allow(DidTokenVerifier).to receive(:public_key_for).with(issuer_did).and_return(nil)
+
+      expect { verify(grant) }.to raise_error(described_class::Invalid, /cannot resolve/)
+    end
+  end
 end

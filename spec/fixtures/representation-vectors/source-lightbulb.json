@@ -4,12 +4,13 @@
   "granularity": "model",
   "dppSchemaVersion": "EN 18223:2026",
   "dppStatus": "Active",
-  "economicOperatorId": "did:web:lumina.example",
+  "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
   "facilityId": "https://id.lumina.example/414/0952012345009",
   "elements": [
     {
       "elementId": "ProductIdentification",
-      "DictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
+      "objectType": "DataElementCollection",
+      "dictionaryReference": "https://dict.example.org/dpp/lighting/ProductIdentification",
       "elements": [
         {
           "objectType": "SingleValuedDataElement",
@@ -26,7 +27,7 @@
         {
           "objectType": "SingleValuedDataElement",
           "elementId": "LightSourceType",
-          "DictionaryReference": "0173-1#02-AAO677#003",
+          "dictionaryReference": "0173-1#02-AAO677#003",
           "value": "LED",
           "valueDataType": "xsd:string"
         },
@@ -40,7 +41,8 @@
     },
     {
       "elementId": "EnergyPerformance",
-      "DictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
+      "objectType": "DataElementCollection",
+      "dictionaryReference": "https://dict.example.org/dpp/lighting/EnergyPerformance",
       "elements": [
         {
           "objectType": "SingleValuedDataElement",
@@ -135,33 +137,40 @@
         {
           "objectType": "MultiValuedDataElement",
           "elementId": "MaterialComposition",
-          "ValueList": [
+          "elements": [
             {
-              "elementId": "Polycarbonate",
-              "value": 42.0,
-              "valueDataType": "xsd:decimal"
+              "objectType": "DataElementCollection",
+              "elementId": "Material1",
+              "elements": [
+                { "objectType": "SingleValuedDataElement", "elementId": "material", "value": "Polycarbonate", "valueDataType": "xsd:string" },
+                { "objectType": "SingleValuedDataElement", "elementId": "share", "value": 42.0, "valueDataType": "xsd:decimal" }
+              ]
             },
             {
-              "elementId": "Aluminium",
-              "value": 31.5,
-              "valueDataType": "xsd:decimal"
+              "objectType": "DataElementCollection",
+              "elementId": "Material2",
+              "elements": [
+                { "objectType": "SingleValuedDataElement", "elementId": "material", "value": "Aluminium", "valueDataType": "xsd:string" },
+                { "objectType": "SingleValuedDataElement", "elementId": "share", "value": 31.5, "valueDataType": "xsd:decimal" }
+              ]
             },
             {
-              "elementId": "Electronics",
-              "value": 26.5,
-              "valueDataType": "xsd:decimal"
+              "objectType": "DataElementCollection",
+              "elementId": "Material3",
+              "elements": [
+                { "objectType": "SingleValuedDataElement", "elementId": "material", "value": "Electronics", "valueDataType": "xsd:string" },
+                { "objectType": "SingleValuedDataElement", "elementId": "share", "value": 26.5, "valueDataType": "xsd:decimal" }
+              ]
             }
           ]
         }
       ]
-    }
-  ],
-  "dataElements": [
+    },
     {
-      "objectType": "SingleValuedDataElement",
+      "objectType": "RelatedResource",
       "elementId": "DeclarationOfConformity",
-      "value": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf",
-      "valueDataType": "xsd:anyURI"
+      "contentType": "application/pdf",
+      "url": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf"
     }
   ]
 }

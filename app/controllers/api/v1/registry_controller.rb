@@ -4,10 +4,15 @@ module Api
   module V1
     # EN 18222:2026 Clause 5 — Registry API for Register.
     #
-    # RegisterProductDPP registers a new DPP at the EC registry. The registry
-    # is operated by the European Commission; the concrete endpoint and schema
-    # are defined by EU implementing acts. This action models the client-facing
-    # contract and delegates to a (TODO) EC registry client.
+    # RegisterProductDPP registers a new DPP at the EU DPP Registry, which the
+    # European Commission operates under Implementing Regulation (EU) 2026/1778.
+    #
+    # This deployment has no connection to that registry: the Commission
+    # publishes no API specification for it, and registration is not yet
+    # possible for lack of a semantic catalogue. The action therefore checks the
+    # entry and then says plainly that nothing was registered. It must never
+    # answer with a registration identifier of its own making -- a client would
+    # record the passport as registered while the registry knows nothing of it.
     class RegistryController < ApplicationController
       before_action :authenticate_actor!
 
@@ -33,12 +38,15 @@ module Api
           )
         end
 
-        # TODO: call the EU registry and return the identifier it assigns.
-        # registration_id = EcRegistryClient.new.register(entry)
-        registration_id = "urn:ec:dpp:registry:#{SecureRandom.uuid}"
-
-        render json: { statusCode: "SuccessCreated", registrationId: registration_id },
-               status: :created
+        # 502 rather than a code outside EN 18222:2026 Table 15: the upstream
+        # that would have to answer is not reachable from here. The entry is
+        # checked first, so a malformed request still learns what is wrong with it.
+        render_result(
+          "ServerErrorBadGateway",
+          text: "This service is not connected to the EU DPP Registry; " \
+                "the passport has not been registered",
+          code: "registry_not_connected"
+        )
       end
 
       private

@@ -24,14 +24,11 @@ RSpec.describe PayloadCommitment do
 
   def stub_delivery(status: 200, body: nil)
     requests = []
-    http = double("http")
-    allow(http).to receive(:request) do |req|
+    allow(OutboundHttp).to receive(:perform) do |req, **|
       requests << req
-      instance_double(Net::HTTPResponse, code: status.to_s,
-                                         body: body.nil? ? delivered : body,
-                                         message: "stubbed")
+      OutboundHttp::Response.new(code: status.to_s, body: body.nil? ? delivered : body,
+                                 message: "stubbed", version: "2.0")
     end
-    allow(Net::HTTP).to receive(:start) { |*_args, &blk| blk.call(http) }
     requests
   end
 
@@ -80,22 +77,24 @@ RSpec.describe PayloadCommitment do
     end
 
     # The endpoint comes out of the DID document, and a consumer reaches it
-    # without a token (prEN 18239 6.1).
-    it "reads from the endpoint the DID document names, without a token" do
+    # without a token (prEN 18239 6.1). What is hashed is the full
+    # representation (docs/Integrity.md section 4), which an EN 18222 read path
+    # delivers only when asked for it.
+    it "reads the full representation from the endpoint the DID document names, without a token" do
       requests = stub_delivery
       allow(DidOyd).to receive(:update).and_return(nil)
 
       described_class.call(build_dpp)
 
       expect(DidOyd).to have_received(:service_endpoint).with("did:oyd:zABC")
-      expect(requests.last.path).to eq("/dpp/v1/dppsByProductId/x")
+      expect(requests.last.path).to eq("/dpp/v1/dppsByProductId/x?representation=full")
       expect(requests.last["Authorization"]).to be_nil
     end
 
     # No second party to ask: this service is the custodian, so its own rendering
     # is what it delivers.
     it "hashes its own rendering for a passport it holds itself" do
-      allow(Net::HTTP).to receive(:start).and_raise("no HTTP call expected")
+      allow(OutboundHttp).to receive(:perform).and_raise("no HTTP call expected")
       allow(DidOyd).to receive(:update).and_return(nil)
 
       expect(described_class.call(build_dpp(storage_backend: "local")))
@@ -193,7 +192,8 @@ RSpec.describe PayloadCommitment do
     end
 
     it "survives an unreachable custodian" do
-      allow(Net::HTTP).to receive(:start).and_raise(SocketError, "getaddrinfo")
+      allow(OutboundHttp).to receive(:perform)
+        .and_raise(OutboundHttp::ConnectionError, "HTTPX::ResolveError: getaddrinfo")
       allow(DidOyd).to receive(:update)
 
       expect(described_class.call(build_dpp)).to eq(PayloadCommitment::PENDING)
@@ -315,7 +315,7 @@ RSpec.describe PayloadCommitment do
   # does not require a DID.
   describe "a passport that is not identified by a did:oyd" do
     it "does nothing at all" do
-      allow(Net::HTTP).to receive(:start).and_raise("no HTTP call expected")
+      allow(OutboundHttp).to receive(:perform).and_raise("no HTTP call expected")
       allow(DidOyd).to receive(:update)
 
       dpp = build_dpp

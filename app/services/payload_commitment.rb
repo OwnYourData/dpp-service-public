@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "net/http"
 require "uri"
 
 # Binds the content of a passport to its identifier (prEN 18246; the procedure is
@@ -126,14 +125,15 @@ class PayloadCommitment
 
   # The bytes a reader gets, hashed. For a pod-backed passport that is a public
   # GET against the serviceEndpoint -- no token, exactly the request a consumer
-  # makes.
+  # makes, in the full representation (docs/Integrity.md section 4).
   #
   # For a passport kept in this database there is no second party: this service
-  # is the custodian, so its own rendering of the document is what it delivers.
-  # That is a weaker statement than the pod case, because it hashes the document
+  # is the custodian, so its own rendering of what it delivers to a reader
+  # without access rights is hashed -- for a passport with an access policy its
+  # public part, which names the controlled part (PassportSplit). That is a weaker statement than the pod case, because it hashes the document
   # rather than a response, and it is the only case in which the two could drift.
   def delivered_digest
-    bytes = dpp.pod? ? fetch(delivery_endpoint) : JSON.generate(dpp.to_document)
+    bytes = dpp.pod? ? fetch(DppRepresentation.full_url(delivery_endpoint)) : JSON.generate(dpp.published_document)
     self.class.digest(bytes)
   rescue DidOyd::DidError, Error, PodStorage::Error => e
     log("cannot determine the delivered payload: #{e.message}")
@@ -151,20 +151,16 @@ class PayloadCommitment
   end
 
   def fetch(url)
-    uri = URI.parse(url.to_s)
-    request = Net::HTTP::Get.new(uri, "Accept" => "application/json")
-    response = Net::HTTP.start(uri.hostname, uri.port,
-                               use_ssl: uri.scheme == "https",
-                               open_timeout: OPEN_TIMEOUT,
-                               read_timeout: READ_TIMEOUT) { |http| http.request(request) }
+    response = OutboundHttp.request(:get, url, headers: { "Accept" => "application/json" },
+                                               open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT)
 
     raise Error, "#{url} answered #{response.code}" if response.code.to_i != 200
 
     response.body.to_s
-  rescue Net::OpenTimeout, Net::ReadTimeout
+  rescue OutboundHttp::TimeoutError
     raise Error, "#{url} timed out"
-  rescue SystemCallError, SocketError, OpenSSL::SSL::SSLError => e
-    raise Error, "#{url} unreachable (#{e.class}: #{e.message})"
+  rescue OutboundHttp::ConnectionError => e
+    raise Error, "#{url} unreachable (#{e.message})"
   end
 
   # Appends the signed log entry. True when the DID document commits to this

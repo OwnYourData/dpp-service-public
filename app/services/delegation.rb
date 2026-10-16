@@ -28,6 +28,7 @@ class Delegation
   TYP_DELEGATION = "dpp-delegation+jwt"
   TYP_CLIENT     = "client-assertion+jwt"
   TYP_DPOP       = "dpop+jwt"
+  TYP_GRANT      = "dpp-access-grant+jwt"
 
   # §10. The client assertion and the DPoP proof are minted per request, so
   # their lifetimes are the replay window; rules 7 and 9 in §8 check them.
@@ -40,6 +41,12 @@ class Delegation
 
   # §8 rule 4, tolerance for clock skew between customer, service and pod.
   CLOCK_SKEW = 60
+
+  # The longest an access grant (verify_access_grant!) may run.
+  MAX_GRANT_LIFETIME = ENV.fetch("DPP_ACCESS_GRANT_MAX_LIFETIME", 365 * 86_400).to_i
+
+  # The most passports one access grant may name.
+  MAX_GRANT_DPPS = 1000
 
   # D3: extensible on purpose. Adding a value is a change here, not a migration.
   KNOWN_ACT = %w[create update delete].freeze
@@ -172,6 +179,57 @@ class Delegation
       claims
     end
 
+    # Checks an access grant (docs/AccessClasses.md §7): a statement signed by
+    # its issuer that the DID in +sub+ may read the controlled part of
+    # passports in the access classes named in +roles+.
+    #
+    #   header  alg EdDSA, typ dpp-access-grant+jwt, kid <iss>#key-doc
+    #   claims  iss, sub (the reader DID), aud (this service's DID), roles,
+    #           dpps (passport identifiers) or scope "issuer", purpose
+    #           (optional), iat, nbf, exp, jti
+    #
+    # Checked here is the statement itself: form, signature, audience,
+    # lifetime. Whether the issuer may grant these roles for these passports
+    # is the business of AccessGrant. Returns the claims; raises Invalid.
+    def verify_access_grant!(token, service_did: ServiceDid.did, now: Time.now.to_i)
+      header, claims = decode(token)
+
+      raise Invalid, "typ is #{header['typ'].inspect}, expected #{TYP_GRANT}" unless header["typ"] == TYP_GRANT
+      raise Invalid, "alg is #{header['alg'].inspect}, expected #{ALGORITHM}" unless header["alg"] == ALGORITHM
+
+      %w[iss sub aud roles iat nbf exp jti].each do |claim|
+        raise Invalid, "claim #{claim} is missing" if claims[claim].nil?
+      end
+
+      issuer = claims["iss"].to_s
+      raise Invalid, "iss is not a DID" unless issuer.start_with?("did:")
+      raise Invalid, "sub is not a DID" unless claims["sub"].is_a?(String) && claims["sub"].start_with?("did:")
+      raise Invalid, "jti has to be a non-empty string" unless claims["jti"].is_a?(String) && !claims["jti"].empty?
+
+      key = DidTokenVerifier.public_key_for(issuer)
+      raise Invalid, "cannot resolve #{issuer}" if key.nil?
+      verify_signature!(token, key)
+
+      raise Invalid, "aud #{claims['aud'].inspect} is not this service" unless claims["aud"] == service_did
+
+      check_grant_roles!(claims["roles"])
+      check_grant_scope!(claims)
+      if claims.key?("purpose") && !claims["purpose"].is_a?(String)
+        raise Invalid, "purpose has to be a string"
+      end
+
+      %w[iat nbf exp].each do |claim|
+        raise Invalid, "#{claim} has to be a number of seconds" unless claims[claim].is_a?(Integer)
+      end
+      raise Invalid, "expired (exp #{claims['exp']})" if now - CLOCK_SKEW > claims["exp"]
+      raise Invalid, "nbf is after exp" if claims["nbf"] > claims["exp"]
+
+      lifetime = claims["exp"] - claims["iat"]
+      raise Invalid, "lifetime #{lifetime}s exceeds #{MAX_GRANT_LIFETIME}s" if lifetime > MAX_GRANT_LIFETIME
+
+      claims
+    end
+
     # True when this delegation still covers +operation+ (create/update/delete)
     # and has not expired. Used before a write, so the service fails on its own
     # terms instead of discovering it at the pod.
@@ -238,6 +296,39 @@ class Delegation
       [JSON.parse(b64u_decode(parts[0])), JSON.parse(b64u_decode(parts[1]))]
     rescue JSON::ParserError, ArgumentError => e
       raise Invalid, "malformed token: #{e.class}"
+    end
+
+    def check_grant_roles!(roles)
+      unless roles.is_a?(Array) && roles.any? && roles.all? { |r| r.is_a?(String) }
+        raise Invalid, "roles has to be a non-empty array of access classes"
+      end
+
+      roles.each do |role|
+        concept = AccessClass.resolve(role)
+        raise Invalid, "roles: public needs no grant" if concept == AccessClass.public_class
+      rescue AccessClass::UnknownError => e
+        raise Invalid, "roles: #{e.message}"
+      end
+    end
+
+    # Exactly one of: dpps, a list of passport identifiers; scope "issuer",
+    # every passport of the issuer -- for an issuer on the list of authority
+    # issuers every passport this service holds (AccessGrant#covers?).
+    def check_grant_scope!(claims)
+      if claims.key?("dpps") == claims.key?("scope")
+        raise Invalid, "a grant names either dpps or scope \"issuer\", not both and not neither"
+      end
+
+      if claims.key?("scope")
+        raise Invalid, "scope has to be \"issuer\"" unless claims["scope"] == "issuer"
+        return
+      end
+
+      dpps = claims["dpps"]
+      unless dpps.is_a?(Array) && dpps.any? && dpps.all? { |d| d.is_a?(String) && !d.empty? && !d.include?("*") }
+        raise Invalid, "dpps has to be a non-empty array of passport identifiers"
+      end
+      raise Invalid, "dpps names more than #{MAX_GRANT_DPPS} passports" if dpps.size > MAX_GRANT_DPPS
     end
 
     def verify_signature!(token, verify_key)

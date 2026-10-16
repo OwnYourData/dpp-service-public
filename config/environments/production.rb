@@ -6,6 +6,16 @@ Rails.application.configure do
   config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
   config.log_tags = [:request_id]
 
+  # Without a logger of its own Rails writes to log/production.log. In a
+  # container that file is out of reach of `kubectl logs` and grows until the
+  # pod restarts. The image sets RAILS_LOG_TO_STDOUT, which sends the log to
+  # stdout instead.
+  if ENV["RAILS_LOG_TO_STDOUT"].present?
+    stdout = ActiveSupport::Logger.new($stdout)
+    stdout.formatter = ::Logger::Formatter.new
+    config.logger = ActiveSupport::TaggedLogging.new(stdout)
+  end
+
   # EN 18216:2026 §6.2: all data exchange shall use TLS. Terminate TLS at the
   # proxy/load balancer and force HTTPS at the app boundary.
   #

@@ -48,6 +48,22 @@ tags:
       passport, not where it keeps it or on whose authority it reaches that
       store. These operations carry no `x-semanticId`, because the standard
       names no method they realise.
+  - name: Access policies
+    description: >-
+      Beyond EN 18222:2026. Which access class (public, legitimateInterest,
+      authority) each attribute of a passport belongs to, registered once per
+      product type (docs/AccessClasses.md). Nothing of a policy is part of the
+      passport. These operations carry no `x-semanticId`.
+  - name: Access grants
+    description: >-
+      Beyond EN 18222:2026. Who may read the controlled part of which passports
+      in which access classes (docs/AccessClasses.md §7). These operations carry
+      no `x-semanticId`.
+  - name: Access log
+    description: >-
+      Beyond EN 18222:2026. Who read what of the controlled part of passports,
+      who was refused, and which access grants were registered and revoked
+      (docs/AccessClasses.md §10). This operation carries no `x-semanticId`.
 
 security:
   - bearerAuth: []   # Public read data is accessible unauthenticated (prEN 18239 6.2); controlled data requires a token.
@@ -60,9 +76,26 @@ paths:
     post:
       tags: [Life Cycle API]
       summary: CreateDPP
-      description: Creates a new DPP. Access rules control whether creation is allowed (EN 18222:2026 4.6, Table 5).
+      description: >-
+        Creates a new DPP. Access rules control whether creation is allowed (EN 18222:2026 4.6, Table 5).
+        A product has at most one active passport: if one already exists for the same
+        uniqueProductIdentifier (host compared without regard to case), the request is
+        refused with 409 ClientResourceConflict and nothing is created. A unique database
+        index over active passports holds this for concurrent requests as well.
+        With an access policy (`X-DPP-Access-Policy`) and a custodian that holds
+        controlled cards, the passport is written as a public and a controlled
+        card (docs/AccessClasses.md §6); on a custodian that does not, a policy
+        that leaves attributes not public is refused with 400. The custodian's
+        refusals of a card are answered with 409 (identifier held in a
+        collection of another economic operator, or the cards of the passport do
+        not match) and 403 (delegation does not cover the controlled card). The
+        answer is the whole passport.
       operationId: createDPP
       x-semanticId: https://jtc24/dpp/API/CreateDPP/1/0
+      parameters:
+        - $ref: '#/components/parameters/RetainUntil'
+        - $ref: '#/components/parameters/AccessPolicy'
+        - $ref: '#/components/parameters/Representation'
       requestBody:
         required: true
         content:
@@ -73,7 +106,11 @@ paths:
         '201':
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Retain-Until:
+              description: The availability period as stored, echoed when one was given.
+              schema: { type: string, format: date }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: SuccessCreated — DPP created.
           content:
             application/json:
@@ -91,26 +128,30 @@ paths:
     get:
       tags: [Life Cycle API]
       summary: ReadDPPById
-      description: Returns the DPP with the specified DPP ID (EN 18222:2026 4.2, Table 1).
+      description: >-
+        Returns the DPP with the specified DPP ID (EN 18222:2026 4.2, Table 1).
+        For a passport held as a public and a controlled part
+        (docs/AccessClasses.md §6) a reader without access rights gets the
+        public part, which names the controlled one in the data element
+        `ControlledData`. A reader with access rights -- the owner, or a reader
+        DID holding an access grant -- presents its bearer token and gets in
+        addition the attributes of the classes it may read (§8). A token that is
+        presented but does not hold is answered with 401. The same holds for
+        every read method.
       operationId: readDPPById
       x-semanticId: https://jtc24/dpp/API/ReadDPPById/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       responses:
         '200':
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
           description: Success — requested DPP.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DigitalProductPassport' }
-            application/ld+json:
-              schema: { $ref: '#/components/schemas/DigitalProductPassport' }
-            application/xml:
-              schema: { $ref: '#/components/schemas/DigitalProductPassport' }
-            text/html:
-              schema:
-                type: string
-                description: Human-readable rendering of the DPP (EN 18216:2026 5, W3C HTML).
         '401': { $ref: '#/components/responses/NotAuthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -125,6 +166,9 @@ paths:
         All changes are archived per EN 18221:2026 4.2 (EN 18222:2026 4.7, Table 6).
       operationId: updateDPPById
       x-semanticId: https://jtc24/dpp/API/UpdateDPPById/1/0
+      parameters:
+        - $ref: '#/components/parameters/AccessPolicy'
+        - $ref: '#/components/parameters/Representation'
       requestBody:
         required: true
         content:
@@ -138,6 +182,7 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: Success — updated DPP.
           content:
             application/json:
@@ -150,7 +195,10 @@ paths:
     delete:
       tags: [Life Cycle API]
       summary: DeleteDPPById
-      description: Removes the DPP with the specified DPP ID (end of life). Access rules apply (EN 18222:2026 4.8, Table 7).
+      description: >-
+        Removes the DPP with the specified DPP ID (end of life). Access rules apply (EN 18222:2026 4.8, Table 7).
+        A passport created with X-DPP-Retain-Until is refused with 403 ClientForbidden up to and
+        including that day, whoever asks (ESPR Art. 9(2)(i)).
       operationId: deleteDPPById
       x-semanticId: https://jtc24/dpp/API/DeleteDPPById/1/0
       responses:
@@ -187,6 +235,7 @@ paths:
           required: false
           description: End custody at the previous pod in the same call (soft delete).
           schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Representation'
       responses:
         '200':
           description: Success — the passport, unchanged, at its new custodian.
@@ -268,6 +317,210 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '502': { $ref: '#/components/responses/BadGateway' }
 
+  /dpps/{dppId}/access-policy:
+    parameters:
+      - $ref: '#/components/parameters/DppId'
+    get:
+      tags: [Access policies]
+      summary: Read the warnings of the passport's access policy
+      description: >-
+        Lists, for the passport as it stands, the attributes no rule of its
+        access policy reaches (they take the policy's default) and the rules
+        that reach no attribute. The response header of a write gives the
+        counts; this gives the paths. For the owner only.
+      operationId: readAccessPolicyWarnings
+      responses:
+        '200':
+          description: Success — the warnings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessPolicyWarnings' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: >-
+            ClientErrorResourceNotFound — no such passport, or no access policy
+            attached to it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /access-policies:
+    put:
+      tags: [Access policies]
+      summary: Register an access policy
+      description: >-
+        Registers the access policy of a product type for the economic operator
+        that presents the token. Passports name it by its `id` in
+        `X-DPP-Access-Policy`. A registered policy never changes: registering
+        the same policy again is answered with 200, a different policy under a
+        registered `id` with 409, and a new version of a policy is registered
+        under a new `id`. Members and rules may come in any order. Another
+        operator using the same `id` has a policy of its own.
+      operationId: registerAccessPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessPolicy' }
+      responses:
+        '200':
+          description: Success — the same policy was registered before.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessPolicy' }
+        '201':
+          description: SuccessCreated — the policy is registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessPolicy' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '409':
+          description: >-
+            ClientResourceConflict — a different policy is registered under
+            this `id`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /access-grants:
+    put:
+      tags: [Access grants]
+      summary: Register an access grant
+      description: >-
+        Registers an access grant (docs/AccessClasses.md §7): a statement of
+        type `dpp-access-grant+jwt`, signed by its issuer, that a reader DID may
+        read the controlled part of passports in the access classes it names.
+        The body is the grant as it is; the bearer token is the issuer's. An
+        economic operator grants `legitimateInterest` for its own passports;
+        `authority` is taken only from the issuers listed under
+        `authorityIssuers` in `/.well-known/dpp-service`.
+      operationId: registerAccessGrant
+      requestBody:
+        required: true
+        content:
+          application/jwt:
+            schema: { type: string }
+      responses:
+        '200':
+          description: Success — this grant was registered before.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessGrant' }
+        '201':
+          description: SuccessCreated — the grant is registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessGrant' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403':
+          description: >-
+            ClientForbidden — the token is not the issuer's, or the issuer may
+            not grant this: `authority` from an issuer not on the list, or
+            passports of another owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '409':
+          description: >-
+            ClientResourceConflict — a different grant of this issuer is
+            registered under the same `jti`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+    get:
+      tags: [Access grants]
+      summary: List the access grants one has issued
+      description: >-
+        The grants the presenting DID has issued, with their claims and whether
+        they are revoked; not the signed statements.
+      operationId: listAccessGrants
+      responses:
+        '200':
+          description: Success — the grants.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AccessGrant' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+
+  /access-grants/{jti}:
+    parameters:
+      - name: jti
+        in: path
+        required: true
+        description: The name of the grant, as its issuer signed it.
+        schema: { type: string }
+    delete:
+      tags: [Access grants]
+      summary: Revoke an access grant
+      description: >-
+        Revokes a grant the presenting DID has issued, with effect from now:
+        the next read under it gets the public part only, and is logged as
+        refused. A revoked grant stays revoked; registering it again answers
+        200 with `revoked: true`. Revoking is logged (docs/AccessClasses.md
+        §7, §10).
+      operationId: revokeAccessGrant
+      responses:
+        '200':
+          description: Success — the grant is revoked, now or before.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessGrant' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '404':
+          description: >-
+            ClientErrorResourceNotFound — the presenting DID has issued no
+            grant under this `jti`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
+  /access-log:
+    get:
+      tags: [Access log]
+      summary: Read the entries of the access log that concern you
+      description: >-
+        The entries that concern the presenting DID, newest first: as owner of
+        passports, every access to them and every read the service made at a
+        custodian for them; as reader, its own accesses; as issuer of access
+        grants, its grants registered and revoked and the reads made under
+        them (docs/AccessClasses.md §10). Never content, never tokens.
+      operationId: readAccessLog
+      parameters:
+        - { name: dppId, in: query, schema: { type: string }, description: Only entries of this passport. }
+        - name: event
+          in: query
+          schema: { $ref: '#/components/schemas/AccessEventType' }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: until, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 1000, default: 100 } }
+        - { name: after, in: query, schema: { type: string }, description: The `next` of the previous page. }
+      responses:
+        '200':
+          description: Success — a page of entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: '#/components/schemas/AccessEvent' }
+                  next:
+                    type: string
+                    description: Cursor for the next page; absent on the last page.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403':
+          description: ClientForbidden — tokens are not verified on this instance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+
   /dppsByProductId/{productId}:
     parameters:
       - $ref: '#/components/parameters/ProductId'
@@ -277,11 +530,14 @@ paths:
       description: Returns the current active DPP (latest version) for the given product ID (EN 18222:2026 4.3, Table 2).
       operationId: readDPPByProductId
       x-semanticId: https://jtc24/dpp/API/ReadDPPByProductId/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       responses:
         '200':
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
           description: Success — latest active DPP.
           content:
             application/json:
@@ -303,11 +559,21 @@ paths:
     get:
       tags: [Life Cycle API]
       summary: ReadDPPVersionByIdAndDate
-      description: Returns the DPP version valid at the given date (EN 18222:2026 4.4, Table 3 and Table 16). Optional for the economic operator.
+      description: >-
+        Returns the DPP version valid at the given date (EN 18222:2026 4.4,
+        Table 3 and Table 16). Optional for the economic operator. Each reader
+        gets the same classes as for the current passport; every version is
+        filtered by the passport's access policy as it is today
+        (docs/AccessClasses.md §9).
       operationId: readDPPVersionByIdAndDate
       x-semanticId: https://jtc24/dpp/API/ReadDPPVersionByIdAndDate/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       responses:
         '200':
+          headers:
+            X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
+            X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
           description: Success — DPP version for the given date.
           content:
             application/json:
@@ -320,17 +586,17 @@ paths:
       tags: [Life Cycle API]
       summary: ReadDPPIdsByProductIds
       description: >-
-        Returns a list of DPP identifiers matching a set of product identifiers
-        (AND-match of the specified product labels). Supports cursor pagination
-        (EN 18222:2026 4.5, Table 4).
+        Returns the identifiers of all DPPs whose product identifier is one of the
+        supplied set (the union: a DPP carries exactly one product identifier).
+        Supports cursor pagination (EN 18222:2026 4.5, Table 4).
       operationId: readDPPIdsByProductIds
       x-semanticId: https://jtc24/dpp/API/ReadDPPIdsByProductIds/1/0
       parameters:
         - name: limit
           in: query
           required: false
-          description: Maximum size of the result set.
-          schema: { type: integer, minimum: 0 }
+          description: Maximum size of the result set (1 to 1000, default 100).
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
         - name: cursor
           in: query
           required: false
@@ -341,9 +607,28 @@ paths:
         content:
           application/json:
             schema:
-              type: array
-              description: Set of product identifiers (key-value product-identifying information).
-              items: { $ref: '#/components/schemas/Identifier' }
+              description: >-
+                Set of product identifiers (Table 4: productId, Identifier[], 1..*),
+                either as a bare JSON array or as an object whose only member is
+                productId. Identifiers are non-empty strings; any other body is
+                answered with 400.
+              oneOf:
+                - type: array
+                  minItems: 1
+                  items: { type: string, minLength: 1 }
+                - type: object
+                  required: [productId]
+                  additionalProperties: false
+                  properties:
+                    productId:
+                      type: array
+                      minItems: 1
+                      items: { type: string, minLength: 1 }
+            examples:
+              array:
+                value: ["https://dpp.oydapp.eu/01/09520123456788/21/000001"]
+              object:
+                value: { productId: ["https://dpp.oydapp.eu/01/09520123456788/21/000001"] }
       responses:
         '200':
           description: Success — matching DPP identifiers.
@@ -371,11 +656,12 @@ paths:
       tags: [Registry API]
       summary: RegisterProductDPP
       description: >-
-        Registers a new DPP at the EU registry by supplying a dppRegistryEntry.
-        Served by the registry server; returns a registration identifier
+        Registers a new DPP at the EU registry by supplying a dppRegistryEntry
         (EN 18222:2026 5.2, Table 8 and Table 17).
-        NOTE: The concrete EC registry endpoint/schema is defined by EU
-        implementing acts — this operation models the client-facing contract.
+        This deployment is not connected to the EU DPP Registry. A complete
+        entry is answered with 502 ServerErrorBadGateway (message code
+        registry_not_connected); nothing is registered and no registration
+        identifier is returned.
       operationId: registerProductDPP
       x-semanticId: https://jtc24/dpp/API/RegisterProductDPP/1/0
       requestBody:
@@ -384,18 +670,8 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RegistryRegistration' }
       responses:
-        '201':
-          description: SuccessCreated — DPP registered.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [registrationId]
-                properties:
-                  registrationId: { $ref: '#/components/schemas/Identifier' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/NotAuthorized' }
-        '409': { $ref: '#/components/responses/Conflict' }
         '502': { $ref: '#/components/responses/BadGateway' }
 
   ###########################################################################
@@ -420,6 +696,8 @@ paths:
         is what clients asked for.
       operationId: readDataElementCollection
       x-semanticId: https://jtc24/dpp/API/ReadDataElementCollection/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       responses:
         '200':
           headers:
@@ -436,9 +714,12 @@ paths:
       description: >-
         Updates a DataElementCollection (partial, RFC 7396). If any part fails,
         the complete update fails. Beyond the published method set, see
-        ReadDataElementCollection.
+        ReadDataElementCollection. The passport's access policy stays as it is;
+        a request with `X-DPP-Access-Policy` is answered with 400.
       operationId: updateDataElementCollection
       x-semanticId: https://jtc24/dpp/API/UpdateDataElementCollection/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       requestBody:
         required: true
         content:
@@ -449,6 +730,7 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: Success — updated DataElementCollection.
           content:
             application/json:
@@ -462,32 +744,55 @@ paths:
       - name: elementPath
         in: path
         required: true
-        description: Absolute ElementId path to the specific data element within the DPP.
+        description: >-
+          elementIdPath (EN 18222:2026 8.1): an RFC 9535 JSONPath singular query
+          over the element identifiers, percent-encoded in the URL, e.g.
+          `$.EnergyPerformance.LuminousFlux` or
+          `$['EnergyPerformance']['LuminousFlux']`; an index selects an item of a
+          multi-valued element (`$.efficiencyRatings[0]`). The element identifiers
+          separated by "/" (`EnergyPerformance/LuminousFlux`) address the same
+          element. A query that is not RFC 9535 syntax, or that can select more than
+          one element (wildcard, descendant, slice, filter), is answered with 400.
         schema: { type: string }
+        example: "$.EnergyPerformance.LuminousFlux"
     get:
       tags: [Fine Granular Life Cycle API]
       summary: ReadDataElement
-      description: Returns a specific data element by its absolute path (EN 18222:2026 6.2, Table 18).
+      description: >-
+        Returns a specific data element by its absolute path (EN 18222:2026 6.2,
+        Table 18). The path is evaluated on the compressed form. In the compressed
+        representation the answer is the JSON value the path selects in the
+        compressed passport: a single value as a bare JSON value (`806`,
+        `"LUM-A60-827-806"`), a collection as an object, a multi-valued element as
+        an array. In the full representation it is the element object of
+        EN 18223:2026 Annex A, with `elementId`, `objectType` and its metadata.
       operationId: readDataElement
       x-semanticId: https://jtc24/dpp/API/ReadDataElement/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       responses:
         '200':
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
           description: Success — requested data element.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataElement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Fine Granular Life Cycle API]
       summary: UpdateDataElement
       description: >-
         Updates, enhances or removes a specific data element within a DPP
-        (EN 18222:2026 6.3, Table 18).
+        (EN 18222:2026 6.3, Table 18). The passport's access policy stays as it
+        is; a request with `X-DPP-Access-Policy` is answered with 400.
       operationId: updateDataElement
       x-semanticId: https://jtc24/dpp/API/UpdateDataElement/1/0
+      parameters:
+        - $ref: '#/components/parameters/Representation'
       requestBody:
         required: true
         content:
@@ -498,6 +803,7 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: Success — updated data element.
           content:
             application/json:
@@ -515,9 +821,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >-
-        OAuth 2.0 / OpenID Connect access token (JWT). Public data is readable
-        without authentication; controlled data requires an authenticated actor
-        with an appropriate role (authority, refurbisher, consumer, ...) per prEN 18239.
+        Self-issued JWT, signed with the document key of the presenter's DID,
+        with this service as `aud` (prEN 18239). Public data is readable
+        without authentication; the controlled part of a passport goes to its
+        owner and to readers holding an access grant for it
+        (docs/AccessClasses.md §7–§8).
 
   ###########################################################################
   # Payload commitment (prEN 18246; docs/Integrity.md)
@@ -545,6 +853,29 @@ components:
         `X-DPP-Storage` is a header. A write is never refused because a
         commitment is outstanding; the state is reported instead.
       schema: { type: string, enum: [committed, pending, stale] }
+    AccessPolicy:
+      description: >-
+        On a write of the owner on a passport with an access policy: the policy
+        and how well it fits the passport as it now stands, as an RFC 8941 item.
+        `unclassified` counts the attributes no rule reaches (they take the
+        policy's default), `unused-rules` the rules that reach no attribute.
+        The paths are listed by `GET /dpps/{dppId}/access-policy`. Read paths
+        never carry this header.
+      schema:
+        type: string
+        example: '"https://dpp.example.org/access-policies/led-lamp/1";unclassified=1;unused-rules=1'
+    AccessRoles:
+      description: >-
+        On a read with access rights: the access classes beyond `public` that
+        were applied. Such an answer also carries `Cache-Control: private,
+        no-store`. Every answer of a read path carries `Vary: Authorization`.
+      schema: { type: string, example: legitimateInterest }
+    ControlledPart:
+      description: >-
+        `unavailable` — the reader's access rights reach further than what could
+        be read: the custodian serves no versions of controlled cards, so the
+        answer holds the public part of that version only.
+      schema: { type: string, enum: [unavailable] }
 
   parameters:
     DppId:
@@ -572,6 +903,48 @@ components:
         economic operator signed for exactly this service, this pod and this
         product.
       schema: { type: string }
+    RetainUntil:
+      name: X-DPP-Retain-Until
+      in: header
+      required: false
+      description: >-
+        The last day the passport has to stay available (ESPR Art. 9(2)(i)), as
+        the economic operator worked it out from its product group's rules.
+        Until that day DeleteDPPById is refused. A header and not a field of the
+        document, because EN 18223:2026 Table 1 defines no such attribute.
+        Anything that is not a date is answered with 400.
+      schema: { type: string, format: date, example: '2037-03-01' }
+    AccessPolicy:
+      name: X-DPP-Access-Policy
+      in: header
+      required: false
+      description: >-
+        The `id` of an access policy the presenting economic operator has
+        registered with `PUT /access-policies`. On CreateDPP it attaches the
+        policy to the new passport; on UpdateDPP it replaces the passport's
+        policy, also with the merge patch `{}`. A policy cannot be removed, so
+        the header cannot be empty. An empty header, an `id` this operator has
+        not registered, or a passport the policy cannot classify is answered
+        with 400 before anything is changed. Without the header nothing about
+        the policy changes.
+      schema:
+        type: string
+        example: https://dpp.example.org/access-policies/led-lamp/1
+    Representation:
+      name: representation
+      in: query
+      required: false
+      description: >-
+        EN 18222:2026 8.1. `compressed` (the default) answers with the compressed
+        serialization of EN 18223:2026 5.2: the header attributes, then every data
+        element as a member named by its elementId, without the metadata a data
+        dictionary carries (`objectType`, `dictionaryReference`, `valueDataType`
+        and further attributes of a value). `full` answers with the expanded
+        serialization of EN 18223:2026 Annex A, the data elements in `elements`.
+        Any other value, including other capitalisations, is answered with 400
+        ClientErrorBadRequest. Request bodies are not affected: a merge patch
+        always applies to the full form.
+      schema: { type: string, enum: [compressed, full], default: compressed }
 
   ###########################################################################
   # Reusable error responses (EN 18222:2026 7.2, Tables 12-15)
@@ -691,6 +1064,132 @@ components:
           description: The custodian the mandate is addressed to (its `aud` claim).
           example: "https://dpp.go-data.at"
 
+    AccessPolicy:
+      type: object
+      description: >-
+        An access policy (docs/AccessClasses.md; JSON Schema
+        config/vocab/access-policy.schema.json). Not part of any standard.
+      required: [id, scheme, rules]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uri
+          maxLength: 512
+          description: Absolute URI in printable ASCII. A changed policy gets a new id.
+          example: https://dpp.example.org/access-policies/led-lamp/1
+        title: { type: string, example: LED lamp }
+        scheme:
+          type: string
+          enum: ['https://w3id.org/soya/dpp-access/v1']
+        default:
+          type: string
+          description: Class of an attribute no rule reaches; without it, `authority`.
+          example: authority
+        rules:
+          type: array
+          items:
+            type: object
+            required: [path, accessClass]
+            additionalProperties: false
+            properties:
+              path:
+                type: string
+                description: Element identifiers from the top level down, separated by `/`.
+                example: SubstancesOfConcern/MaterialComposition
+              accessClass:
+                type: string
+                description: Notation or IRI of a class of https://w3id.org/soya/dpp-access/v1.
+                example: legitimateInterest
+    AccessPolicyWarnings:
+      type: object
+      description: How well a passport's access policy fits the passport. Not part of any standard.
+      properties:
+        policy:
+          type: string
+          description: The id of the passport's access policy.
+          example: https://dpp.example.org/access-policies/led-lamp/1
+        unclassified:
+          type: array
+          items: { type: string }
+          description: Attributes no rule reaches; they take the policy's default.
+          example: [Manufacturer]
+        unusedRules:
+          type: array
+          items: { type: string }
+          description: Paths of the rules that reach no attribute of the passport.
+          example: [Recycling]
+
+    AccessGrant:
+      type: object
+      description: >-
+        A registered access grant, as its issuer signed it (docs/AccessClasses.md
+        §7). Not part of any standard.
+      properties:
+        jti: { type: string, description: The name of the grant, unique per issuer. }
+        sub: { type: string, description: The reader DID. }
+        roles:
+          type: array
+          items: { type: string, enum: [legitimateInterest, authority] }
+        scope: { type: string, enum: [dpps, issuer] }
+        dpps:
+          type: array
+          items: { type: string }
+          description: The passports the grant covers, when scope is dpps.
+        purpose: { type: string }
+        nbf: { type: integer, description: Valid from (seconds since the epoch). }
+        exp: { type: integer, description: Valid until (seconds since the epoch). }
+        revoked: { type: boolean }
+        revokedAt: { type: integer, description: Revoked at (seconds since the epoch). }
+        revokedBy: { type: string, description: The issuer's DID, or `operator`. }
+
+    AccessEventType:
+      type: string
+      enum: [read, refused, integrityError, serviceRead, grantRegistered, grantRevoked]
+
+    AccessEvent:
+      type: object
+      description: >-
+        One entry of the access log (docs/AccessClasses.md §10). Not part of any
+        standard. Fields that do not apply to an event are absent.
+      properties:
+        id: { type: string }
+        at: { type: string, format: date-time }
+        event: { $ref: '#/components/schemas/AccessEventType' }
+        dppId: { type: string }
+        owner: { type: string, description: Owner DID of the passport. }
+        reader: { type: string, description: Verified DID of the reader. }
+        roles:
+          type: array
+          items: { type: string }
+          description: Access classes beyond public that were applied.
+        basis: { type: string, enum: [owner, grant] }
+        grants:
+          type: array
+          description: The grants read under, or the grant a refusal concerns.
+          items:
+            type: object
+            properties: { iss: { type: string }, jti: { type: string } }
+        operation: { type: string, example: ReadDPPById }
+        date: { type: string, format: date-time, description: The date of ReadDPPVersionByIdAndDate. }
+        status: { type: integer, description: HTTP status of the answer, or of the custodian for serviceRead. }
+        reason:
+          type: string
+          description: >-
+            refused: noGrant, revoked, expired, notYetValid, issuerNotListed;
+            serviceRead: lookup, retry, version, measure, internal;
+            grantRevoked: the operator's reason.
+        custodian:
+          type: object
+          properties: { host: { type: string }, objectId: { type: string } }
+        podPath: { type: string, description: The path read at the custodian. }
+        controlledDigest: { type: string, description: ControlledData of the version handed out. }
+        requestId: { type: string }
+        issuer: { type: string, description: Issuer of the grant (grant events). }
+        grant: { $ref: '#/components/schemas/AccessGrant' }
+        revokedBy: { type: string }
+        revocationReason: { type: string }
+
     Result:
       type: object
       description: Result object returned on failed method execution (EN 18222:2026 Table 12).
@@ -703,7 +1202,11 @@ components:
     # ---- EN 18223:2026 4.1: DPP semantic model ---------------------------
     DigitalProductPassport:
       type: object
-      description: A Digital Product Passport instance (EN 18223:2026 Table 1).
+      description: >-
+        A Digital Product Passport instance (EN 18223:2026 Table 1), shown in the
+        full representation. In the compressed representation (the default of
+        every read, see the `representation` parameter) `elements` is replaced by
+        one member per data element, named by its elementId (EN 18223:2026 5.2).
       required:
         - digitalProductPassportId
         - uniqueProductIdentifier
@@ -739,7 +1242,11 @@ components:
           description: Date and time (UTC) of the latest update to the DPP instance.
         economicOperatorId:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
-          description: Identifier of an actor involved in the product's life cycle.
+          description: >-
+            Identifier of an actor involved in the product's life cycle, formatted according to
+            one of the ID schemes of EN 18219:2026 Clause 6: a DID (did:...), an ISO/IEC 6523
+            identifier (ICD:identifier, e.g. 0199:<LEI>), a web address (https://...) or a DOI
+            (10.<registrant>/<suffix>). CreateDPP answers anything else with 400.
         facilityId:
           allOf: [{ $ref: '#/components/schemas/Identifier' }]
           description: Identifier of a location/building in the value chain (optional).

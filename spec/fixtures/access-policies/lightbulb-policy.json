@@ -1,0 +1,14 @@
+{
+  "id": "https://dpp.example.org/access-policies/led-lamp/1",
+  "title": "LED lamp",
+  "scheme": "https://w3id.org/soya/dpp-access/v1",
+  "rules": [
+    { "path": "ProductIdentification", "accessClass": "public" },
+    { "path": "EnergyPerformance", "accessClass": "public" },
+    { "path": "LightQuality", "accessClass": "public" },
+    { "path": "Durability", "accessClass": "public" },
+    { "path": "SubstancesOfConcern", "accessClass": "public" },
+    { "path": "SubstancesOfConcern/MaterialComposition", "accessClass": "legitimateInterest" },
+    { "path": "DeclarationOfConformity", "accessClass": "public" }
+  ]
+}

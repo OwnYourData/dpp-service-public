@@ -16,7 +16,7 @@ serves them itself, and nothing beyond a PostgreSQL server is needed.
 
 ## 1. Prerequisites
 
-* Ruby **3.2.8** (see `.ruby-version`)
+* Ruby **3.3.8** (see `.ruby-version`)
 * PostgreSQL 14 or newer for production operation; for development and tests
   SQLite is sufficient, and it is already configured that way in
   `config/database.yml`
@@ -63,7 +63,9 @@ All settings come from environment variables.
 | `DPP_DB_USER` / `DPP_DB_PASSWORD` | — | |
 | `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | public base URL of this instance; written into the `serviceEndpoint` of the DID document |
 | `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | registrar/VDR for `did:oyd` |
-| `DPP_CORS_ORIGINS` | `*` | permitted origins for browser clients |
+| `DPP_CORS_ORIGINS` | — (none) | origins, comma-separated, from which a browser may write. Reading is open to every origin |
+| `DPP_RATE_LIMIT_READ` | `600` | reads per client address and minute; over it the answer is `429` with `Retry-After` |
+| `DPP_RATE_LIMIT_WRITE` | `60` | writes per client address and minute |
 | `RAILS_MAX_THREADS` | `5` | |
 | `RAILS_LOG_LEVEL` | `info` | |
 | `DPP_AUTH_MODE` | `permissive` | `did` enables signature verification of the bearer tokens and owner binding |
@@ -71,6 +73,7 @@ All settings come from environment variables.
 | `DPP_FORCE_SSL` | `true` | redirect http to https. Right behind a proxy that terminates TLS, wrong on a machine with nothing in front of it — the compose file below switches it off |
 | `DID_AUTH_CACHE_TTL` | `300` | how long a resolved public key stays valid |
 | `DID_AUTH_MAX_LIFETIME` | `900` | longest accepted token lifetime in seconds |
+| `DPP_ACCESS_LOG_RETENTION_DAYS` | `1826` | days entries of the access log are kept; `bin/rails dpp:access:prune` removes older ones |
 
 **Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
 DID is created.** Without the variable the service derives the key from
@@ -164,6 +167,16 @@ changed afterwards.
 proxy with a certificate in front of it. The compose file turns that redirect off
 so that `http://localhost:3000` answers at all; on a machine reachable from
 outside, that is not what you want, and EN 18216:2026 §6.2 says so too.
+
+**The proxy must speak HTTP/2 and report the client's version.** EN 18216:2026
+clause 4 rules out HTTP versions older than HTTP/2 for DPP data exchange. TLS ends
+at the proxy, so the service learns the version from the request header
+`X-Client-Protocol`; with nginx that is
+`proxy_set_header X-Client-Protocol $server_protocol;`. Requests below `/dpp/v1`
+that arrived over HTTPS as HTTP/1.0 or HTTP/1.1 are then answered with `400`
+(`http_version_not_supported`). The start page, `/api-docs`,
+`/.well-known/dpp-service` and `/up` stay open to every client. Without the
+header nothing is refused.
 
 ### With your own database
 
@@ -320,10 +333,13 @@ process.
 * **No data intermediary.** The header `X-DPP-Storage`, with which an
   individual passport is placed in a hosting pod, remains unused. Without it
   the service stores locally — that is the default and needs no configuration.
-* **No registry connection.** `registerDPP` returns a synthetic identifier; the
-  real endpoint is defined by EU implementing acts.
-* **No role model.** Signature verification (`DPP_AUTH_MODE=did`) and owner
-  binding are implemented. The roles from prEN 18239 — authority, refurbisher,
-  consumer — and the distinction between public data, controlled data and trade
-  secrets are missing. There are two levels: publicly readable, and writable by
-  the owner.
+* **No registry connection.** `registerDPP` checks the entry and answers `502`
+  (`registry_not_connected`); nothing is registered. The Commission publishes no
+  API specification for the EU DPP Registry.
+* **Roles by access grant only.** Signature verification (`DPP_AUTH_MODE=did`),
+  owner binding, access classes and reading per role are implemented
+  (docs/AccessClasses.md). Who reads the controlled part is decided by access
+  grants: an economic operator grants `legitimateInterest` for its own
+  passports; `authority` is taken only from the issuers configured in
+  `DPP_AUTHORITY_ISSUERS`. Every access to the controlled part is logged, and
+  an issuer can revoke its grants (docs/AccessClasses.md §7, §10).

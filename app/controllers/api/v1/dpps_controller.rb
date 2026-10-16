@@ -4,12 +4,20 @@ module Api
   module V1
     # EN 18222:2026 Clause 4 — Life Cycle API (Main Methods).
     class DppsController < ApplicationController
+      # EN 18222:2026 8.1: the methods that return a passport take the
+      # representation flag. Checked first, so a bad flag on CreateDPP is
+      # refused before anything is minted.
+      before_action :require_valid_representation!,
+                    only: %i[create show update move_custody by_product_id by_id_and_date]
+
       # Reads of public data are unauthenticated; writes require an actor.
+      # A token on a read has to hold (ReaderAccess).
+      before_action :authenticate_reader!, only: %i[show by_product_id by_id_and_date]
       before_action :authenticate_actor!,
                     only: %i[create update destroy move_custody
-                             show_delegation renew_delegation]
+                             show_delegation renew_delegation show_access_policy]
       before_action :find_dpp, only: %i[show update destroy move_custody
-                                        show_delegation renew_delegation]
+                                        show_delegation renew_delegation show_access_policy]
 
       # POST /dpp/v1/dpps  — CreateDPP (§4.6, Table 5)
       #
@@ -34,6 +42,12 @@ module Api
       def create
         storage = pod_storage_param     # nil unless X-DPP-Storage is present
         dpp = Dpp.from_document(dpp_document_param)
+        begin
+          dpp.retain_until = retain_until_param
+        rescue Date::Error
+          return render_result("ClientErrorBadRequest",
+                               text: "X-DPP-Retain-Until has to be a date (YYYY-MM-DD)")
+        end
 
         # The product identifier is what the carrier bears (EN 18219:2026
         # 3.1.25, 4.5.2 (1)), so it is checked before anything permanent happens:
@@ -42,10 +56,40 @@ module Api
         # trusted (EN 18223:2026 Table 1).
         if dpp.product_id.present?
           begin
-            ProductIdentifier.parse!(dpp.product_id).assert_granularity!(dpp.granularity)
+            identifier = ProductIdentifier.parse!(dpp.product_id)
+            identifier.assert_granularity!(dpp.granularity)
           rescue ProductIdentifier::InvalidError => e
             return render_result("ClientErrorBadRequest", text: e.message)
           end
+
+          # One product, one active passport (EN 18219:2026 3.1.25: the
+          # identifier identifies the product and links to *the* passport).
+          # The identifier is compared whole: its host belongs to the economic
+          # operator, so the same path under another host is another
+          # operator's product. Hosts compare without regard to case, as DNS
+          # does. Checked before minting, so a refused create leaves no DID
+          # behind. The unique index over active passports backs this up for
+          # two creates that pass the check at the same time (see save! below).
+          existing = active_passport_for(identifier.product_key, identifier.host&.downcase)
+          return product_conflict(existing) if existing
+        end
+
+        # EN 18223:2026 Table 1: the operator identifier is "formatted according
+        # to EN 18219:2026", whose Clause 6 allows four ID schemes (DID, ISO/IEC
+        # 6523, ISO/IEC 15418 as a web address, DOI). Checked before minting,
+        # like the product identifier, so a refusal leaves no DID behind.
+        unless OperatorIdentifier.valid?(dpp.economic_operator_id)
+          return render_result("ClientErrorBadRequest", text: OperatorIdentifier::REFUSAL)
+        end
+
+        # The access policy named in X-DPP-Access-Policy has to be one this
+        # operator registered, and it has to be able to classify the passport.
+        # Checked like the identifiers, before the custodian is asked and
+        # before anything permanent happens.
+        if (policy = access_policy_param)
+          policy.policy.classify(dpp.to_document)
+          dpp.access_policy_record = policy
+          dpp.ensure_controlled_part_held!(dpp.to_document, storage.base_url) if storage
         end
 
         # The mandate names one passport (D2). That name has to be the one of
@@ -91,7 +135,17 @@ module Api
           dpp.assign_minted_did!(minted)
         end
 
-        dpp.save!
+        begin
+          dpp.save!
+        rescue ActiveRecord::RecordNotUnique
+          # Lost the race: a concurrent create for the same product passed the
+          # check above as well, and the index let only that one through.
+          existing = active_passport_for(dpp.product_key, dpp.product_host)
+          raise unless existing
+
+          revoke_managed_did(dpp, "a lost create race")
+          return product_conflict(existing)
+        end
         begin
           dpp.store_in_pod!
         rescue PodStorage::Error
@@ -102,22 +156,36 @@ module Api
         end
 
         commit_payload(dpp)
-        render_dpp(dpp.to_document, status_code: "SuccessCreated")
+        report_access_policy(dpp)
+        response.headers["X-DPP-Retain-Until"] = dpp.retain_until.iso8601 if dpp.retain_until
+        render_passport(dpp.to_document, status_code: "SuccessCreated")
       end
 
       # GET /dpp/v1/dpps/:dpp_id  — ReadDPPById (§4.2, Table 1)
+      #
+      # The public part, or more for a reader with access rights
+      # (PassportAccess).
       def show
+        result = PassportAccess.current(@dpp, reader: reader_did)
         report_commitment(@dpp)
-        render_dpp(@dpp.to_document)
+        report_access(result)
+        render_passport(result.document)
       end
 
       # PATCH /dpp/v1/dpps/:dpp_id  — UpdateDPP, RFC 7396 (§4.7, Table 6)
+      #
+      # X-DPP-Access-Policy replaces the passport's access policy, also with
+      # an empty patch ({}). The passport is checked against the new policy
+      # before anything is written.
       def update
         return unless authorize_owner!(@dpp)
 
+        replacement = access_policy_param
+        @dpp.access_policy_record = replacement if replacement
         @dpp.apply_merge_patch!(merge_patch_body)
         commit_payload(@dpp)
-        render_dpp(@dpp.to_document)
+        report_access_policy(@dpp)
+        render_passport(@dpp.to_document)
       end
 
       # DELETE /dpp/v1/dpps/:dpp_id  — DeleteDPPById (§4.8, Table 7)
@@ -131,6 +199,26 @@ module Api
       def destroy
         return unless authorize_owner!(@dpp)
 
+        # ESPR Art. 9(2)(i): the passport has to stay available for the period
+        # its product group prescribes. Until that day it is not deleted,
+        # whoever asks -- checked before anything is revoked or archived.
+        if @dpp.retained?
+          return render_result("ClientForbidden",
+                               text: "This passport has to stay available until " \
+                                     "#{@dpp.retain_until.iso8601} (ESPR Art. 9(2)(i)) " \
+                                     "and cannot be deleted before then")
+        end
+
+        # Reading the passport needs no mandate, deleting it at the custodian
+        # does. Checked before the DID is revoked, so a mandate that has run out
+        # or is refused leaves the passport as it was.
+        if @dpp.pod?
+          @dpp.pod_storage.ensure_covers!("update")
+          @dpp.pod_storage.ensure_covers!("delete")
+          @dpp.pod_storage.reachable!
+          @dpp.to_document  # a split passport: both cards are read before anything changes
+        end
+
         if @dpp.did_managed?
           DidOyd.revoke(@dpp.dpp_id, doc_key: @dpp.did_doc_key, rev_key: @dpp.did_rev_key)
         end
@@ -142,6 +230,9 @@ module Api
           # public paths answer 404 afterwards, the history survives.
           @dpp.store_in_pod!
           @dpp.pod_storage.delete_object(@dpp.storage_object_id) if @dpp.storage_object_id.present?
+          if @dpp.storage_controlled_object_id.present?
+            @dpp.pod_storage.delete_object(@dpp.storage_controlled_object_id)
+          end
         end
 
         @dpp.destroy!
@@ -197,6 +288,17 @@ module Api
         storage.ensure_covers!("create")
         storage.reachable!
 
+        # The controlled card of a split passport is read under the mandate of
+        # the custodian that holds it, and it moves only to a custodian that
+        # holds controlled parts.
+        if @dpp.split_stored? && !@dpp.pod_storage.covers?("update")
+          return render_result("ClientNotAuthorized",
+                               text: "The controlled part of this passport can only be read with the " \
+                                     "delegation for its current custodian, which has expired; renew it " \
+                                     "(POST /dpp/v1/dpps/{id}/delegation) before changing the custodian")
+        end
+        @dpp.ensure_controlled_part_held!(@dpp.to_document, storage.base_url)
+
         previous = @dpp.move_to_pod!(storage)
         released = release_previous? ? release_custody(previous) : false
 
@@ -206,7 +308,28 @@ module Api
           "collection #{storage.collection_id}, previous released=#{released}"
         )
 
-        render_dpp(@dpp.to_document)
+        render_passport(@dpp.to_document)
+      end
+
+      # GET /dpp/v1/dpps/:dpp_id/access-policy  — the warnings in full.
+      #
+      # The response header of a write gives the counts; this gives the
+      # attributes no rule reaches (they take the policy's default) and the
+      # rules that reach no attribute, for the passport as it stands. For the
+      # owner only: the policy says which attributes are not public.
+      def show_access_policy
+        return unless authorize_owner!(@dpp)
+
+        record = @dpp.access_policy_record
+        if record.nil?
+          return render_result("ClientErrorResourceNotFound",
+                               text: "No access policy is attached to this passport")
+        end
+
+        classification = record.policy.classify(@dpp.to_document)
+        render_dpp({ "policy" => record.policy_id,
+                     "unclassified" => classification.unclassified,
+                     "unusedRules" => classification.unused_rules })
       end
 
       # GET /dpp/v1/dpps/:dpp_id/delegation  — which mandate this service holds
@@ -317,8 +440,10 @@ module Api
       # GET /dpp/v1/dppsByProductId/:product_id  — ReadDPPByProductId (§4.3, Table 2)
       def by_product_id
         dpp = Dpp.active.where(product_id: params[:product_id]).order(last_update: :desc).first!
+        result = PassportAccess.current(dpp, reader: reader_did)
         report_commitment(dpp)
-        render_dpp(dpp.to_document)
+        report_access(result)
+        render_passport(result.document)
       end
 
       # GET /dpp/v1/dppsByIdAndDate/:dpp_id?date=
@@ -329,35 +454,48 @@ module Api
       # since -- so the live one is returned. No join on dpps: archived versions
       # outlive a deleted passport.
       # For a pod-backed passport the history lives in the pod (which archives
-      # every change on its own), so the lookup is delegated there.
+      # every change on its own), so the lookup is delegated there: the public
+      # card over its public path, the controlled card, for a reader with
+      # access rights, under this service's read grant. Every version is
+      # filtered by the passport's access policy as it is today
+      # (PassportAccess).
       def by_id_and_date
         date   = Time.iso8601(params.require(:date)).utc
-        dpp_id = params[:dpp_id]
-
-        pod_dpp = Dpp.where(dpp_id: dpp_id, storage_backend: "pod").first
-        if pod_dpp
-          document = pod_dpp.pod_storage.version_at(dpp_id, date)
-          raise ActiveRecord::RecordNotFound if document.nil?
-
-          return render_dpp(document)
-        end
-
-        version = DppVersion.where(dpp_id: dpp_id)
-                            .where(archived_at: date..)
-                            .order(:archived_at).first
-        document = version&.content || Dpp.active.find(dpp_id).to_document
-        render_dpp(document)
+        result = PassportAccess.version_at(params[:dpp_id], date, reader: reader_did)
+        report_access(result)
+        render_passport(result.document)
       rescue ArgumentError
         render_result("ClientErrorBadRequest", text: "Invalid 'date' (expected ISO 8601 UTC)")
       end
 
       # POST /dpp/v1/dppsByProductIds  — ReadDPPIdsByProductIds (§4.5, Table 4)
-      # AND-match of the supplied product identifiers, with cursor pagination.
+      #
+      # Every passport whose product identifier is one of those supplied: the
+      # union, not the intersection. EN 18222:2026 4.5 returns the identifiers
+      # "that match a set of product identifiers", and Table 17 maps a set of
+      # product IDs to a set of DPP IDs. A passport carries exactly one product
+      # identifier, so an intersection over two or more could never match
+      # anything.
+      #
+      # Cursor pagination. limit is at least 1: a page of none would hand back a
+      # cursor past a passport that was never shown.
+      #
+      # The input is the set of product identifiers, Table 4: productId,
+      # Identifier[], 1..*. Table 16 carries it as the request body without
+      # fixing a JSON shape, so both readings are taken: the bare array, and an
+      # object whose only member is "productId" holding that array. Anything
+      # else is a bad request (Table 15) and is refused before it reaches the
+      # query: an object, a number or a nested array would otherwise be handed
+      # to the database as a value it cannot bind.
       def ids_by_product_ids
-        product_ids = Array(request_json)
-        return render_result("ClientErrorBadRequest", text: "Body must be a non-empty array") if product_ids.empty?
+        product_ids = product_ids_param
+        if product_ids.nil?
+          return render_result("ClientErrorBadRequest",
+                               text: "Body must be a non-empty JSON array of product identifiers (strings), " \
+                                     'bare or as {"productId": [...]}')
+        end
 
-        limit  = [params.fetch(:limit, 100).to_i, 1000].min
+        limit  = params.fetch(:limit, 100).to_i.clamp(1, 1000)
         cursor = params[:cursor].presence
 
         relation = Dpp.where(product_id: product_ids).order(:dpp_id)
@@ -369,6 +507,17 @@ module Api
       end
 
       private
+
+      # The product identifiers of ReadDPPIdsByProductIds, or nil if the body
+      # has neither accepted shape.
+      def product_ids_param
+        body = request_json
+        body = body["productId"] if body.is_a?(Hash) && body.keys == ["productId"]
+        return nil unless body.is_a?(Array) && body.any?
+        return nil unless body.all? { |id| id.is_a?(String) && !id.empty? }
+
+        body
+      end
 
       def find_dpp
         @dpp = Dpp.find(params[:dpp_id])
@@ -388,6 +537,17 @@ module Api
         return nil if raw.nil?
 
         PodStorage.from_header(raw)
+      end
+
+      # X-DPP-Retain-Until: the last day the passport has to stay available
+      # (ESPR Art. 9(2)(i)), as the economic operator worked it out from its
+      # product group's rules. A header and not a field of the document, like
+      # X-DPP-Storage: it is about how this service keeps the passport, and
+      # EN 18223:2026 Table 1 has no attribute for it. Raises Date::Error for
+      # anything that is not a date.
+      def retain_until_param
+        raw = request.headers["X-DPP-Retain-Until"].presence
+        raw && Date.iso8601(raw.strip)
       end
 
       # Same custodian, same collection -- the condition for a renewal as
@@ -448,6 +608,9 @@ module Api
 
         previous[:storage].ensure_covers!("delete")
         previous[:storage].delete_object(object_id)
+        if previous[:controlled_object_id].present?
+          previous[:storage].delete_object(previous[:controlled_object_id])
+        end
         true
       rescue PodStorage::Error => e
         Rails.logger.error("[custody] previous custodian not released: #{e.message}")
@@ -457,29 +620,68 @@ module Api
       # CreateDPP failed while talking to the pod: undo what we already did so
       # the client can simply retry.
       def rollback_failed_pod_create(dpp)
-        if dpp.did_managed?
-          begin
-            DidOyd.revoke(dpp.dpp_id, doc_key: dpp.did_doc_key, rev_key: dpp.did_rev_key)
-          rescue DidOyd::DidError => e
-            Rails.logger.error("[dpp] could not revoke #{dpp.dpp_id} after a failed " \
-                               "pod write: #{e.message}")
-          end
-        end
+        release_controlled_card(dpp)
+        revoke_managed_did(dpp, "a failed pod write")
         dpp.destroy!
       rescue StandardError => e
         Rails.logger.error("[dpp] rollback after failed pod write incomplete: #{e.message}")
+      end
+
+      # A controlled card written before the public one failed would block the
+      # next attempt for the same product under another passport identifier,
+      # so it goes too -- if the delegation covers deleting; otherwise the log
+      # names it.
+      def release_controlled_card(dpp)
+        id = dpp.storage_controlled_object_id
+        return if id.blank?
+
+        dpp.pod_storage.ensure_covers!("delete")
+        dpp.pod_storage.delete_object(id)
+      rescue PodStorage::Error => e
+        Rails.logger.error("[dpp] controlled card #{id} of #{dpp.dpp_id} left at the custodian " \
+                           "after a failed create: #{e.message}")
+      end
+
+      # Revokes a DID this service minted for a passport that is not kept.
+      # A client-supplied DID is left alone: this service holds no key for it.
+      def revoke_managed_did(dpp, cause)
+        return unless dpp.did_managed?
+
+        DidOyd.revoke(dpp.dpp_id, doc_key: dpp.did_doc_key, rev_key: dpp.did_rev_key)
+      rescue DidOyd::DidError => e
+        Rails.logger.error("[dpp] could not revoke #{dpp.dpp_id} after #{cause}: #{e.message}")
+      end
+
+      # The active passport that already holds this product identifier (same
+      # path, same lower-cased host), if any.
+      def active_passport_for(product_key, product_host)
+        return if product_key.nil?
+
+        Dpp.active.find_by(product_key: product_key, product_host: product_host)
+      end
+
+      def product_conflict(existing)
+        render_result("ClientResourceConflict",
+                      text: "An active passport already exists for this product: #{existing.dpp_id}")
       end
 
       # The DPP document (EN 18223:2026 attributes) from the request body.
       def dpp_document_param
         body = request_json
         raise ActionController::ParameterMissing, :dpp if body.blank?
+        raise JSON::ParserError, "the DPP document must be a JSON object" unless body.is_a?(Hash)
 
         body
       end
 
+      # A merge patch for a whole passport has to be an object: RFC 7396 lets
+      # any other value replace the target outright, which here would be the
+      # passport itself.
       def merge_patch_body
-        request_json || {}
+        body = request_json || {}
+        raise JSON::ParserError, "the merge patch must be a JSON object" unless body.is_a?(Hash)
+
+        body
       end
 
       def request_json

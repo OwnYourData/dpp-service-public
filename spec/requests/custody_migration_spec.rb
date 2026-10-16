@@ -32,7 +32,8 @@ RSpec.describe "Changing the custodian", type: :request do
       "economicOperatorId" => "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS" }
   end
 
-  # A stubbed custodian that remembers what was written to it.
+  # A stubbed custodian that remembers what was written to it. Its public read
+  # path hands that back, without a token.
   def custodian(base_url, collection_id, delegation, object_id)
     fake = instance_double(PodStorage,
                            base_url: base_url,
@@ -44,10 +45,15 @@ RSpec.describe "Changing the custodian", type: :request do
     allow(fake).to receive(:ensure_product!).and_return(true)
     allow(fake).to receive(:create_object).and_return(object_id)
     allow(fake).to receive(:write_payload) { |_id, doc| store[:doc] = doc; true }
-    allow(fake).to receive(:read_payload) { store[:doc] || {} }
     allow(fake).to receive(:delete_object).and_return(true)
+
+    reader = instance_double(PodStorage::PublicReader, base_url: base_url)
+    allow(reader).to receive(:document) { store[:doc] || {} }
+    readers[base_url] = reader
     fake
   end
+
+  def readers = (@readers ||= {})
 
   let(:pod_a) { custodian(url_a, "4", delegation_a, "obj-a") }
   let(:pod_b) { custodian(url_b, "9", delegation_b, "obj-b") }
@@ -64,6 +70,8 @@ RSpec.describe "Changing the custodian", type: :request do
     allow(DidOyd).to receive(:mint).and_return(minted)
     allow(PodStorage).to receive(:from_header).and_return(pod_a, pod_b)
     allow(PodStorage).to receive(:for).and_return(pod_a)
+    pod_b
+    allow(PodStorage::PublicReader).to receive(:new) { |url| readers.fetch(url) }
 
     post "/dpp/v1/dpps", params: document.to_json, headers: headers_a
     expect(response).to have_http_status(:created)
@@ -99,6 +107,19 @@ RSpec.describe "Changing the custodian", type: :request do
       expect(after_move.dpp_id).to eq(before_move.dpp_id)
       expect(after_move.product_id).to eq(before_move.product_id)
       expect(after_move.product_key).to eq(before_move.product_key)
+    end
+
+    # The policy is kept by this service, not by the custodian.
+    it "keeps the passport's access policy" do
+      policy = { "id" => "https://dpp.example.org/access-policies/battery/1",
+                 "scheme" => AccessClass::SCHEME, "rules" => [] }
+      record, = RegisteredAccessPolicy.register!(nil, policy)
+      Dpp.find(dpp_id).update!(access_policy_record: record)
+
+      post "/dpp/v1/dpps/#{CGI.escape(dpp_id)}/custody", headers: headers_b
+
+      expect(response).to have_http_status(:ok)
+      expect(Dpp.find(dpp_id).access_policy_record).to eq(record)
     end
 
     it "keeps no copy of the document in the local database" do

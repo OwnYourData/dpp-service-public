@@ -10,6 +10,17 @@
 # tricking a customer into delegating to the wrong service — which is why the
 # DID they end up with is resolvable and checkable on its own.
 #
+# The reader DIDs (ReaderDid) are listed under "readers", one entry per pod:
+# { "pod": <base URL of the pod>, "did": <reader DID> }. The intermediary enters
+# the reader DID of its environment as a fixed value and compares it with this
+# list; it does not take it from here. Without configured readers the member is
+# left out.
+#
+# The issuers this service takes an access grant for the class "authority"
+# from (AuthorityIssuers) are listed under "authorityIssuers", so that whoever
+# relies on the controlled part being kept from everyone else can see whose
+# word it rests on. Without configured issuers the member is left out.
+#
 # Public and unauthenticated, like the read paths.
 class DiscoveryController < ApplicationController
   def dpp_service
@@ -18,6 +29,12 @@ class DiscoveryController < ApplicationController
                     status: :not_found
     end
 
-    render json: ServiceDid.discovery_document, status: :ok
+    document = ServiceDid.discovery_document
+    readers  = ReaderDid.discovery_entries
+    document = document.merge("readers" => readers) if readers
+    issuers  = AuthorityIssuers.all
+    document = document.merge("authorityIssuers" => issuers) if issuers.any?
+
+    render json: document, status: :ok
   end
 end

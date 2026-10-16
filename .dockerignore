@@ -32,3 +32,4 @@ Dockerfile
 .env.*
 config/master.key
 config/credentials/*.key
+docs/operations

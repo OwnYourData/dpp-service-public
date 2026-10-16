@@ -23,6 +23,10 @@ RSpec.configure do |config|
     allow(PayloadCommitment).to receive(:refresh)
   end
 
+  # The rate limit counts per address and minute, and every request in the
+  # suite comes from the same address within the same minute.
+  config.before { ApplicationController::RATE_LIMIT_STORE.clear }
+
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!

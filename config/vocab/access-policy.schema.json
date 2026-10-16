@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://w3id.org/soya/dpp-access/v1/access-policy.schema.json",
+  "title": "Access policy for digital product passport attributes",
+  "description": "Assigns one access class of https://w3id.org/soya/dpp-access/v1 to data elements of a passport, addressed by their path of element identifiers. The header attributes of EN 18223:2026 Table 1 are always public and cannot be classified.",
+  "type": "object",
+  "required": ["id", "scheme", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "description": "Identifier of this policy, a URL. A changed policy gets a new identifier.",
+      "type": "string",
+      "format": "uri"
+    },
+    "title": { "type": "string" },
+    "scheme": {
+      "description": "The vocabulary the classes are taken from.",
+      "const": "https://w3id.org/soya/dpp-access/v1"
+    },
+    "default": {
+      "description": "Class of an attribute no rule reaches. Without it, such an attribute is authority.",
+      "$ref": "#/$defs/accessClass"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "accessClass"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Element identifiers from the top level down, separated by '/'. A rule on a collection applies to everything below it that no deeper rule reaches.",
+            "type": "string",
+            "pattern": "^[^/]+(/[^/]+)*$"
+          },
+          "accessClass": { "$ref": "#/$defs/accessClass" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "accessClass": {
+      "description": "Notation or IRI of a concept of https://w3id.org/soya/dpp-access/v1.",
+      "enum": [
+        "public",
+        "legitimateInterest",
+        "authority",
+        "https://w3id.org/soya/dpp-access/v1#public",
+        "https://w3id.org/soya/dpp-access/v1#legitimateInterest",
+        "https://w3id.org/soya/dpp-access/v1#authority"
+      ]
+    }
+  }
+}

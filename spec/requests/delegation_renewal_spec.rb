@@ -65,10 +65,16 @@ RSpec.describe "Renewing the delegation", type: :request do
     end
     allow(fake).to receive(:create_object).and_return(object_id)
     allow(fake).to receive(:write_payload) { |_id, doc| store[:doc] = doc; true }
-    allow(fake).to receive(:read_payload) { store[:doc] || {} }
     allow(fake).to receive(:delete_object).and_return(true)
+
+    # The custodian's public read path, which needs no mandate at all.
+    reader = instance_double(PodStorage::PublicReader, base_url: base_url)
+    allow(reader).to receive(:document) { store[:doc] || {} }
+    readers[base_url] ||= reader
     fake
   end
+
+  def readers = (@readers ||= {})
 
   # In place at creation time: still valid, and it covers everything.
   let(:stored_claims) { claims(exp: now + (30 * 86_400)) }
@@ -104,6 +110,7 @@ RSpec.describe "Renewing the delegation", type: :request do
     allow(DidOyd).to receive(:mint).and_return(minted)
     allow(PodStorage).to receive(:from_header).and_return(stored)
     allow(PodStorage).to receive(:for).and_return(stored)
+    allow(PodStorage::PublicReader).to receive(:new) { |url| readers.fetch(url) }
 
     post "/dpp/v1/dpps", params: document.to_json, headers: create_headers
     expect(response).to have_http_status(:created)
@@ -228,7 +235,7 @@ RSpec.describe "Renewing the delegation", type: :request do
     it "does not read the passport out of the pod" do
       read_delegation
 
-      expect(stored).not_to have_received(:read_payload)
+      expect(readers.fetch(base_url)).not_to have_received(:document)
       expect(response.parsed_body).not_to have_key("uniqueProductIdentifier")
     end
 

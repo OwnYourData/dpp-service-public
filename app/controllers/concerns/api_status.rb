@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# Maps the technology-neutral generic status codes of EN 18222:2026 (Table 16)
-# to HTTP status codes, and renders the Result/Message object (Tables 13–15).
+# Maps the technology-neutral generic status codes of EN 18222:2026 (Table 15)
+# to HTTP status codes, and renders the Result/Message object (Tables 12–14).
 module ApiStatus
   extend ActiveSupport::Concern
 
-  # Generic status code (EN 18222:2026 Table 16) => HTTP status.
+  # Generic status code (EN 18222:2026 Table 15) => HTTP status.
   STATUS_MAP = {
     "Success"                     => :ok,                    # 200
     "SuccessCreated"              => :created,               # 201
@@ -24,16 +24,20 @@ module ApiStatus
   MESSAGE_TYPES = %w[Info Warning Error Exception].freeze
 
   # Render a successful payload with the mapped HTTP status.
+  #
+  # Serialized here rather than by +render json:+, which passes a String through
+  # as if it were JSON already. A single data element in the compressed form can
+  # be a bare string (EN 18223:2026 5.2.6), and it has to arrive quoted.
   def render_dpp(payload, status_code: "Success")
     http = STATUS_MAP.fetch(status_code, :ok)
     if http == :no_content
       head :no_content
     else
-      render json: payload, status: http
+      render json: payload.to_json, status: http
     end
   end
 
-  # Build a Result object (EN 18222:2026 Table 13) and render it.
+  # Build a Result object (EN 18222:2026 Table 12) and render it.
   def render_result(status_code, text:, message_type: "Error", code: nil)
     result = {
       statusCode: status_code,

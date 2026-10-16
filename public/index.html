@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DPP Service · OwnYourData</title>
+<meta name="description" content="Public instance of the DPP Service, an open-source implementation of the EN 18222:2026 lifecycle API for Digital Product Passports, operated by OwnYourData.">
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --text: #1d2327;
+    --muted: #5b6770;
+    --line: #e2e5e8;
+    --accent: #0b6e4f;
+    --accent-soft: #e3f2ec;
+    --wip: #8a5a00;
+    --wip-soft: #fbf0d9;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121517;
+      --surface: #1b1f22;
+      --text: #e8ebed;
+      --muted: #9aa5ad;
+      --line: #2c3236;
+      --accent: #4cc293;
+      --accent-soft: #173229;
+      --wip: #e6b85c;
+      --wip-soft: #33291a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  header { padding: 20px 0; border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { font-weight: 600; letter-spacing: .01em; }
+  .brand span { color: var(--muted); font-weight: 400; }
+  header nav a { color: var(--muted); text-decoration: none; margin-left: 18px; font-size: 15px; }
+  header nav a:hover { color: var(--text); }
+  .hero { padding: 56px 0 36px; }
+  h1 { font-size: clamp(28px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.01em; }
+  .lead { font-size: 18px; color: var(--muted); max-width: 680px; margin: 0 0 26px; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 10px 18px; border-radius: 8px; text-decoration: none;
+    font-weight: 600; font-size: 15px; border: 1px solid var(--accent);
+  }
+  .btn.primary { background: var(--accent); color: var(--surface); }
+  .btn.secondary { color: var(--accent); background: transparent; }
+  h2 { font-size: 20px; margin: 44px 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .card h3 { margin: 0; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; }
+  .card .links { font-size: 15px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .soon { color: var(--muted); }
+  .badge {
+    align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: .03em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  }
+  .badge.live { color: var(--accent); background: var(--accent-soft); }
+  .badge.wip { color: var(--wip); background: var(--wip-soft); }
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px;
+  }
+  .panel p { margin: 0 0 8px; color: var(--muted); }
+  .panel p:last-child { margin-bottom: 0; }
+  ul.repos { list-style: none; margin: 0; padding: 0; }
+  ul.repos li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  ul.repos li:last-child { border-bottom: 0; }
+  ul.repos .what { color: var(--muted); font-size: 15px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+  footer { margin-top: 56px; padding: 24px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer a { color: var(--muted); margin-right: 16px; }
+  @media (max-width: 560px) {
+    header nav a { margin: 0 14px 0 0; }
+    .hero { padding-top: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">DPP Service <span>· OwnYourData</span></div>
+    <nav>
+      <a href="/api-docs/index.html">API</a>
+      <a href="https://github.com/OwnYourData/dpp-service-public">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Digital Product Passports on open standards</h1>
+    <p class="lead">
+      OwnYourData operates this public instance of the DPP Service, an open-source
+      implementation of the EN&nbsp;18222:2026 lifecycle API with passport content
+      following EN&nbsp;18223:2026. Reading passports is public and needs no account.
+    </p>
+    <div class="actions">
+      <a class="btn primary" href="/api-docs/index.html">Explore the API</a>
+      <a class="btn secondary" href="https://dpp.oydapp.eu/01/09520123456788/21/000001">Example passport (JSON)</a>
+    </div>
+  </section>
+
+  <h2>Tools</h2>
+  <div class="grid">
+    <article class="card">
+      <span class="badge live">Available</span>
+      <h3>DPP Manager</h3>
+      <p>Application for economic operators that runs on their own computer: describe products, create passports and publish them through a DPP service.</p>
+      <div class="links">
+        <a href="https://github.com/OwnYourData/dpp-service-public/blob/main/docs/DPP-Manager-Demo.md">Walkthrough</a>
+        <a href="https://github.com/OwnYourData/dpp-manager-public">Source</a>
+      </div>
+    </article>
+
+    <article class="card">
+      <span class="badge live">Available</span>
+      <h3>DPP Linter</h3>
+      <p>Enter a product identifier and see whether the passport behind it resolves, is readable without an account and follows the published data model.</p>
+      <div class="links">
+        <a href="https://dpplint.ownyourdata.eu">dpplint.ownyourdata.eu</a>
+        <a href="https://github.com/OwnYourData/dpplint">Source</a>
+      </div>
+    </article>
+
+    <article class="card">
+      <span class="badge live">Available</span>
+      <h3>DPP Service Validator</h3>
+      <p>Daily automated checks of listed DPP services against open criteria, with results published for everyone to see.</p>
+      <div class="links">
+        <a href="https://ownyourdata.github.io/dpp-validator/">Results</a>
+        <a href="https://github.com/OwnYourData/dpp-criteria">Criteria</a>
+        <a href="https://github.com/OwnYourData/dpp-validator">Source</a>
+      </div>
+    </article>
+  </div>
+
+  <h2>Other DPP services</h2>
+  <div class="panel">
+    <p><span class="badge live">Open</span></p>
+    <p>
+      So far the validator checks this service only (<a href="https://ownyourdata.github.io/dpp-validator/">results</a>).
+      Other operators add their service themselves, by pull request to
+      <a href="https://github.com/OwnYourData/dpp-criteria">dpp-criteria</a>.
+    </p>
+    <p><a href="https://github.com/OwnYourData/dpp-criteria/blob/main/services/README.md">How to add your DPP service to the daily checks</a></p>
+  </div>
+
+  <h2>Source code</h2>
+  <div class="panel">
+    <ul class="repos">
+      <li><a href="https://github.com/OwnYourData/dpp-service-public">dpp-service-public</a><span class="what">This service – Rails API, runs stand-alone</span></li>
+      <li><a href="https://github.com/OwnYourData/dpp-manager-public">dpp-manager-public</a><span class="what">DPP Manager – runs on the operator’s own computer</span></li>
+      <li><a href="https://github.com/OwnYourData/dpp-criteria">dpp-criteria</a><span class="what">Open criteria and service list – contributions welcome</span></li>
+      <li><a href="https://github.com/OwnYourData/dpplint">dpplint</a><span class="what">DPP Linter – checks the passport behind a product identifier</span></li>
+      <li><a href="https://github.com/OwnYourData/dpp-validator">dpp-validator</a><span class="what">DPP Service Validator – daily checks of listed DPP services against the criteria</span></li>
+    </ul>
+  </div>
+
+  <h2>Building blocks</h2>
+  <div class="grid">
+    <article class="card">
+      <h3>OYDID</h3>
+      <p>The <code>did:oyd</code> method used for passport and actor identifiers.</p>
+      <div class="links"><a href="https://oydid.ownyourdata.eu">oydid.ownyourdata.eu</a></div>
+    </article>
+    <article class="card">
+      <h3>SOyA</h3>
+      <p>Data models and validation for passport content.</p>
+      <div class="links"><a href="https://soya.ownyourdata.eu">soya.ownyourdata.eu</a></div>
+    </article>
+    <article class="card">
+      <h3>DID Lint</h3>
+      <p>Checks DID documents against the W3C DID specification.</p>
+      <div class="links"><a href="https://didlint.ownyourdata.eu">didlint.ownyourdata.eu</a></div>
+    </article>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>Operated by <a href="https://www.ownyourdata.eu/en/">OwnYourData</a></div>
+    <div>
+      <a href="https://www.ownyourdata.eu/en/imprint/">Imprint</a>
+      <a href="https://www.ownyourdata.eu/en/privacy-policy/">Privacy</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

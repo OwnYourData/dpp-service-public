@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Routes mirror the HTTPS/REST mappings of EN 18222:2026 (Tables 17, 18, 19).
+# Routes mirror the HTTPS/REST mappings of EN 18222:2026 (Tables 16, 17, 18).
 #
 # Identifiers (EN 18219:2026) are URIs/URLs and therefore contain "/", ":" and ".".
 # Clients MUST percent-encode them into a single path segment. Two Rails
@@ -40,6 +40,11 @@ Rails.application.routes.draw do
       get  "dpps/:dpp_id/delegation", to: "api/v1/dpps#show_delegation"
       post "dpps/:dpp_id/delegation", to: "api/v1/dpps#renew_delegation"
 
+      # Outside EN 18222:2026 as well: which attributes of the passport its
+      # access policy leaves to the default, and which rules reach nothing.
+      # For the owner only.
+      get "dpps/:dpp_id/access-policy", to: "api/v1/dpps#show_access_policy"
+
       # --- 6  Fine Granular Life Cycle API — Table 19 ---------------------
       get   "dpps/:dpp_id/collections/:element_id",
             to: "api/v1/data_element_collections#show"   # ReadDataElementCollection
@@ -64,6 +69,20 @@ Rails.application.routes.draw do
 
     post "dppsByProductIds",
          to: "api/v1/dpps#ids_by_product_ids"            # ReadDPPIdsByProductIds
+
+    # Access policies, registered once per product type and named by
+    # passports in X-DPP-Access-Policy. Not in EN 18222:2026.
+    put "access-policies", to: "api/v1/access_policies#update"
+
+    # Access grants: who may read the controlled part of which passports in
+    # which access classes. Not in EN 18222:2026.
+    put "access-grants", to: "api/v1/access_grants#update"
+    get "access-grants", to: "api/v1/access_grants#index"
+    delete "access-grants/:jti", to: "api/v1/access_grants#destroy", constraints: { jti: %r{[^/]+} }
+
+    # The access log: the entries that concern the presenting DID. Not in
+    # EN 18222:2026.
+    get "access-log", to: "api/v1/access_log#index"
 
     # --- 5  Registry API for Register — Table 17 --------------------------
     post "registerDPP", to: "api/v1/registry#create" # RegisterProductDPP

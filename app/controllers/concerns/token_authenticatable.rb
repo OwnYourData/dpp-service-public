@@ -14,9 +14,8 @@
 #     the issuer's did:oyd (see DidTokenVerifier), and every write on an
 #     existing passport is checked against its recorded owner.
 #
-# Still open in both modes: the role model of prEN 18239 (authority,
-# refurbisher, consumer) and the distinction between public data, controlled
-# data and trade secrets.
+# Who may read the controlled part of a passport beyond its owner is decided by
+# access grants (AccessGrant), on the read paths (ReaderAccess, PassportAccess).
 module TokenAuthenticatable
   extend ActiveSupport::Concern
 

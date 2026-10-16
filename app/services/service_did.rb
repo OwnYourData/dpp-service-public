@@ -81,23 +81,27 @@ class ServiceDid
       @signing_key = nil
     end
 
-    private
-
     # The registrar hands out the key multibase-encoded with a multicodec
-    # prefix. Everything before the trailing 32 bytes is that prefix.
-    def build_signing_key(multibase)
+    # prefix. Everything before the trailing 32 bytes is that prefix. +name+
+    # is the variable the key came from, for the message -- never the key.
+    # ReaderDid reads its keys the same way.
+    def signing_key_from(multibase, name)
       require "oydid"
 
       raw = Oydid.multi_decode(multibase.to_s.strip).first
-      if raw.nil? || raw.bytesize < 32
-        raise NotConfigured, "DPP_SERVICE_DOC_KEY is not a decodable multibase key"
-      end
+      raise NotConfigured, "#{name} is not a decodable multibase key" if raw.nil? || raw.bytesize < 32
 
       Ed25519::SigningKey.new(raw[-32..])
     rescue NotConfigured
       raise
     rescue StandardError => e
-      raise NotConfigured, "DPP_SERVICE_DOC_KEY cannot be read (#{e.class}: #{e.message})"
+      raise NotConfigured, "#{name} cannot be read (#{e.class})"
+    end
+
+    private
+
+    def build_signing_key(multibase)
+      signing_key_from(multibase, "DPP_SERVICE_DOC_KEY")
     end
   end
 end

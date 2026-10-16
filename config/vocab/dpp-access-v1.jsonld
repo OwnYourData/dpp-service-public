@@ -1,0 +1,79 @@
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "dct": "http://purl.org/dc/terms/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "dppa": "https://w3id.org/soya/dpp-access/v1#",
+    "level": { "@id": "dppa:level", "@type": "xsd:integer" },
+    "inScheme": { "@id": "skos:inScheme", "@type": "@id" },
+    "hasTopConcept": { "@id": "skos:hasTopConcept", "@type": "@id" }
+  },
+  "@graph": [
+    {
+      "@id": "https://w3id.org/soya/dpp-access/v1",
+      "@type": "skos:ConceptScheme",
+      "skos:prefLabel": [
+        { "@value": "Access classes of digital product passport attributes", "@language": "en" },
+        { "@value": "Zugriffsklassen für Attribute digitaler Produktpässe", "@language": "de" }
+      ],
+      "skos:definition": [
+        { "@value": "Who may read an attribute of a digital product passport. The classes are ordered: whoever may read a class may read every class with a lower level.", "@language": "en" },
+        { "@value": "Wer ein Attribut eines digitalen Produktpasses lesen darf. Die Klassen sind geordnet: Wer eine Klasse lesen darf, darf auch jede Klasse mit niedrigerer Stufe lesen.", "@language": "de" }
+      ],
+      "dct:source": [
+        "prEN 18239 (access rights management, information system security and business confidentiality)",
+        "Regulation (EU) 2023/1542, Article 77(2) and Annex XIII"
+      ],
+      "hasTopConcept": [
+        "https://w3id.org/soya/dpp-access/v1#public",
+        "https://w3id.org/soya/dpp-access/v1#legitimateInterest",
+        "https://w3id.org/soya/dpp-access/v1#authority"
+      ]
+    },
+    {
+      "@id": "https://w3id.org/soya/dpp-access/v1#public",
+      "@type": "skos:Concept",
+      "inScheme": "https://w3id.org/soya/dpp-access/v1",
+      "skos:notation": "public",
+      "level": 0,
+      "skos:prefLabel": [
+        { "@value": "public", "@language": "en" },
+        { "@value": "öffentlich", "@language": "de" }
+      ],
+      "skos:definition": [
+        { "@value": "Readable by anyone, without authentication.", "@language": "en" },
+        { "@value": "Für jeden lesbar, ohne Authentifizierung.", "@language": "de" }
+      ]
+    },
+    {
+      "@id": "https://w3id.org/soya/dpp-access/v1#legitimateInterest",
+      "@type": "skos:Concept",
+      "inScheme": "https://w3id.org/soya/dpp-access/v1",
+      "skos:notation": "legitimateInterest",
+      "level": 1,
+      "skos:prefLabel": [
+        { "@value": "legitimate interest", "@language": "en" },
+        { "@value": "berechtigtes Interesse", "@language": "de" }
+      ],
+      "skos:definition": [
+        { "@value": "Readable by actors with a legitimate interest in the attribute, such as repairers, refurbishers or recyclers, and by authorities.", "@language": "en" },
+        { "@value": "Lesbar für Akteure mit berechtigtem Interesse an dem Attribut, etwa Reparatur, Wiederaufbereitung oder Recycling, und für Behörden.", "@language": "de" }
+      ]
+    },
+    {
+      "@id": "https://w3id.org/soya/dpp-access/v1#authority",
+      "@type": "skos:Concept",
+      "inScheme": "https://w3id.org/soya/dpp-access/v1",
+      "skos:notation": "authority",
+      "level": 2,
+      "skos:prefLabel": [
+        { "@value": "authority", "@language": "en" },
+        { "@value": "Behörde", "@language": "de" }
+      ],
+      "skos:definition": [
+        { "@value": "Readable only by authorities: notified bodies, market surveillance and customs authorities, and the European Commission.", "@language": "en" },
+        { "@value": "Nur für Behörden lesbar: benannte Stellen, Marktüberwachungs- und Zollbehörden sowie die Europäische Kommission.", "@language": "de" }
+      ]
+    }
+  ]
+}

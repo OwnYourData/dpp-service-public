@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "net/http"
 require "uri"
 require "json"
 require "base64"
@@ -26,10 +25,10 @@ require "digest"
 # of the service DID), it covers one passport rather than a whole collection,
 # and the holder can revoke it at the pod without touching anything else.
 #
-# Deliberately without extra gems: Net::HTTP from the standard library.
+# HTTP goes through OutboundHttp, which speaks HTTP/2 (EN 18216:2026 4).
 class PodStorage
   # Pod failures are mapped onto the generic status codes of EN 18222:2026
-  # (Table 16); docs/Delegation.md §15 fixes the mapping for the OAuth errors.
+  # (Table 15); docs/Delegation.md §15 fixes the mapping for the OAuth errors.
   class Error < StandardError
     attr_reader :status_code
 
@@ -48,6 +47,27 @@ class PodStorage
   # The delegation itself is not acceptable — wrong service, wrong pod, expired,
   # or an operation it does not cover. +status_code+ carries the §15 answer.
   class DelegationError < Error; end
+
+  # The pod refused an access token at the resource (401 invalid_token). The
+  # token is dropped and fetched once more; only if that one is refused too
+  # does this reach the client, as ClientNotAuthorized.
+  class TokenRejected < DelegationError
+    def initialize(message)
+      super(message, status_code: "ClientNotAuthorized")
+    end
+  end
+
+  # One repeat after a refused token per incoming request, however many pod
+  # requests that request makes. Rails resets it around every request.
+  class TokenRetry < ActiveSupport::CurrentAttributes
+    attribute :spent
+
+    def self.take!
+      return false if spent
+
+      self.spent = true
+    end
+  end
 
   # No length constraint applies to this value. Since the carrier redesign the
   # UPI is the product identifier under a host of the operator's own (see
@@ -69,7 +89,25 @@ class PodStorage
     "invalid_grant"       => "ClientNotAuthorized",
     "invalid_client"      => "ClientNotAuthorized",
     "invalid_dpop_proof"  => "ClientNotAuthorized",
+    "invalid_token"       => "ClientNotAuthorized",
     "insufficient_scope"  => "ClientForbidden"
+  }.freeze
+
+  # The two cards of a passport (PassportSplit). One write delegation covers
+  # both.
+  PUBLIC_CARD     = "DigitalProductPassport"
+  CONTROLLED_CARD = "DigitalProductPassportControlled"
+
+  # What the pod says when it refuses a card with 409, and what the client is
+  # told instead. Both are refusals of the passport as a whole, not errors of
+  # this service.
+  CONFLICTS = {
+    "passport identifier is held by another collection" =>
+      "The passport identifier or the product identifier is already held by a collection " \
+      "of another economic operator at this custodian",
+    "passport identifiers do not match the other card of this passport" =>
+      "A card in this collection carries the same product identifier under another passport " \
+      "identifier, or the other way round"
   }.freeze
 
   attr_reader :base_url, :collection_id, :delegation, :delegation_claims
@@ -150,8 +188,15 @@ class PodStorage
     Delegation.covers?(delegation_claims, operation)
   end
 
+  # §15: a mandate that has run out is ClientNotAuthorized, one that never
+  # named the operation is ClientForbidden.
   def ensure_covers!(operation)
     return true if covers?(operation)
+
+    if Array(delegation_claims["act"]).map(&:to_s).include?(operation.to_s)
+      raise DelegationError.new("the delegation for this passport has expired",
+                                status_code: "ClientNotAuthorized")
+    end
 
     raise DelegationError.new(
       "the delegation for this passport does not cover #{operation}",
@@ -180,20 +225,27 @@ class PodStorage
 
   # --- object lifecycle ------------------------------------------------------
 
-  # Creates the index card through which pod-dpp finds the passport again.
-  # Returns the object id.
-  def create_object(dpp)
+  # Creates the index card through which pod-dpp finds the passport again,
+  # the public one or the controlled one. Returns the object id.
+  def create_object(dpp, type: PUBLIC_CARD)
     ensure_covers!("create")
     body = {
       "collection-id"            => numeric_collection_id,
-      "type"                     => "DigitalProductPassport",
+      "type"                     => type,
       "digitalProductPassportId" => dpp.dpp_id,
       "uniqueProductIdentifier"  => dpp.product_id,
       # Host-independent lookup key: it is what lets this one store answer for
       # every operator hostname pointed at it by CNAME (docs/Identifiers.md).
       "product_key"              => dpp.product_key
     }
-    response = request(:post, "/object", body: body, auth: true)
+    response = begin
+      request(:post, "/object", body: body)
+    rescue DelegationError => e
+      raise e unless type == CONTROLLED_CARD && e.status_code == "ClientForbidden"
+
+      raise DelegationError.new("the delegation does not cover the controlled card of this passport " \
+                                "(#{e.message})", status_code: "ClientForbidden")
+    end
     id = response["object-id"] || response[:"object-id"]
     raise Error, "Pod did not return an object-id" if id.blank?
 
@@ -205,39 +257,42 @@ class PodStorage
   # the version history of EN 18221:2026.
   def write_payload(object_id, document)
     ensure_covers!("update")
-    request(:put, "/object/#{object_id}/write", body: document, auth: true)
+    request(:put, "/object/#{object_id}/write", body: document)
     true
-  end
-
-  def read_payload(object_id)
-    request(:get, "/object/#{object_id}/read", auth: true)
   end
 
   # Soft delete: the archived versions survive (EN 18221:2026).
   def delete_object(object_id)
     ensure_covers!("delete")
-    request(:delete, "/object/#{object_id}", auth: true)
+    request(:delete, "/object/#{object_id}")
     true
   end
 
-  # State at +date+ — served by pod-dpp, public, without a token.
-  def version_at(dpp_id, date)
-    path = "/dpp/v1/dppsByIdAndDate/#{CGI.escape(dpp_id.to_s)}" \
-           "?date=#{CGI.escape(date.utc.iso8601)}"
-    request(:get, path, auth: false)
-  rescue Error => e
-    raise e unless e.status_code == "ClientErrorResourceNotFound"
+  # The public part of a passport is read without a token, through
+  # PodStorage::PublicReader. The controlled card is read here, with the token
+  # of the write delegation, and only to prepare a write: its values are
+  # needed to apply a change to the whole passport. Raises Error with
+  # ClientErrorResourceNotFound when the object is gone.
+  def read_object(object_id)
+    ensure_covers!("update")
+    document = request(:get, "/object/#{object_id}/read")
+    raise Error, "Pod #{base_url} answered GET /object/#{object_id}/read with something other than a JSON object" \
+      unless document.is_a?(Hash)
 
-    nil
+    document
   end
+
+  # Finding the controlled card without its object id needs the object list
+  # and the index cards, which a write delegation may not read
+  # (docs/Delegation.md D4). That is done under the read grant of this
+  # service: PodStorage::ProtectedReader.
 
   # --- token (§7) ------------------------------------------------------------
 
   # Access token, cached until shortly before it expires. §7: no refresh token —
   # when it runs out, the same delegation fetches a new one.
   def token
-    key = [base_url, delegation_claims["jti"]]
-    cached = self.class.token_cache_get(key)
+    cached = self.class.token_cache_get(token_cache_key)
     return cached if cached
 
     response = fetch_token
@@ -248,7 +303,7 @@ class PodStorage
 
     ttl = response["expires_in"].to_i
     ttl = DEFAULT_TOKEN_TTL if ttl <= 0
-    self.class.token_cache_put(key, access, ttl)
+    self.class.token_cache_put(token_cache_key, access, ttl)
     access
   end
 
@@ -260,6 +315,17 @@ class PodStorage
   end
 
   class << self
+    # The fields of an index card or its meta, wherever the pod nests them.
+    def card_fields(answer)
+      return {} unless answer.is_a?(Hash)
+
+      %w[item data meta].each do |key|
+        nested = answer[key]
+        return nested if nested.is_a?(Hash) && (nested.key?("type") || nested.key?("updated-at"))
+      end
+      answer
+    end
+
     def token_cache_get(key)
       mutex.synchronize do
         entry = cache[key]
@@ -277,6 +343,10 @@ class PodStorage
         cache[key] = { token: token,
                        expires_at: Time.now.utc + [ttl_seconds - 60, 30].max }
       end
+    end
+
+    def token_cache_delete(key)
+      mutex.synchronize { cache.delete(key) }
     end
 
     def reset_token_cache!
@@ -308,6 +378,10 @@ class PodStorage
 
   def token_endpoint
     "#{base_url}/oauth/token"
+  end
+
+  def token_cache_key
+    [base_url, delegation_claims["jti"]]
   end
 
   def fetch_token
@@ -347,44 +421,53 @@ class PodStorage
     collection_id
   end
 
-  def request(method, path, body: nil, auth: true)
+  # A request to the resource with the delegated token.
+  #
+  # A token the pod refuses with 401 invalid_token -- expired early, or
+  # withdrawn on its own -- is replaced once and the request repeated with a
+  # fresh proof. Whether the delegation still holds is then decided at the token
+  # endpoint, where invalid_grant is final and is not repeated.
+  def request(method, path, body: nil)
+    retried = false
+    begin
+      authorized_request(method, path, body)
+    rescue TokenRejected
+      raise if retried || !TokenRetry.take!
+
+      retried = true
+      Rails.logger.info("[pod] #{method.to_s.upcase} #{path}: token refused, fetching a new one " \
+                        "(collection #{collection_id}, delegation #{delegation_claims['jti']})")
+      retry
+    end
+  end
+
+  def authorized_request(method, path, body)
     headers = { "Accept" => "application/json" }
     headers["Content-Type"] = "application/json" unless body.nil?
 
-    if auth
-      access = token
-      # RFC 9449: a DPoP-bound token travels in an "Authorization: DPoP" header,
-      # and every request carries its own proof over this method and this URL.
-      # `ath` binds the proof to the token, so a proof captured from one request
-      # cannot be replayed with a different token.
-      headers["Authorization"] = "DPoP #{access}"
-      headers["DPoP"] = Delegation.dpop_proof(htm: method.to_s.upcase,
-                                              htu: "#{base_url}#{path.split('?').first}",
-                                              ath: access)
-    end
+    access = token
+    # RFC 9449: a DPoP-bound token travels in an "Authorization: DPoP" header,
+    # and every request carries its own proof over this method and this URL.
+    # `ath` binds the proof to the token, so a proof captured from one request
+    # cannot be replayed with a different token.
+    headers["Authorization"] = "DPoP #{access}"
+    headers["DPoP"] = Delegation.dpop_proof(htm: method.to_s.upcase,
+                                            htu: "#{base_url}#{path.split('?').first}",
+                                            ath: access)
 
     perform(method, path, headers, body.nil? ? nil : JSON.generate(body))
   end
 
   def perform(method, path, headers, payload)
-    uri = URI.parse("#{base_url}#{path}")
-    klass = { get: Net::HTTP::Get, post: Net::HTTP::Post,
-              put: Net::HTTP::Put, delete: Net::HTTP::Delete }.fetch(method)
-
-    req = klass.new(uri)
-    headers.each { |k, v| req[k] = v }
-    req.body = payload if payload
-
-    response = Net::HTTP.start(uri.hostname, uri.port,
-                               use_ssl: uri.scheme == "https",
-                               open_timeout: OPEN_TIMEOUT,
-                               read_timeout: READ_TIMEOUT) { |http| http.request(req) }
+    response = OutboundHttp.request(method, "#{base_url}#{path}",
+                                    headers: headers, body: payload,
+                                    open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT)
 
     handle(response, method, path)
-  rescue Net::OpenTimeout, Net::ReadTimeout
+  rescue OutboundHttp::TimeoutError
     raise Error, "Pod #{base_url} timed out on #{method.to_s.upcase} #{path}"
-  rescue SystemCallError, SocketError, OpenSSL::SSL::SSLError => e
-    raise Error, "Pod #{base_url} unreachable (#{e.class}: #{e.message})"
+  rescue OutboundHttp::ConnectionError => e
+    raise Error, "Pod #{base_url} unreachable (#{e.message})"
   end
 
   def handle(response, method, path)
@@ -397,11 +480,21 @@ class PodStorage
     case response.code.to_i
     when 200, 201, 204 then parsed
     when 400, 401, 403
-      self.class.reset_token_cache!
+      # Only the token of this delegation is dropped; the next use fetches a
+      # new one.
+      self.class.token_cache_delete(token_cache_key)
+      if response.code.to_i == 401 && parsed["error"].to_s == "invalid_token" && path != "/oauth/token"
+        raise TokenRejected, "Pod refused the access token (401, invalid_token)"
+      end
+
       raise oauth_error(parsed, response, method, path)
     when 404
       raise Error.new("Pod: not found (#{method.to_s.upcase} #{path})",
                       status_code: "ClientErrorResourceNotFound")
+    when 409
+      reason = parsed.is_a?(Hash) ? parsed["error"].to_s : ""
+      raise Error.new(CONFLICTS.fetch(reason) { "The custodian refused the card (409#{reason.empty? ? '' : ", #{reason}"})" },
+                      status_code: "ClientResourceConflict")
     else
       detail = parsed["error"] || parsed["message"] || response.message
       raise Error, "Pod #{base_url} returned #{response.code} on " \

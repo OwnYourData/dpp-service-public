@@ -1,0 +1,52 @@
+{
+  "digitalProductPassportId": "did:oyd:zQmExample",
+  "uniqueProductIdentifier": "https://dpp.example.org/01/09520123456788/21/000001",
+  "granularity": "item",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-10-09T08:00:00Z",
+  "economicOperatorId": "did:oyd:zQmOperator",
+  "contentSpecificationIds": ["EN 18223:2026"],
+  "elements": [
+    { "elementId": "performanceMetrics", "objectType": "DataElementCollection",
+      "dictionaryReference": "https://dictionary.example/performanceMetrics",
+      "elements": [
+        { "elementId": "maxPressure", "objectType": "SingleValuedDataElement", "valueDataType": "xsd:float", "value": 750.0 },
+        { "elementId": "isFireResistant", "objectType": "SingleValuedDataElement", "valueDataType": "xsd:boolean", "value": true },
+        { "elementId": "efficiencyRatings", "objectType": "MultiValuedDataElement", "valueDataType": "xsd:float",
+          "elements": [
+            { "elementId": "r1", "objectType": "SingleValuedDataElement", "value": 0.95 },
+            { "elementId": "r2", "objectType": "SingleValuedDataElement", "value": 0.92 },
+            { "elementId": "r3", "objectType": "SingleValuedDataElement", "value": 0.88 }
+          ] },
+        { "elementId": "complexTraits", "objectType": "MultiValuedDataElement",
+          "elements": [
+            { "elementId": "t1", "objectType": "DataElementCollection",
+              "elements": [
+                { "elementId": "fieldOne", "objectType": "SingleValuedDataElement", "value": 1.0 },
+                { "elementId": "fieldTwo", "objectType": "SingleValuedDataElement", "value": "stringValueOne" }
+              ] },
+            { "elementId": "t2", "objectType": "DataElementCollection",
+              "elements": [
+                { "elementId": "fieldOne", "objectType": "SingleValuedDataElement", "value": 2.0 },
+                { "elementId": "fieldTwo", "objectType": "SingleValuedDataElement", "value": "stringValueTwo" }
+              ] }
+          ] }
+      ] },
+    { "elementId": "supportedVoltages", "objectType": "MultiValuedDataElement",
+      "value": [
+        { "elementId": "v1", "objectType": "SingleValuedDataElement", "value": 110 },
+        { "elementId": "v2", "objectType": "SingleValuedDataElement", "value": 220 },
+        { "elementId": "v3", "objectType": "SingleValuedDataElement", "value": 240 }
+      ] },
+    { "elementId": "userManual", "objectType": "RelatedResource",
+      "dictionaryReference": "https://dictionary.example/document/userManual",
+      "resourceTitle": "User Manual", "contentType": "application/pdf",
+      "url": "https://data.example.com/manual.pdf", "language": "en-GB" },
+    { "elementId": "productDescription", "objectType": "MultiLanguageDataElement",
+      "value": [
+        { "language": "en-IE", "value": "One Thing" },
+        { "language": "fr-CH", "value": "Une Chose" }
+      ] }
+  ]
+}

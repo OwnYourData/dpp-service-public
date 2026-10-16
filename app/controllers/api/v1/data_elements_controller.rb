@@ -3,27 +3,41 @@
 module Api
   module V1
     # EN 18222:2026 Clause 6 — fine granular operations on individual
-    # DataElements, addressed by their absolute element path.
+    # DataElements, addressed by their elementIdPath.
     #
-    # The path is the elementId of each level, separated by "/", e.g.
-    # "performanceMetrics/maxPressure". EN 18223:2026 Table 2 requires an
+    # EN 18222:2026 8.1 has elementIdPath follow RFC 9535 JSONPath; both methods
+    # address one element, so the path is a singular query such as
+    # "$.EnergyPerformance.LuminousFlux", percent-encoded into the URL. See
+    # ElementIdPath for what is accepted. EN 18223:2026 Table 2 requires an
     # elementId to be unique within its level and the absolute path to be unique
     # within the passport, which is what makes this addressable at all.
     #
-    # DEVIATION: EN 18222:2026 8.1 asks for RFC 9535 JSONPath in elementIdPath.
-    # This is a path of element identifiers instead -- shorter, and all the fine
-    # granular methods need. JSONPath is not implemented.
+    # A query that is not RFC 9535 syntax, or that can select more than one
+    # element, is a bad request (400); a well-formed path that leads nowhere is
+    # 404.
     class DataElementsController < ApplicationController
+      before_action :require_valid_representation!
       before_action :authenticate_actor!, only: %i[update]
+      before_action :authenticate_reader!, only: %i[show]
+      before_action :refuse_access_policy_header!, only: %i[update]
       before_action :find_dpp
+      before_action :parse_element_path
 
       # GET /dpp/v1/dpps/:dpp_id/elements/*element_path  (6.2, Table 18)
+      #
+      # The path selects the element by its elementIds, so it designates the
+      # same element in both representations. What comes back is that element
+      # in the representation asked for: compressed, the value the path selects
+      # in the compressed passport; full, the element object of Annex A.
       def show
-        element = resolve_path(@dpp.to_document, path_segments)
+        access   = PassportAccess.current(@dpp, reader: reader_did)
+        document = access.document
+        element = @element_path.resolve(document)
         return render_result("ClientErrorResourceNotFound", text: "Element not found") if element.nil?
 
         report_commitment(@dpp)
-        render_dpp(element)
+        report_access(access)
+        render_element(element, document: document)
       end
 
       # PATCH /dpp/v1/dpps/:dpp_id/elements/*element_path  (6.3, Table 18) — RFC 7396
@@ -35,13 +49,15 @@ module Api
         return unless authorize_owner!(@dpp)
 
         document = @dpp.to_document.deep_dup
-        element  = resolve_path(document, path_segments)
-        return render_result("ClientErrorResourceNotFound", text: "Element not found") if element.nil?
+        container, key = @element_path.locate(document)
+        return render_result("ClientErrorResourceNotFound", text: "Element not found") if container.nil?
 
-        assign_path(document, path_segments, JsonMergePatch.apply(element, merge_patch_body))
+        container[key] = JsonMergePatch.apply(container[key], merge_patch_body)
         @dpp.apply_merge_patch!(document)
         commit_payload(@dpp)
-        render_dpp(resolve_path(@dpp.to_document, path_segments))
+        report_access_policy(@dpp)
+        document = @dpp.to_document
+        render_element(@element_path.resolve(document), document: document)
       end
 
       private
@@ -50,43 +66,11 @@ module Api
         @dpp = Dpp.find(params[:dpp_id])
       end
 
-      # Path is passed as a glob; split into element identifiers.
-      def path_segments
-        params[:element_path].to_s.split("/")
-      end
-
-      # Walk down one level per segment. Every level -- the passport itself and
-      # every DataElementCollection or MultiValuedDataElement below it -- holds
-      # its children in "elements" (EN 18223:2026 Annex A), so the descent is
-      # the same at every depth.
-      #
-      # A proper data-dictionary resolver would additionally validate each
-      # elementId against the dictionary its dictionaryReference names; this
-      # walks the document structurally.
-      def resolve_path(node, segments)
-        segments.reduce(node) do |current, seg|
-          break nil if current.nil?
-
-          children = current.is_a?(Hash) ? current["elements"] : current
-          children.is_a?(Array) ? children.find { |e| e.is_a?(Hash) && e["elementId"] == seg } : nil
-        end
-      end
-
-      # Replaces the element at the given path. The parent always holds its
-      # children in "elements", so only the last segment has to be located.
-      def assign_path(document, segments, value)
-        *head, last = segments
-        parent = head.empty? ? document : resolve_path(document, head)
-        return nil unless parent.is_a?(Hash)
-
-        children = parent["elements"]
-        return nil unless children.is_a?(Array)
-
-        index = children.find_index { |e| e.is_a?(Hash) && e["elementId"] == last }
-        return nil if index.nil?
-
-        children[index] = value
-        document
+      # The glob arrives percent-decoded, so "%24.A.B" is "$.A.B" here.
+      def parse_element_path
+        @element_path = ElementIdPath.parse(params[:element_path])
+      rescue ElementIdPath::InvalidError => e
+        render_result("ClientErrorBadRequest", text: "Invalid elementIdPath: #{e.message}")
       end
 
       def merge_patch_body

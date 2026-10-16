@@ -11,16 +11,22 @@ module Api
     # collection by name is what clients asked for, not because the standard
     # requires them.
     class DataElementCollectionsController < ApplicationController
+      before_action :require_valid_representation!
       before_action :authenticate_actor!, only: %i[update]
+      before_action :authenticate_reader!, only: %i[show]
+      before_action :refuse_access_policy_header!, only: %i[update]
       before_action :find_dpp
 
       # GET /dpp/v1/dpps/:dpp_id/collections/:element_id
       def show
-        collection = find_collection(params[:element_id])
+        access   = PassportAccess.current(@dpp, reader: reader_did)
+        document = access.document
+        collection = find_collection(document, params[:element_id])
         return render_result("ClientErrorResourceNotFound", text: "Collection not found") if collection.nil?
 
         report_commitment(@dpp)
-        render_dpp(collection)
+        report_access(access)
+        render_element(collection, document: document)
       end
 
       # PATCH /dpp/v1/dpps/:dpp_id/collections/:element_id — RFC 7396
@@ -37,7 +43,8 @@ module Api
         collections[idx] = JsonMergePatch.apply(collections[idx], merge_patch_body)
         @dpp.apply_merge_patch!("elements" => collections)
         commit_payload(@dpp)
-        render_dpp(collections[idx])
+        report_access_policy(@dpp)
+        render_element(collections[idx], document: @dpp.to_document)
       end
 
       private
@@ -46,8 +53,8 @@ module Api
         @dpp = Dpp.find(params[:dpp_id])
       end
 
-      def find_collection(element_id)
-        Array(@dpp.to_document["elements"])
+      def find_collection(document, element_id)
+        Array(document["elements"])
           .find { |c| c["elementId"] == element_id }
       end
 

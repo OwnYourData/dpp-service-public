@@ -46,4 +46,98 @@ RSpec.describe "GET /.well-known/dpp-service", type: :request do
     expect(response.body).not_to match(/z1S5/)
     expect(response.parsed_body.keys).to contain_exactly("did", "audience")
   end
+
+  describe "the reader DIDs" do
+    let(:service_did) { "did:oyd:zQmService" }
+    let(:readers) do
+      [ReaderDid.new(name: "STAGING", pod: "https://dpp-staging.go-data.at",
+                     did: "did:oyd:zQmReaderStaging", doc_key: "z1S5secretStaging"),
+       ReaderDid.new(name: "PRODUCTION", pod: "https://dpp.go-data.at",
+                     did: "did:oyd:zQmReaderProduction", doc_key: "z1S5secretProduction")]
+    end
+
+    before do
+      allow(ServiceDid).to receive(:configured?).and_return(true)
+      allow(ServiceDid).to receive(:discovery_document)
+        .and_return("did" => service_did, "audience" => "https://dpp-service.example")
+    end
+
+    it "lists one reader per pod beside the unchanged service DID" do
+      allow(ReaderDid).to receive(:all).and_return(readers)
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body).to eq(
+        "did" => service_did, "audience" => "https://dpp-service.example",
+        "readers" => [{ "pod" => "https://dpp-staging.go-data.at", "did" => "did:oyd:zQmReaderStaging" },
+                      { "pod" => "https://dpp.go-data.at", "did" => "did:oyd:zQmReaderProduction" }]
+      )
+    end
+
+    it "never lists the service DID as a reader" do
+      allow(ReaderDid).to receive(:all).and_return(readers)
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body["readers"].map { |r| r["did"] }).not_to include(service_did)
+    end
+
+    it "lets a pod find exactly one entry" do
+      allow(ReaderDid).to receive(:all).and_return(readers)
+
+      get "/.well-known/dpp-service"
+
+      pods = response.parsed_body["readers"].map { |r| r["pod"] }
+      expect(pods).to eq(pods.uniq)
+    end
+
+    it "carries no key material of a reader" do
+      allow(ReaderDid).to receive(:all).and_return(readers)
+
+      get "/.well-known/dpp-service"
+
+      expect(response.body).not_to include("z1S5")
+      expect(response.parsed_body["readers"].flat_map(&:keys).uniq).to contain_exactly("pod", "did")
+    end
+
+    it "leaves the member out when no reader is configured" do
+      allow(ReaderDid).to receive(:all).and_return([])
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body).not_to have_key("readers")
+    end
+
+    it "leaves the member out when the configuration is refused" do
+      allow(ReaderDid).to receive(:all).and_raise(ReaderDid::ConfigError.new(["broken"]))
+
+      get "/.well-known/dpp-service"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).not_to have_key("readers")
+    end
+  end
+  describe "the authority issuers" do
+    before do
+      allow(ServiceDid).to receive(:configured?).and_return(true)
+      allow(ServiceDid).to receive(:discovery_document).and_return("did" => "did:oyd:zQmService")
+      allow(ReaderDid).to receive(:discovery_entries).and_return(nil)
+    end
+
+    it "lists them when they are configured" do
+      allow(AuthorityIssuers).to receive(:all).and_return(["did:oyd:zQmIssuer"])
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body["authorityIssuers"]).to eq(["did:oyd:zQmIssuer"])
+    end
+
+    it "leaves the member out without them" do
+      allow(AuthorityIssuers).to receive(:all).and_return([])
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body).not_to have_key("authorityIssuers")
+    end
+  end
 end

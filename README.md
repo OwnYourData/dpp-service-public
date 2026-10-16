@@ -1,7 +1,7 @@
 # DPP Service — Digital Product Passport API
 
 Rails 7 **API-only** service implementing the Digital Product Passport endpoints
-defined by the CEN/CENELEC JTC 24 draft standards. The REST contract is derived
+defined by the CEN/CENELEC JTC 24 standards. The REST contract is derived
 from **EN 18222:2026** (APIs for product passport lifecycle management), with
 payloads from **EN 18223:2026** (system interoperability / semantic model).
 
@@ -82,6 +82,7 @@ The rest:
 | [docs/examples-lightbulb.md](docs/examples-lightbulb.md) | one complete worked example (an LED lamp) with full request and response payloads |
 | [docs/Identifiers.md](docs/Identifiers.md) | the six things called "identifier" in the DPP context, how they relate, and which of them ends up on the data carrier |
 | [docs/Integrity.md](docs/Integrity.md) | how the identifier, the version chain and the payload commitment fit together, and what a reader can verify without trusting anyone |
+| [docs/AccessClasses.md](docs/AccessClasses.md) | the vocabulary of access classes (public, legitimate interest, authority), the access policy that assigns one class to every attribute of a passport, how a policy is registered and attached to a passport, access grants and revoking them, what each reader gets on the read paths, and the access log |
 | [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
 | [bin/attest_payload](bin/attest_payload) | the holder side of the same coin: hash what the custodian delivers and sign the entry with your own document key: `bundle exec ruby bin/attest_payload <carrier URL> --keys <file>` |
 | [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
@@ -107,8 +108,17 @@ Beyond the standard's methods:
 | | HTTP | Path |
 |---|---|---|
 | change of custodian | POST | `/dpp/v1/dpps/:dpp_id/custody` |
+| read the mandate held for a passport | GET | `/dpp/v1/dpps/:dpp_id/delegation` |
+| hand over a fresh mandate | POST | `/dpp/v1/dpps/:dpp_id/delegation` |
+| service discovery (service DID, audience, reader DIDs, authority issuers) | GET | `/.well-known/dpp-service` |
 | read a collection directly | GET | `/dpp/v1/dpps/:dpp_id/collections/:element_id` |
 | update a collection directly | PATCH | `/dpp/v1/dpps/:dpp_id/collections/:element_id` |
+| register the access policy of a product type | PUT | `/dpp/v1/access-policies` |
+| list the gaps of a passport's access policy | GET | `/dpp/v1/dpps/:dpp_id/access-policy` |
+| register an access grant | PUT | `/dpp/v1/access-grants` |
+| list the access grants one has issued | GET | `/dpp/v1/access-grants` |
+| revoke an access grant one has issued | DELETE | `/dpp/v1/access-grants/:jti` |
+| read the entries of the access log that concern one | GET | `/dpp/v1/access-log` |
 
 A collection is a subclass of DataElement (EN 18223:2026 4.1.2.4) and is
 reachable through the element path, so EN 18222:2026 Table 18 defines
@@ -123,6 +133,14 @@ unless `release_previous=true` is passed, because retiring it is bounded by the
 DNS time-to-live in the operator's zone. `docs/verification/` records a run of
 this against two live deployments.
 
+`delegation` concerns the mandate under which the service reaches the
+custodian: it has a lifetime, the passport does not. GET says which mandate is
+held, POST replaces it with a fresh one; neither moves the passport. The rules
+are in [docs/Delegation.md](docs/Delegation.md). `/.well-known/dpp-service`
+names the DID an economic operator delegates to, and for each pod the reader
+DID under which the intermediary registers the service as protected statutory
+reader.
+
 Identifiers used as a single path segment (`:dpp_id`, `:product_id`) must be
 URL-encoded by the client. `*element_path` is a glob holding an absolute
 element path: the elementId of each level, separated by `/`.
@@ -133,8 +151,8 @@ element path: the elementId of each level, separated by `/`.
 |---|---|---|
 | EN 18222:2026 | API methods, status codes, Result object | routes, `app/controllers`, `ApiStatus` |
 | EN 18223:2026 | DPP semantic model (payload) | `app/models/dpp.rb`, `docs/openapi.yaml` |
-| EN 18216:2026 | Transport and formats (TLS, JSON) | `force_ssl`, response content types |
-| prEN 18239 | Access rights and security | `TokenAuthenticatable` |
+| EN 18216:2026 | Transport and formats (TLS, JSON) | `force_ssl`; TLS 1.2 and 1.3 at the ingress; response content types |
+| prEN 18239 | Access rights and security | `TokenAuthenticatable`; rate limit in `ApplicationController`; cross-origin policy in `config/initializers/cors.rb`; access classes and policies in `AccessClass`, `AccessPolicy`, `config/vocab/`; access grants in `AccessGrant`; reading per role in `PassportAccess`; access log in `AccessLog` |
 | EN 18221:2026 | Storage, archiving, versioning | `DppVersion`, `Dpp#archive_current_version!` |
 | EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, [`did:oyd`](https://ownyourdata.github.io/oydid/) and `did:web` |
 | prEN 18246 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, `bin/verify_dpp` |
@@ -153,13 +171,18 @@ bundle exec rspec
 
 ## Open items before production use
 
-1. **Role model (prEN 18239).** Signature verification and owner binding are
-   implemented — set `DPP_AUTH_MODE=did` and bearer tokens must be self-issued
-   JWTs signed with the document key of the issuer's `did:oyd`. Still missing:
-   the roles (authority, refurbisher, consumer) and the distinction between
-   public data, controlled data and trade secrets.
-2. **EC Registry client (EN 18222:2026 §5).** `registerDPP` returns a synthetic
-   identifier; the real endpoint is defined by EU implementing acts.
+1. **Access log kept inside the database (prEN 18239).** Signature
+   verification, owner binding, access classes, per-attribute access policies,
+   access grants, revoking them and reading per role are implemented, and every
+   access to the controlled part is logged
+   ([docs/AccessClasses.md](docs/AccessClasses.md)). Entries are only ever
+   added and PostgreSQL refuses to change them, but the log is not anchored
+   outside the database: someone who can change the database directly can
+   change it unnoticed. Grants for `authority` are taken only from the issuers
+   listed in `DPP_AUTHORITY_ISSUERS`.
+2. **EU registry client (EN 18222:2026 §5).** `registerDPP` checks the entry and
+   answers `502` (`registry_not_connected`); nothing is registered. The Commission
+   publishes no API specification for the EU DPP Registry.
 3. **Content negotiation (EN 18216:2026 §5).** JSON is implemented; XML, JSON-LD
    and HTML renderers are not.
 4. **Data dictionary (EN 18223:2026 §4.3).** The element-path resolver walks the

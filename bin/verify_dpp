@@ -16,7 +16,7 @@
 # green tick over the question.
 
 require "json"
-require "net/http"
+require "httpx"
 require "uri"
 
 # oydid reads data with CSV, which aborts when the default external encoding is
@@ -46,16 +46,26 @@ def ok(text)   = puts("  [ ok ] #{text}")
 def no(text)   = puts("  [FAIL] #{text}")
 def open_(text) = puts("  [open] #{text}")
 
+# Over HTTP/2, which EN 18216:2026 clause 4 requires for DPP data exchange;
+# httpx negotiates it via ALPN (Net::HTTP speaks HTTP/1.1 only).
 def fetch(url)
-  uri = URI.parse(url)
-  response = Net::HTTP.start(uri.hostname, uri.port,
-                             use_ssl: uri.scheme == "https",
-                             open_timeout: 5, read_timeout: 15) do |http|
-    http.request(Net::HTTP::Get.new(uri, "Accept" => "application/json"))
-  end
-  [response.code.to_i, response.body.to_s]
+  response = HTTPX.with(timeout: { connect_timeout: 5, read_timeout: 15 })
+                  .get(url, headers: { "accept" => "application/json" })
+  raise response.error if response.is_a?(HTTPX::ErrorResponse)
+
+  [response.status, response.to_s]
 rescue StandardError => e
   abort("cannot reach #{url}: #{e.class}: #{e.message}")
+end
+
+# The serviceEndpoint is an EN 18222:2026 read path, which answers in the
+# compressed representation unless asked otherwise (8.1). The commitment binds
+# the full one (docs/Integrity.md section 4), so that is what is asked for.
+def full_form(url)
+  uri = URI.parse(url)
+  query = URI.decode_www_form(uri.query.to_s).reject { |key, _| key == "representation" }
+  uri.query = URI.encode_www_form(query + [%w[representation full]])
+  uri.to_s
 end
 
 carrier = ARGV.first
@@ -126,7 +136,7 @@ authoritative = bytes
 
 if !endpoint.empty? && endpoint != carrier
   step("4b   compare the carrier link with the endpoint the DID document names")
-  e_code, e_body = fetch(endpoint)
+  e_code, e_body = fetch(full_form(endpoint))
   if e_code != 200
     no("the endpoint named in the DID document answered #{e_code}")
     authoritative = nil

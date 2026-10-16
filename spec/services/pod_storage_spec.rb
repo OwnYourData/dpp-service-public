@@ -3,9 +3,9 @@
 require "rails_helper"
 require "digest"
 
-# HTTP layer of the pod client. Net::HTTP is stubbed so the specs run without a
+# HTTP layer of the pod client. OutboundHttp is stubbed so the specs run without a
 # network; what is checked is which requests the client builds and how it maps
-# the pod's answers onto the generic status codes of EN 18222:2026 (Table 16) and
+# the pod's answers onto the generic status codes of EN 18222:2026 (Table 15) and
 # the OAuth errors of docs/Delegation.md §15.
 RSpec.describe PodStorage do
   let(:base_url)    { "https://dpp.go-data.at" }
@@ -34,24 +34,23 @@ RSpec.describe PodStorage do
 
   before do
     described_class.reset_token_cache!
+    described_class::TokenRetry.reset
     allow(ServiceDid).to receive(:did).and_return(service_did)
     allow(ServiceDid).to receive(:signing_key).and_return(service_key)
     allow(DidTokenVerifier).to receive(:public_key_for).with(holder_did).and_return(holder.verify_key)
   end
 
-  # Intercepts Net::HTTP and records the requests that were sent.
+  # Intercepts OutboundHttp and records the requests that were sent.
   def stub_pod(responses)
     requests = []
     queue = Array(responses).dup
 
-    http = double("http")
-    allow(http).to receive(:request) do |req|
+    allow(OutboundHttp).to receive(:perform) do |req, **|
       requests << req
       spec = queue.size > 1 ? queue.shift : queue.first
       body = spec[:body].is_a?(String) ? spec[:body] : JSON.generate(spec[:body] || {})
-      instance_double(Net::HTTPResponse, code: spec[:status].to_s, body: body, message: "stubbed")
+      OutboundHttp::Response.new(code: spec[:status].to_s, body: body, message: "stubbed", version: "2.0")
     end
-    allow(Net::HTTP).to receive(:start) { |*_args, &blk| blk.call(http) }
     requests
   end
 
@@ -177,6 +176,32 @@ RSpec.describe PodStorage do
       limited = described_class.new(**config.merge(delegation: delegation_jwt("act" => ["create"])))
 
       expect { limited.write_payload("4711", {}) }
+        .to raise_error(described_class::DelegationError) { |e|
+          expect(e.status_code).to eq("ClientForbidden")
+        }
+    end
+  end
+
+  # §15: a mandate that has run out is a matter of authorisation, one that
+  # never named the operation a matter of permission.
+  describe "#ensure_covers!" do
+    it "answers ClientNotAuthorized for a delegation that has expired" do
+      past = Time.now.to_i - 3600
+      expired = described_class.new(**config.merge(
+        delegation: delegation_jwt("iat" => past - 86_400, "nbf" => past - 86_400, "exp" => past),
+        verify: false
+      ))
+
+      expect { expired.ensure_covers!("update") }
+        .to raise_error(described_class::DelegationError) { |e|
+          expect(e.status_code).to eq("ClientNotAuthorized")
+        }
+    end
+
+    it "answers ClientForbidden for an operation the delegation never named" do
+      limited = described_class.new(**config.merge(delegation: delegation_jwt("act" => ["create"])))
+
+      expect { limited.ensure_covers!("delete") }
         .to raise_error(described_class::DelegationError) { |e|
           expect(e.status_code).to eq("ClientForbidden")
         }
@@ -319,48 +344,6 @@ RSpec.describe PodStorage do
     end
   end
 
-  describe "#read_payload" do
-    # D4: reading back is the reverse side of a write permission, not an
-    # operation of its own — a merge patch cannot be formulated without the
-    # current document. So this must work even for a delegation that names only
-    # one act, and it must never ask for the index card.
-    it "reads back without demanding an act of its own" do
-      limited = described_class.new(**config.merge(delegation: delegation_jwt("act" => ["create"])))
-      requests = stub_pod([token_response, { status: 200, body: { "uniqueProductIdentifier" => "x" } }])
-
-      expect(limited.read_payload("4711")).to eq("uniqueProductIdentifier" => "x")
-      expect(requests.last.path).to eq("/object/4711/read")
-    end
-
-    it "asks for the payload only, never for the index card" do
-      requests = stub_pod([token_response, { status: 200, body: {} }])
-
-      storage.read_payload("4711")
-
-      expect(requests.last.path).not_to include("show_meta")
-    end
-  end
-
-  describe "#version_at" do
-    it "asks the pod's public path and needs no token" do
-      requests = stub_pod([{ status: 200, body: { "dppStatus" => "Active" } }])
-
-      result = storage.version_at("did:oyd:zX", Time.utc(2026, 8, 12, 12))
-
-      expect(result).to eq("dppStatus" => "Active")
-      expect(requests.last.path).to start_with("/dpp/v1/dppsByIdAndDate/")
-      expect(requests.last.path).to include(CGI.escape("2026-08-12T12:00:00Z"))
-      expect(requests.last["Authorization"]).to be_nil
-      expect(requests.last["DPoP"]).to be_nil
-    end
-
-    it "returns nil when the pod has no version for that date" do
-      stub_pod([{ status: 404, body: { "error" => "DPP not found" } }])
-
-      expect(storage.version_at("did:oyd:zX", Time.utc(2020))).to be_nil
-    end
-  end
-
   describe "error mapping (EN 18222:2026 Tables 12-15, docs/Delegation.md §15)" do
     {
       404 => "ClientErrorResourceNotFound",
@@ -370,7 +353,7 @@ RSpec.describe PodStorage do
       it "maps HTTP #{http_status} to #{generic}" do
         stub_pod([token_response, { status: http_status, body: { "error" => "boom" } }])
 
-        expect { storage.read_payload("4711") }
+        expect { storage.write_payload("4711", {}) }
           .to raise_error(described_class::Error) { |e| expect(e.status_code).to eq(generic) }
       end
     end
@@ -383,7 +366,7 @@ RSpec.describe PodStorage do
       it "maps the OAuth error #{oauth_error} to #{generic}" do
         stub_pod([token_response, { status: 400, body: { "error" => oauth_error } }])
 
-        expect { storage.read_payload("4711") }
+        expect { storage.write_payload("4711", {}) }
           .to raise_error(described_class::DelegationError) { |e|
             expect(e.status_code).to eq(generic)
           }
@@ -395,7 +378,7 @@ RSpec.describe PodStorage do
                 { status: 400, body: { "error" => "invalid_grant",
                                        "error_description" => "jti on the denylist" } }])
 
-      expect { storage.read_payload("4711") }
+      expect { storage.write_payload("4711", {}) }
         .to raise_error(described_class::Error) { |e|
           expect(e.message).not_to include("denylist")
         }
@@ -404,15 +387,195 @@ RSpec.describe PodStorage do
     it "drops the cached token when the pod rejects it" do
       stub_pod([token_response, { status: 401, body: {} }])
 
-      expect { storage.read_payload("4711") }.to raise_error(described_class::Error)
+      expect { storage.write_payload("4711", {}) }.to raise_error(described_class::Error)
       expect(described_class.token_cache_get([base_url, "b2f1c9e4a7d05386"])).to be_nil
     end
 
+    it "drops only the token of this delegation, not those of others" do
+      described_class.token_cache_put([base_url, "another-jti"], "other-token", 600)
+      stub_pod([token_response, { status: 401, body: {} }])
+
+      expect { storage.write_payload("4711", {}) }.to raise_error(described_class::Error)
+      expect(described_class.token_cache_get([base_url, "another-jti"])).to eq("other-token")
+    end
+
     it "reports an unreachable pod as a bad gateway" do
-      allow(Net::HTTP).to receive(:start).and_raise(Errno::ECONNREFUSED)
+      allow(OutboundHttp).to receive(:perform)
+        .and_raise(OutboundHttp::ConnectionError, "Errno::ECONNREFUSED: Connection refused")
 
       expect { storage.token }
         .to raise_error(described_class::Error) { |e| expect(e.status_code).to eq("ServerErrorBadGateway") }
+    end
+  end
+
+  # The pod can refuse an access token it issued itself -- expired early, or
+  # withdrawn on its own. One new token, one repeat; whether the mandate still
+  # holds is then for the token endpoint to say, and invalid_grant there is final.
+  describe "a token refused at the resource (401 invalid_token)" do
+    let(:refused) { { status: 401, body: { "error" => "invalid_token" } } }
+
+    def token_response_with(access)
+      { status: 200, body: { access_token: access, token_type: "DPoP", expires_in: 600 } }
+    end
+
+    def token_requests(requests) = requests.count { |r| r.path == "/oauth/token" }
+
+    it "fetches one new token and repeats the request with it" do
+      requests = stub_pod([token_response_with("first"), refused,
+                           token_response_with("second"), { status: 200, body: {} }])
+
+      expect(storage.write_payload("4711", { "a" => 1 })).to be(true)
+
+      expect(requests.map(&:path)).to eq(["/oauth/token", "/object/4711/write",
+                                          "/oauth/token", "/object/4711/write"])
+      expect(requests.last["Authorization"]).to eq("DPoP second")
+      expect(requests.last.body).to eq(requests[1].body)
+    end
+
+    it "sends a fresh DPoP proof with the repeat, bound to the new token" do
+      requests = stub_pod([token_response_with("first"), refused,
+                           token_response_with("second"), { status: 200, body: {} }])
+
+      storage.write_payload("4711", {})
+
+      first  = Delegation.peek(requests[1]["DPoP"])
+      repeat = Delegation.peek(requests[3]["DPoP"])
+      expect(repeat["jti"]).not_to eq(first["jti"])
+      expect(repeat["ath"]).to eq(Delegation.b64u(Digest::SHA256.digest("second")))
+    end
+
+    it "gives up after the second refusal, with ClientNotAuthorized" do
+      requests = stub_pod([token_response_with("first"), refused,
+                           token_response_with("second"), refused])
+
+      expect { storage.write_payload("4711", {}) }
+        .to raise_error(described_class::DelegationError) { |e|
+          expect(e.status_code).to eq("ClientNotAuthorized")
+        }
+      expect(requests.size).to eq(4)
+      expect(token_requests(requests)).to eq(2)
+    end
+
+    it "does not repeat once the token endpoint answers invalid_grant" do
+      requests = stub_pod([token_response_with("first"), refused,
+                           { status: 400, body: { "error" => "invalid_grant" } }])
+
+      expect { storage.write_payload("4711", {}) }
+        .to raise_error(described_class::DelegationError) { |e|
+          expect(e.status_code).to eq("ClientNotAuthorized")
+        }
+      expect(requests.map(&:path)).to eq(["/oauth/token", "/object/4711/write", "/oauth/token"])
+    end
+
+    it "treats invalid_grant at the first token request as final" do
+      requests = stub_pod([{ status: 400, body: { "error" => "invalid_grant" } }])
+
+      expect { storage.write_payload("4711", {}) }.to raise_error(described_class::DelegationError)
+      expect(requests.size).to eq(1)
+    end
+
+    it "does not repeat on a 401 that is not invalid_token" do
+      requests = stub_pod([token_response, { status: 401, body: { "error" => "invalid_dpop_proof" } }])
+
+      expect { storage.write_payload("4711", {}) }.to raise_error(described_class::DelegationError)
+      expect(requests.size).to eq(2)
+    end
+
+    # Several pod requests can serve one incoming request (delete: write the
+    # final state, then remove the object). The repeat is granted once for all
+    # of them together.
+    it "fetches at most one additional token per incoming request" do
+      requests = stub_pod([token_response_with("first"), refused,
+                           token_response_with("second"), { status: 200, body: {} },
+                           refused])
+
+      storage.write_payload("4711", {})
+      expect { storage.delete_object("4711") }
+        .to raise_error(described_class::DelegationError) { |e|
+          expect(e.status_code).to eq("ClientNotAuthorized")
+        }
+      expect(token_requests(requests)).to eq(2)
+    end
+
+    it "grants the repeat again for the next incoming request" do
+      stub_pod([token_response_with("first"), refused,
+                token_response_with("second"), { status: 200, body: {} }])
+      storage.write_payload("4711", {})
+
+      described_class::TokenRetry.reset
+      requests = stub_pod([refused, token_response_with("third"), { status: 200, body: {} }])
+
+      expect(storage.write_payload("4711", {})).to be(true)
+      expect(requests.last["Authorization"]).to eq("DPoP third")
+    end
+  end
+
+  describe "the controlled card" do
+    let(:product) { "https://dpp.oydapp.eu/01/09520123456795/21/000777" }
+    let(:dpp) { Dpp.new(dpp_id: "did:oyd:zQmC", product_id: product, product_key: "/01/09520123456795/21/000777") }
+
+    def answer(code, body)
+      OutboundHttp::Response.new(code: code.to_s, body: body.is_a?(String) ? body : JSON.generate(body),
+                                 message: "stubbed", version: "2.0")
+    end
+
+    def stub_routes(routes)
+      seen = []
+      allow(OutboundHttp).to receive(:perform) do |req, **|
+        seen << "#{req.method.to_s.upcase} #{req.path}"
+        next answer(200, { "access_token" => "t", "token_type" => "DPoP", "expires_in" => 600 }) if req.path == "/oauth/token"
+
+        code, body = routes.fetch("#{req.method.to_s.upcase} #{req.path}") { raise "unexpected #{req.method} #{req.path}" }
+        answer(code, body)
+      end
+      seen
+    end
+
+    subject(:storage) do
+      described_class.new(base_url: "https://dpp-staging.go-data.at", collection_id: "4",
+                          delegation: delegation_jwt, verify: false)
+    end
+
+    it "is created with its own type" do
+      body = nil
+      allow(OutboundHttp).to receive(:perform) do |req, **|
+        next answer(200, { "access_token" => "t", "expires_in" => 600 }) if req.path == "/oauth/token"
+
+        body = JSON.parse(req.body)
+        answer(200, { "object-id" => 7 })
+      end
+
+      expect(storage.create_object(dpp, type: described_class::CONTROLLED_CARD)).to eq("7")
+      expect(body).to include("type" => "DigitalProductPassportControlled", "digitalProductPassportId" => "did:oyd:zQmC")
+    end
+
+    it "says so when the delegation does not cover it" do
+      stub_routes("POST /object" => [403, { "error" => "insufficient_scope" }])
+
+      expect { storage.create_object(dpp, type: described_class::CONTROLLED_CARD) }
+        .to raise_error(described_class::DelegationError, /does not cover the controlled card/) { |e|
+          expect(e.status_code).to eq("ClientForbidden")
+        }
+    end
+
+    {
+      "passport identifier is held by another collection" => /another economic operator/,
+      "passport identifiers do not match the other card of this passport" => /another passport/,
+      "something else" => /409, something else/
+    }.each do |reason, text|
+      it "maps 409 #{reason.inspect} to ClientResourceConflict" do
+        stub_routes("POST /object" => [409, { "error" => reason }])
+
+        expect { storage.create_object(dpp) }
+          .to raise_error(described_class::Error, text) { |e| expect(e.status_code).to eq("ClientResourceConflict") }
+      end
+    end
+
+    it "is read with the write delegation" do
+      seen = stub_routes("GET /object/7/read" => [200, { "elements" => [] }])
+
+      expect(storage.read_object("7")).to eq("elements" => [])
+      expect(seen).to include("GET /object/7/read")
     end
   end
 end

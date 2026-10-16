@@ -92,8 +92,15 @@ For a reader to be able to recompute this, it must be unambiguous what is being
 hashed. Definition:
 
 - **Subject:** exactly the bytes that the custodian delivers under the
-  `serviceEndpoint` with `Content-Type: application/json` — the payload in the
-  sense of EN 18223:2026, without the HTTP frame, without reformatting.
+  `serviceEndpoint` with `Content-Type: application/json`, in the full
+  representation of EN 18223:2026 Annex A — the payload in the sense of
+  EN 18223:2026, without the HTTP frame, without reformatting. The
+  `serviceEndpoint` is an EN 18222:2026 read path, and those answer in the
+  compressed representation unless asked otherwise (8.1); a reader fetching it
+  therefore adds `representation=full` to the query. The full form is the one
+  that is stored, and the only one that carries everything the passport says:
+  the compressed form is derived from it and leaves out what a data dictionary
+  holds.
 - **Procedure:** `sha256`, multibase-encoded (`z…`), identical to how the DRI is
   formed in the pod, so that pod and DID document carry the same value.
 - **No canonicalisation.** Precisely for that reason the custodian stores and
@@ -105,7 +112,7 @@ The verification step of a reader is therefore:
 
 ```
 1. scan data carrier           → the uniqueProductIdentifier, an https URL
-2. fetch                       → passport document (bytes B)
+2. fetch                       → passport document (bytes B), full representation
 3. digitalProductPassportId    → take from B
 4. resolve DID                 → document v_n
 5. sha256(B) == payloadHash?   → integrity
@@ -121,7 +128,7 @@ because it does not have the document key.
 
 ```
 Client  → Service : PATCH /dpp/v1/dpps/{DID}  (Merge Patch)
-Service → Pod     : read current document
+Service → Pod     : read current document (public path, no token)
 Service           : apply Merge Patch
 Service → Pod     : write B' (the pod archives by itself)
 Service → Pod     : read B' back from the public serviceEndpoint
@@ -141,7 +148,7 @@ assumed.
 
 ```
 Client  → Service : PATCH /dpp/v1/dpps/{DID}  (Merge Patch)
-Service → Pod     : read, patch, write B'
+Service → Pod     : read (public path, no token), patch, write B'
 Service → Client  : 200 + { "payloadHash": "z4Fu…", "didUpdateRequired": true }
 Client            : sign the log entry with this hash (locally or CMSM/SE)
 Client  → VDR     : publish the entry
@@ -244,7 +251,55 @@ attestation can only be verified via the previously stored log chain.
 > version history of a deleted passport becomes unreachable — a silent
 > violation of 18221.
 
-## 9. Open items
+## 9. The controlled part of a passport
+
+A passport with an access policy (AccessClasses.md) is held by a custodian that
+supports it as two cards: the public card, which the custodian serves to
+everyone, and the controlled card with the attributes that are not public. The
+`serviceEndpoint` delivers the public card, so the hash of section 4 is taken
+over the public bytes only. A passport with a policy that the service holds
+itself is kept the same way, as a public and a controlled part, and its hash
+is taken over the public part.
+
+The public card names the controlled one. Among its data elements it carries
+
+```json
+{ "elementId": "ControlledData", "objectType": "SingleValuedDataElement",
+  "valueDataType": "xsd:string", "value": "zQm…" }
+```
+
+whose value is `sha256` over the controlled payload in its JSON
+canonicalization (RFC 8785), multibase-encoded like the payload hash. The
+controlled payload carries a random value of its own, the data element
+`ControlledDataSalt`, which is part of what is hashed.
+
+**What the commitment to the public bytes thereby covers:**
+
+- the controlled part as it was written together with that public card:
+  whoever holds the controlled payload recomputes the canonical form, hashes
+  it and compares the result with `ControlledData`. The service does so before
+  it hands out anything of the controlled part (AccessClasses.md §8); a reader
+  with access rights gets the attributes, not the salt;
+- that the controlled part changed: every change to it gives the public card a
+  new `ControlledData`, and with it a new payload hash and a new log entry.
+
+**What it does not cover:**
+
+- the controlled values themselves for anyone who does not hold them. The
+  salt keeps them from being guessed through the hash, even where a value has
+  few possibilities;
+- the bytes in which the custodian stores and delivers the controlled card.
+  The digest is taken over the canonical form, so a custodian that re-orders
+  keys does not break it; one that changes a value does;
+- which attributes are in the controlled part, or how many;
+- earlier versions of the controlled card. Each is covered by the public card
+  of its time, through the version history in the pod (section 7).
+
+A write that breaks off between the two cards can leave the public card naming
+a controlled payload that is not, or not yet, the one stored. Repeating the
+write restores the match.
+
+## 10. Open items
 
 1. The commitment is the `payloadHash` attribute of the `DigitalProductPassport`
    service entry. prEN 18246 makes no stipulation on the name, so it is fixed in

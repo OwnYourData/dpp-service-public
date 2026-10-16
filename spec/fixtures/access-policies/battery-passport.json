@@ -1,0 +1,81 @@
+{
+  "digitalProductPassportId": "did:oyd:zQmBatteryExampleForAccessClasses",
+  "uniqueProductIdentifier": "https://id.cells.example/01/09520123456795/21/B-000417",
+  "granularity": "item",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-10-13T12:00:00Z",
+  "economicOperatorId": "did:web:cells.example",
+  "facilityId": "https://id.cells.example/414/4012345000009",
+  "elements": [
+    {
+      "elementId": "Identification",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "SingleValuedDataElement", "elementId": "BatteryIdentifier", "value": "B-000417", "valueDataType": "xsd:string" },
+        { "objectType": "SingleValuedDataElement", "elementId": "ManufacturerIdentifier", "value": "did:web:cells.example", "valueDataType": "xsd:string" },
+        { "objectType": "SingleValuedDataElement", "elementId": "ManufacturingPlace", "value": "Graz, AT", "valueDataType": "xsd:string" },
+        { "objectType": "SingleValuedDataElement", "elementId": "ManufacturingDate", "value": "2026-09-30", "valueDataType": "xsd:date" }
+      ]
+    },
+    {
+      "elementId": "General",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "SingleValuedDataElement", "elementId": "BatteryCategory", "value": "EV", "valueDataType": "xsd:string" },
+        { "objectType": "SingleValuedDataElement", "elementId": "BatteryMass", "value": 412.5, "valueDataType": "xsd:decimal", "unitOfMeasure": "kg" },
+        { "objectType": "SingleValuedDataElement", "elementId": "WarrantyPeriod", "value": "P8Y", "valueDataType": "xsd:duration" },
+        { "objectType": "SingleValuedDataElement", "elementId": "ServiceStartDate", "value": "2026-11-02", "valueDataType": "xsd:date" },
+        { "objectType": "SingleValuedDataElement", "elementId": "BatteryStatus", "value": "original", "valueDataType": "xsd:string" }
+      ]
+    },
+    {
+      "elementId": "CarbonFootprint",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "SingleValuedDataElement", "elementId": "TotalCarbonFootprint", "value": 84.2, "valueDataType": "xsd:decimal", "unitOfMeasure": "kg CO2e/kWh" },
+        { "objectType": "SingleValuedDataElement", "elementId": "CarbonFootprintClass", "value": "B", "valueDataType": "xsd:string" }
+      ]
+    },
+    {
+      "elementId": "Composition",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "SingleValuedDataElement", "elementId": "CathodeChemistry", "value": "NMC 811", "valueDataType": "xsd:string" },
+        {
+          "objectType": "MultiValuedDataElement",
+          "elementId": "CriticalRawMaterials",
+          "elements": [
+            { "objectType": "SingleValuedDataElement", "elementId": "Material1", "value": "cobalt", "valueDataType": "xsd:string" },
+            { "objectType": "SingleValuedDataElement", "elementId": "Material2", "value": "lithium", "valueDataType": "xsd:string" }
+          ]
+        },
+        { "objectType": "SingleValuedDataElement", "elementId": "HazardousSubstances", "value": "none above threshold", "valueDataType": "xsd:string" }
+      ]
+    },
+    {
+      "elementId": "Dismantling",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "RelatedResource", "elementId": "DismantlingManual", "contentType": "application/pdf", "url": "https://docs.cells.example/dismantling/B-000417.pdf" },
+        { "objectType": "SingleValuedDataElement", "elementId": "SparePartsContact", "value": "parts@cells.example", "valueDataType": "xsd:string" }
+      ]
+    },
+    {
+      "elementId": "Performance",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "SingleValuedDataElement", "elementId": "StateOfHealth", "value": 100, "valueDataType": "xsd:decimal", "unitOfMeasure": "%" },
+        { "objectType": "SingleValuedDataElement", "elementId": "RemainingCapacity", "value": 82.0, "valueDataType": "xsd:decimal", "unitOfMeasure": "kWh" }
+      ]
+    },
+    {
+      "elementId": "Compliance",
+      "objectType": "DataElementCollection",
+      "elements": [
+        { "objectType": "RelatedResource", "elementId": "DeclarationOfConformity", "contentType": "application/pdf", "url": "https://docs.cells.example/doc/B-000417.pdf" },
+        { "objectType": "RelatedResource", "elementId": "TestReportResults", "contentType": "application/pdf", "url": "https://docs.cells.example/tests/B-000417.pdf" }
+      ]
+    }
+  ]
+}

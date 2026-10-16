@@ -17,6 +17,13 @@ class Dpp < ApplicationRecord
   has_many :dpp_versions, foreign_key: "dpp_id", primary_key: "dpp_id",
                           dependent: nil, inverse_of: :dpp
 
+  # The access policy (AccessPolicy) this passport is classified by, if one
+  # was named at CreateDPP or a later UpdateDPP. Kept in a column of this
+  # service, never in the passport: EN 18223:2026 Table 1 has no attribute for
+  # it. It can be replaced, but not removed.
+  belongs_to :access_policy_record, class_name: "RegisteredAccessPolicy",
+                                    foreign_key: :access_policy_id, optional: true, inverse_of: false
+
   validates :dpp_id, :product_id, :dpp_schema_version, :economic_operator_id, presence: true
   validates :dpp_status, inclusion: { in: STATUSES }
   validates :granularity, inclusion: { in: GRANULARITIES }
@@ -26,8 +33,13 @@ class Dpp < ApplicationRecord
   # identifiers and must stay updatable.
   validate :product_id_is_a_carrier_identifier, on: :create
   before_validation :assign_product_key
+  before_save :split_local_content, unless: :pod?
 
   scope :active, -> { where(dpp_status: "Active") }
+
+  # Whether the availability period (ESPR Art. 9(2)(i)) still holds the
+  # passport on a given day. The last day itself is inside the period.
+  def retained?(date = Date.current) = retain_until.present? && date <= retain_until
 
   # The Unique Product Identifier registered at the EU Registry.
   #
@@ -44,6 +56,17 @@ class Dpp < ApplicationRecord
     product_id
   end
 
+  # The policy itself, or nil.
+  def access_policy
+    access_policy_record&.policy
+  end
+
+  # Every attribute of the passport as stored, with its access class, or nil
+  # without a policy.
+  def access_classification(document = to_document)
+    access_policy&.classify(document)
+  end
+
   # --- storage backend (S2: hosting pod of the data intermediary) --------------
 
   STORAGE_BACKENDS = %w[local pod].freeze
@@ -54,8 +77,16 @@ class Dpp < ApplicationRecord
     storage_backend == "pod"
   end
 
+  # Writing: under the delegation the economic operator signed.
   def pod_storage
     @pod_storage ||= PodStorage.for(self)
+  end
+
+  # Reading: over the custodian's public paths, without a token. Reading never
+  # depends on the delegation, so an expired or refused mandate leaves the
+  # passport readable here as it does at the custodian.
+  def pod_reader
+    @pod_reader ||= PodStorage::PublicReader.new(storage_base_url)
   end
 
   # Attach a pod as the storage backend. What is kept is the delegation the
@@ -71,34 +102,126 @@ class Dpp < ApplicationRecord
     self.storage_collection_id = storage.collection_id
     self.storage_delegation    = storage.storage_delegation
     @pod_storage = storage
+    @pod_reader  = nil
     self.document_content = document
     self
   end
 
-  # The DPP document: locally the +content+ column, for a pod-backed DPP a
-  # read-through fetch from the pod (cached for the lifetime of this instance).
+  # Raised when a write would hand attributes that are not public to a
+  # custodian that publishes everything it holds (ControlledCards).
+  class ControlledPartNotHeld < StandardError; end
+
+  # The whole DPP document, without the header columns: locally the +content+
+  # column; for a pod-backed DPP its public card, read over the custodian's
+  # public path, and -- for a split passport -- its controlled card, read with
+  # the write delegation (PassportSplit). Cached for the lifetime of this
+  # instance. This is what a write starts from; the read paths use
+  # +published_document+ and never touch the controlled card.
   def document_content
-    return content || {} unless pod?
+    return local_document unless pod?
     return @document_content if defined?(@document_content) && @document_content
 
-    @document_content = storage_object_id.present? ? pod_storage.read_payload(storage_object_id) : {}
+    @document_content = split_stored? ? PassportSplit.merge(public_content, read_controlled_card) : public_content
   end
 
   def document_content=(value)
     if pod?
-      @document_content = value
+      @document_content = PassportSplit.strip(value)
       self.content = {}          # nothing of the payload stays behind locally
     else
       self.content = value
+      self.controlled_content = nil
+      @local_split_pending = true
     end
+  end
+
+  # What a reader without access rights gets: the public card for a pod-backed
+  # DPP; for a local passport with an access policy its public part; for any
+  # other local passport the whole passport. PassportAccess decides who gets
+  # more.
+  def published_document
+    return with_header(public_content) if pod?
+    return to_document if access_policy_record.nil?
+    return with_header(content || {}) if controlled_content.present?
+
+    # Kept whole, as before passports here were split: only what is public.
+    with_header(access_policy.visible_for([], to_document))
+  end
+
+  # The controlled part as stored, with its salt, for a reader with access
+  # rights (PassportAccess): for a pod-backed passport its controlled card,
+  # read under this service's own read grant, never under the write
+  # delegation; for a local passport the column. nil for a passport that is
+  # not held as two parts.
+  def controlled_part
+    return controlled_content unless pod?
+    return nil unless split_stored?
+
+    id = controlled_card_id
+    if id.nil?
+      raise PodStorage::Error, "the public card of #{dpp_id} names a controlled card, and the custodian " \
+                               "has none for it"
+    end
+    protected_reader.read_object(id)
+  end
+
+  # Keeps a local passport with an access policy as a public and a controlled
+  # part, if it is still kept whole (passports from before this split).
+  def split_locally!
+    return false if pod? || access_policy_record.nil? || controlled_content.present?
+
+    @local_split_pending = true
+    save!
+  end
+
+  # This service as protected reader of the passport's collection.
+  def protected_reader
+    PodStorage::ProtectedReader.for(storage_base_url, storage_collection_id, dpp_id: dpp_id)
+  end
+
+  # Forget what was read from the custodian, so the next read asks again.
+  def forget_read_content!
+    @public_content = nil
+    @document_content = nil
+  end
+
+  # Is this passport held as two cards? Known from the stored object id, or --
+  # should that be lost -- from the public card, which names the controlled
+  # one.
+  def split_stored?
+    return false unless pod?
+
+    storage_controlled_object_id.present? ||
+      (storage_object_id.present? && PassportSplit.named_digest(public_content).present?)
+  end
+
+  # Is it to be held as two cards from the next write on?
+  def split_target?
+    pod? && access_policy_record.present? && ControlledCards.held_by?(storage_base_url)
+  end
+
+  # Refuses +document+ for a custodian at +base_url+ that does not hold
+  # controlled cards, if the access policy leaves attributes of it that are
+  # not public: written there, they would be published.
+  def ensure_controlled_part_held!(document, base_url)
+    return if access_policy.nil? || ControlledCards.held_by?(base_url)
+
+    controlled = access_policy.classify(document).classes.reject { |_, c| c == AccessClass.public_class }.keys
+    return if controlled.empty?
+
+    raise ControlledPartNotHeld,
+          "the access policy leaves #{controlled.size} attribute(s) of this passport that are not public, " \
+          "and the custodian at #{base_url} does not hold controlled parts: it would publish them"
   end
 
   # Hand the passport to a different custodian.
   #
   # The document is read from the current pod while that one is still
-  # authoritative, then written into the new one under a fresh card. What is
-  # returned describes the previous custody so the caller can end it -- as a
-  # separate act, not as a side effect of this one.
+  # authoritative -- the public card over its public path, so a mandate there
+  # that has run out does not stand in the way of leaving; the controlled card,
+  # if there is one, under that mandate -- then written into the new one under
+  # fresh cards. What is returned describes the previous custody so the caller
+  # can end it -- as a separate act, not as a side effect of this one.
   #
   # Deliberately NOT touched here: the old pod. The overlap is the rollback path
   # while a carrier may still resolve to the old host, and the version history
@@ -110,30 +233,159 @@ class Dpp < ApplicationRecord
 
     document = to_document
     previous = { storage: pod_storage, object_id: storage_object_id,
+                 controlled_object_id: storage_controlled_object_id,
                  base_url: storage_base_url, collection_id: storage_collection_id }
 
-    self.storage_base_url      = storage.base_url
-    self.storage_collection_id = storage.collection_id
-    self.storage_delegation    = storage.storage_delegation
-    self.storage_object_id     = nil
-    @pod_storage               = storage
-    self.document_content      = document
+    self.storage_base_url             = storage.base_url
+    self.storage_collection_id        = storage.collection_id
+    self.storage_delegation           = storage.storage_delegation
+    self.storage_object_id            = nil
+    self.storage_controlled_object_id = nil
+    @pod_storage                      = storage
+    @pod_reader                       = nil
+    @public_content                   = nil
+    @previous_controlled_paths        = []
+    self.document_content             = document
     save!
     store_in_pod!
 
     previous
   end
 
-  # Push the current document into the pod. Creates the card on first use.
+  # Push the current document into the pod. Creates the cards on first use.
   def store_in_pod!
     return false unless pod?
 
-    if storage_object_id.blank?
-      update_column(:storage_object_id, pod_storage.create_object(self))
+    if split_target?
+      store_split_in_pod!
+    elsif split_stored?
+      # Held as two cards, but the custodian is no longer listed as holding
+      # controlled ones: writing the whole passport into the public card
+      # would publish the controlled part.
+      raise ControlledPartNotHeld,
+            "this passport is held as a public and a controlled card, and the custodian at " \
+            "#{storage_base_url} is not configured to hold controlled parts"
+    else
+      ensure_public_card!
+      pod_storage.write_payload(storage_object_id, to_document)
     end
-    pod_storage.write_payload(storage_object_id, to_document)
     true
   end
+
+  private
+
+  # The public card's document, as the custodian serves it.
+  def public_content
+    return {} unless pod? && storage_object_id.present?
+
+    @public_content ||= pod_reader.document(dpp_id)
+  end
+
+  # The controlled card's document, read with the write delegation. Its
+  # attribute paths are remembered: a write needs to know what leaves the
+  # controlled card.
+  def read_controlled_card
+    document = begin
+      controlled_card_id ? pod_storage.read_object(storage_controlled_object_id) : nil
+    rescue PodStorage::Error => e
+      raise e unless e.status_code == "ClientErrorResourceNotFound"
+
+      update_column(:storage_controlled_object_id, nil)
+      controlled_card_id ? pod_storage.read_object(storage_controlled_object_id) : nil
+    end
+
+    if document.nil?
+      raise PodStorage::Error, "the public card of #{dpp_id} names a controlled card, and the custodian " \
+                               "has none for it; nothing is written, so that its values are not lost"
+    end
+
+    @previous_controlled_paths = PassportSplit.attribute_paths(document)
+    document
+  end
+
+  # The object id of the controlled card, looked up at the custodian when it
+  # is not stored here. Looking it up needs the object list and the index
+  # cards, which a write delegation may not read; it is done under this
+  # service's own read grant (PodStorage::ProtectedReader).
+  def controlled_card_id
+    if storage_controlled_object_id.blank?
+      found = begin
+        protected_reader.locate_controlled_card(dpp_id)
+      rescue PodStorage::Error => e
+        raise PodStorage::Error, "the object id of the controlled card of #{dpp_id} is not known here, " \
+                                 "and it could not be looked up at the custodian: #{e.message}"
+      end
+      update_column(:storage_controlled_object_id, found) if found
+    end
+    storage_controlled_object_id.presence
+  end
+
+  def ensure_public_card!
+    return if storage_object_id.present?
+
+    update_column(:storage_object_id, pod_storage.create_object(self))
+  end
+
+  def ensure_controlled_card!
+    return if storage_controlled_object_id.present?
+
+    update_column(:storage_controlled_object_id,
+                  pod_storage.create_object(self, type: PodStorage::CONTROLLED_CARD))
+  end
+
+  # Writes the passport as two cards, controlled first, in an order in which a
+  # write that breaks off at any point loses no value and publishes none
+  # early; the same request again reaches the intended state.
+  #
+  #   1. the controlled card: the new controlled part, and whatever is about
+  #      to leave it for the public card;
+  #   2. the public card: the new public part, naming the final controlled
+  #      payload;
+  #   3. only if something left: the controlled card as it is to stay.
+  def store_split_in_pod!
+    document   = to_document
+    controlled = access_policy.classify(document).classes
+                              .reject { |_, c| c == AccessClass.public_class }.keys.to_set
+    leaving    = Array(@previous_controlled_paths).reject { |path| controlled.include?(path) }
+
+    public_part, controlled_part = PassportSplit.split(document) { |path| controlled.include?(path) }
+    final_payload = PassportSplit.controlled_payload(controlled_part)
+
+    first_payload =
+      if leaving.empty?
+        final_payload
+      else
+        keep = controlled | leaving
+        PassportSplit.controlled_payload(PassportSplit.split(document) { |path| keep.include?(path) }.last)
+      end
+
+    ensure_controlled_card!
+    pod_storage.write_payload(storage_controlled_object_id, first_payload)
+
+    ensure_public_card!
+    published = PassportSplit.public_payload(public_part, final_payload)
+    pod_storage.write_payload(storage_object_id, published)
+    @public_content = published
+
+    pod_storage.write_payload(storage_controlled_object_id, final_payload) unless leaving.empty?
+    @previous_controlled_paths = PassportSplit.attribute_paths(final_payload)
+  end
+
+  # +document+ with the header columns laid over it.
+  def with_header(document)
+    (document || {}).merge(
+      "digitalProductPassportId" => dpp_id,
+      "uniqueProductIdentifier"  => product_id,
+      "granularity"              => granularity,
+      "dppSchemaVersion"         => dpp_schema_version,
+      "dppStatus"                => dpp_status,
+      "lastUpdated"              => last_update&.iso8601,
+      "economicOperatorId"       => economic_operator_id,
+      "facilityId"               => facility_id
+    ).compact
+  end
+
+  public
 
   # --- did:oyd private key material (Variante A) ------------------------------
   # Stored encrypted (KeyVault) in the *_enc columns; accessed in the clear via
@@ -189,17 +441,11 @@ class Dpp < ApplicationRecord
   # identifier and the unique product identifier are one value, as EN 18219
   # 3.1.25 also has it. Carrying it twice would be a proprietary attribute and
   # would break conformance for every reader.
+  #
+  # This is the whole passport, as a write starts from it and as the owner gets
+  # it back from a write. What a reader gets is +published_document+.
   def to_document
-    (document_content || {}).merge(
-      "digitalProductPassportId" => dpp_id,
-      "uniqueProductIdentifier"  => product_id,
-      "granularity"              => granularity,
-      "dppSchemaVersion"         => dpp_schema_version,
-      "dppStatus"                => dpp_status,
-      "lastUpdated"              => last_update&.iso8601,
-      "economicOperatorId"       => economic_operator_id,
-      "facilityId"               => facility_id
-    ).compact
+    with_header(document_content)
   end
 
   # EN 18222:2026 4.7: every change shall be archived (EN 18221:2026 4.2).
@@ -219,19 +465,37 @@ class Dpp < ApplicationRecord
       version_number: next_no,
       dpp_status:     dpp_status,
       content:        to_document,
-      archived_at:    Time.now.utc
+      archived_at:    Time.now.utc,
+      owner_did:      owner_did,
+      access_policy_id: access_policy_id
     )
   end
 
   # Apply an RFC 7396 merge patch to the DPP document and persist.
   # For a pod-backed DPP the new document goes to the pod, which archives the
   # previous one on its own.
+  #
+  # Reading needs no mandate, writing does. So for a pod-backed DPP the mandate
+  # is checked before anything changes, and the local row is only kept if the
+  # pod accepted the write: a refused write leaves nothing behind.
+  #
+  # A passport with an access policy has to stay classifiable: the result is
+  # classified before it is written, and AccessPolicy::InvalidError leaves the
+  # passport as it was. Nor may the result hand attributes that are not public
+  # to a custodian that would publish them (ControlledPartNotHeld).
   def apply_merge_patch!(patch)
-    archive_current_version!
+    pod_storage.ensure_covers!("update") if pod?
+
     merged = JsonMergePatch.apply(to_document, patch.deep_stringify_keys)
-    assign_from_document(merged)
-    save!
-    store_in_pod!
+    access_classification(merged)
+    ensure_controlled_part_held!(merged, storage_base_url) if pod?
+
+    transaction do
+      archive_current_version!
+      assign_from_document(merged)
+      save!
+      store_in_pod!
+    end
     self
   end
 
@@ -240,10 +504,47 @@ class Dpp < ApplicationRecord
   # The host-independent part of the product identifier: the lookup key at the
   # custodian, which is what lets one store serve any number of operator-owned
   # hostnames. nil for an identifier no scheme of EN 18219:2026 Clause 5 covers.
+  #
+  # The host is kept beside it, lower-cased: together they identify the
+  # product, and the unique index over active passports is built on the pair.
   def assign_product_key
     return if product_id.blank?
 
-    self.product_key = ProductIdentifier.new(product_id).product_key
+    identifier        = ProductIdentifier.new(product_id)
+    self.product_key  = identifier.product_key
+    self.product_host = identifier.host&.downcase
+  end
+
+  # A local passport with an access policy is kept as a public and a
+  # controlled part (PassportSplit), like one at a custodian that holds
+  # controlled cards: +content+ the public part naming the controlled one,
+  # +controlled_content+ the controlled part with its salt. Split again only
+  # when the document or the policy changed -- a fresh salt on every save
+  # would change the public part, and with it the payload hash, for nothing.
+  def split_local_content
+    return unless new_record? || @local_split_pending || will_save_change_to_access_policy_id?
+
+    @local_split_pending = false
+    document = local_document
+    policy = access_policy
+    if policy.nil?
+      self.content = document
+      self.controlled_content = nil
+      return
+    end
+
+    controlled = policy.classify(document).classes.reject { |_, c| c == AccessClass.public_class }.keys.to_set
+    public_part, controlled_part = PassportSplit.split(document) { |path| controlled.include?(path) }
+    payload = PassportSplit.controlled_payload(controlled_part)
+    self.controlled_content = payload
+    self.content = PassportSplit.public_payload(public_part, payload)
+  end
+
+  # The whole local document, put together again if it is held in two parts.
+  def local_document
+    return content || {} if controlled_content.blank?
+
+    PassportSplit.merge(content, controlled_content)
   end
 
   def product_id_is_a_carrier_identifier

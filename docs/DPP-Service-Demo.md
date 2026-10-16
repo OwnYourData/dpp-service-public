@@ -71,9 +71,18 @@ Expected:
 ```json
 {
   "did": "did:oyd:zQmZBWgKreVE9VK4fxxU9RrkQ6LzcryfU15tFgDvtgtBbZd",
-  "audience": "https://dpp-service.ownyourdata.eu"
+  "audience": "https://dpp-service.ownyourdata.eu",
+  "readers": [
+    { "pod": "https://dpp.go-data.at", "did": "did:oyd:zQmQcGAi1ms87cXJVEAV4BHsYXbS2R86FomWktXgBpVL13z" },
+    …
+  ],
+  "authorityIssuers": [ "did:oyd:zQmU2jVveMRkbCPGUUPYuDrJUjdwNCXnaaaZqt6k4vaLvJV" ]
 }
 ```
+
+`readers` names, per custodian, the DID under which the service reads the
+controlled part of a passport there; `authorityIssuers` lists whose access
+grants for authorities the service accepts. Neither is needed for this demo.
 
 > The service says publicly who it is. That DID is what a delegation is later
 > issued to — and it is the reason no shared secret is needed.
@@ -425,9 +434,10 @@ Expected: the `serviceEndpoint` names the custodian; **both** answer `200`; and
 the carrier path under the custodian's own name `404`.
 
 > That the service answers `200` as well is no contradiction: for a passport held
-> at a custodian it does not keep the content, it reads it there on every access
-> (`Dpp#document_content` → `pod_storage.read_payload`). It stays a pass-through
-> — take the delegation away and it has nothing left to serve.
+> at a custodian it does not keep the content, it reads it there on every access,
+> over the custodian's public path and without a token. It stays a pass-through
+> — what it serves is what the custodian serves, also after its delegation has
+> run out.
 
 > The last line is the important one: the path is the lookup key, but the host
 > has to be the economic operator's. Otherwise a custodian could serve the
@@ -532,16 +542,20 @@ remembered state would still be showing.
 
 ```bash
 E1=$(printf %s "$DID1" | jq -sRr @uri)
+E2=$(printf %s "$DID2" | jq -sRr @uri)
 E3=$(printf %s "$DID3" | jq -sRr @uri)
 TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
 curl -sS -o /dev/null -w 'Delete passport 1: %{http_code}\n' -X DELETE "$BASE/dpps/$E1" -H "Authorization: Bearer $TOKEN"
+curl -sS -o /dev/null -w 'Delete passport 2: %{http_code}\n' -X DELETE "$BASE/dpps/$E2" -H "Authorization: Bearer $TOKEN"
 curl -sS -o /dev/null -w 'Delete passport 3: %{http_code}\n' -X DELETE "$BASE/dpps/$E3" -H "Authorization: Bearer $TOKEN"
 echo "--- and what about the identifiers? ---"
 curl -sS -o /dev/null -w 'DID from step 1 (service held the key): %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID1"
 curl -sS -o /dev/null -w 'DID from step 5 (we hold the key):      %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID3"
 ```
 
-Expected: `204` for both passports. The identifier the service minted is
+Expected: `204` for all three passports — so the demo can be run again
+without `409`, which the service returns while an active passport holds the
+same product identifier. The identifier the service minted is
 **revoked** (`410`); our own one **still resolves** (`200`).
 
 > The service cannot revoke what it holds no key for. That is not a gap but the

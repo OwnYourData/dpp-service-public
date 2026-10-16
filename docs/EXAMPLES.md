@@ -194,7 +194,8 @@ echo "DID = $DID"
 ```
 
 Expected response (`201 Created`) — note the DID has **no** `@location` suffix
-when the default repository is used:
+when the default repository is used. The passport comes back in the compressed
+representation (section 3):
 
 ```json
 {
@@ -205,7 +206,7 @@ when the default repository is used:
   "dppStatus": "Active",
   "lastUpdated": "2026-08-03T09:14:02Z",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
-  "elements": [ "… as submitted …" ]
+  "EnergyPerformance": { "LuminousFlux": 806, "EnergyEfficiencyClass": "E" }
 }
 ```
 
@@ -310,6 +311,29 @@ Public, no token required. The identifier is percent-encoded into the path.
 curl -sS "$BASE/dpps/$ENC" | jq .
 ```
 
+### Compressed and full representation
+
+Without further parameters every method that returns a passport answers in the
+compressed representation of EN 18223:2026 5.2 (EN 18222:2026 8.1): the header
+attributes, then one member per data element, named by its `elementId`, without
+`objectType`, `dictionaryReference`, `valueDataType` or units, which belong to the
+data dictionary. `?representation=full` asks for the expanded form of
+EN 18223:2026 Annex A, with `elements`, as the passport was submitted:
+
+```bash
+curl -sS "$BASE/dpps/$ENC" | jq '.EnergyPerformance'
+curl -sS "$BASE/dpps/$ENC?representation=full" | jq '.elements[0].elementId'
+```
+
+```json
+{ "LuminousFlux": 806, "EnergyEfficiencyClass": "E" }
+"EnergyPerformance"
+```
+
+`compressed` and `full` are the only values; anything else, including `Full`, is
+answered with `400` and the Result object. Request bodies are not affected: a
+merge patch always applies to the full form.
+
 ### What the response headers say about the content
 
 Every read carries the state of the payload commitment (prEN 18246;
@@ -395,6 +419,57 @@ curl -sS -X PATCH "$BASE/dpps/$ENC" \
   | jq '{ facilityId, lastUpdated }'
 ```
 
+### Attaching an access policy
+
+An access policy says which access class (public, legitimate interest,
+authority) each attribute of a passport belongs to
+([AccessClasses.md](AccessClasses.md)). It is registered once per product type
+and named by its `id`; nothing of it goes into the passport.
+
+```bash
+# Expect 201, and 200 when the same policy is registered again.
+curl -sS -o /dev/null -w "register: %{http_code}\n" \
+  -X PUT "$BASE/access-policies" "${JSON[@]}" "${AUTH[@]}" \
+  -d '{ "id": "https://dpp.example.org/access-policies/lumina-lamp/1",
+        "scheme": "https://w3id.org/soya/dpp-access/v1",
+        "rules": [
+          { "path": "EnergyPerformance", "accessClass": "public" },
+          { "path": "EnergyPerformance/LuminousFlux", "accessClass": "legitimateInterest" },
+          { "path": "SubstancesOfConcern", "accessClass": "public" } ] }'
+```
+
+A different policy under the same `id` is refused with `409`: a new version of
+a policy gets a new `id`. A new passport names its policy in `CreateDPP` with
+the header `X-DPP-Access-Policy`; for the passport that exists already,
+`UpdateDPP` takes the same header, here with an empty merge patch:
+
+```bash
+curl -sS -D - -o /dev/null -X PATCH "$BASE/dpps/$ENC" \
+  -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
+  -H "X-DPP-Access-Policy: https://dpp.example.org/access-policies/lumina-lamp/1" \
+  -d '{}' | grep -i '^x-dpp-access-policy'
+```
+
+```http
+x-dpp-access-policy: "https://dpp.example.org/access-policies/lumina-lamp/1";unclassified=0;unused-rules=1
+```
+
+The counts say how well the policy fits the passport: no attribute is left to
+the default, and one rule reaches nothing. Which ones:
+
+```bash
+curl -sS "$BASE/dpps/$ENC/access-policy" "${AUTH[@]}" | jq .
+```
+
+```json
+{ "policy": "https://dpp.example.org/access-policies/lumina-lamp/1",
+  "unclassified": [], "unusedRules": ["SubstancesOfConcern"] }
+```
+
+An `id` you have not registered is refused with `400` before anything changes.
+A policy can be replaced this way but not removed. The read paths answer as
+before, without the header.
+
 ---
 
 ## 7. Read a Data Element Collection
@@ -405,18 +480,31 @@ Fetch a single collection instead of the whole DPP.
 curl -sS "$BASE/dpps/$ENC/collections/EnergyPerformance" | jq .
 ```
 
+```json
+{ "LuminousFlux": 806, "EnergyEfficiencyClass": "E" }
+```
+
 ---
 
 ## 8. Read a single Data Element
 
-Address one element by its absolute ElementId path.
+Address one element by its absolute ElementId path. The answer is the value
+the path selects in the compressed passport, here a bare JSON number:
 
 ```bash
-curl -sS "$BASE/dpps/$ENC/elements/EnergyPerformance/LuminousFlux" \
-  | jq '{ Value, UnitOfMeasure }'
+curl -sS "$BASE/dpps/$ENC/elements/EnergyPerformance/LuminousFlux"
 ```
 
-Expected:
+```json
+806
+```
+
+The element object, with its metadata, comes with `?representation=full`:
+
+```bash
+curl -sS "$BASE/dpps/$ENC/elements/EnergyPerformance/LuminousFlux?representation=full" \
+  | jq '{ value, unitOfMeasure }'
+```
 
 ```json
 { "value": 806, "unitOfMeasure": "lm" }
@@ -432,8 +520,10 @@ Merge patch on one element — e.g. reclassify the energy efficiency class.
 curl -sS -X PATCH \
   "$BASE/dpps/$ENC/elements/EnergyPerformance/EnergyEfficiencyClass" \
   -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
-  -d '{ "value": "D" }' | jq '.Value'
+  -d '{ "value": "D" }'
 ```
+
+The answer is the element after the patch, compressed: `"D"`.
 
 ---
 
@@ -450,9 +540,9 @@ curl -sS "$BASE/dppsByIdAndDate/$ENC?date=$NOW" | jq '{ dppStatus, lastUpdated }
 
 ## 11. Register a DPP at the EU Registry (RegisterProductDPP)
 
-Client-facing registration method (EN 18222:2026 Clause 5). The connection to the
-EU DPP Registry is currently a placeholder; the call returns a registry
-identifier.
+Client-facing registration method (EN 18222:2026 Clause 5). The service is not
+connected to the EU DPP Registry: it checks the entry and then answers `502`.
+Nothing is registered and no registration identifier is returned.
 
 ```bash
 curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" "${AUTH[@]}" -d '{
@@ -463,14 +553,25 @@ curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" "${AUTH[@]}" -d '{
 }' | jq .
 ```
 
-Expected:
+Expected (`502`):
 
 ```json
 {
-  "statusCode": "SuccessCreated",
-  "registrationId": "urn:ec:dpp:registry:9f1c8a2e-…"
+  "statusCode": "ServerErrorBadGateway",
+  "message": [
+    {
+      "messageType": "Error",
+      "text": "This service is not connected to the EU DPP Registry; the passport has not been registered",
+      "code": "registry_not_connected",
+      "correlationId": "…",
+      "timestamp": "…"
+    }
+  ]
 }
 ```
+
+An entry without `uniqueProductIdentifier` or operator identifier is answered
+with `400` instead.
 
 ---
 

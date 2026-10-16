@@ -6,6 +6,15 @@ module ErrorHandling
   extend ActiveSupport::Concern
 
   included do
+    # Last resort, declared first so that every handler below takes precedence
+    # (Rails tries them in reverse order). EN 18222:2026 Table 15 gives
+    # ServerInternalError a Result object; without this the client got Rails'
+    # own body instead. The cause goes to the log, not to the client.
+    rescue_from StandardError do |e|
+      Rails.logger.error("[error] #{e.class}: #{e.message}\n#{Array(e.backtrace).first(10).join("\n")}")
+      render_result("ServerInternalError", text: "Unexpected error")
+    end
+
     rescue_from ActiveRecord::RecordNotFound do |e|
       render_result("ClientErrorResourceNotFound", text: e.message)
     end
@@ -27,9 +36,27 @@ module ErrorHandling
     end
 
     # did:oyd operation failed (VDR unreachable, invalid keys, ...) — treat as
-    # an upstream failure of the registry/VDR (EN 18222:2026 Table 16).
+    # an upstream failure of the registry/VDR (EN 18222:2026 Table 15).
     rescue_from DidOyd::DidError do |e|
       render_result("ServerErrorBadGateway", text: "DID operation failed: #{e.message}")
+    end
+
+    # An access policy that is not valid, one a request names that is not
+    # registered, or a passport that a policy cannot classify (an element
+    # without an elementId). Raised before anything is written.
+    rescue_from AccessPolicy::InvalidError do |e|
+      render_result("ClientErrorBadRequest", text: e.message)
+    end
+
+    # A write that would hand attributes that are not public to a custodian
+    # that publishes everything it holds (ControlledCards).
+    rescue_from Dpp::ControlledPartNotHeld do |e|
+      render_result("ClientErrorBadRequest", text: "Refused: #{e.message}")
+    end
+
+    # Registered policies are immutable (RegisteredAccessPolicy).
+    rescue_from RegisteredAccessPolicy::Conflict do |e|
+      render_result("ClientResourceConflict", text: e.message)
     end
 
     # Anything that went wrong with the hosting pod already carries the generic

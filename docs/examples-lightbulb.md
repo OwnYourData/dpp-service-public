@@ -11,7 +11,7 @@ Base URL: `https://api.dpp.example.org/dpp/v1`
 |---|---|
 | Outer frame of the DPP object (`digitalProductPassportId`, `uniqueProductIdentifier`, `granularity`, `dppSchemaVersion`, `dppStatus`, `lastUpdated`, `economicOperatorId`, `facilityId`) | **EN 18223:2026, Table 1** |
 | Structure `DataElementCollection` / `SingleValuedDataElement` / `MultiValuedDataElement` / `RelatedResource` | **EN 18223:2026, 4.1.2 (Tables 2–5)** |
-| Endpoints, HTTP mapping, status/result object | **EN 18222:2026 (Tables 13–19)** |
+| Endpoints, HTTP mapping, status/result object | **EN 18222:2026 (Tables 12–18)** |
 | Identifier formats (URI/URL, GS1 Digital Link, W3C DID) | **EN 18219:2026** |
 | **The concrete product characteristics** (luminous flux, colour temperature, lifetime …) | **Not in 18223.** 18223 only defines the *framework*. Which data points a lightbulb has to carry is laid down in the ESPR act for the product group (lighting: Regulation (EU) 2019/2020 + 2019/2015) and in a data dictionary that every element points to via `dictionaryReference` (EN 18223:2026, 4.3). |
 
@@ -224,22 +224,28 @@ Authorization: Bearer <token>
           "elementId": "MaterialComposition",
           "elements": [
             {
-              "objectType": "SingleValuedDataElement",
-              "elementId": "Polycarbonate",
-              "value": 42.0,
-              "valueDataType": "xsd:decimal"
+              "objectType": "DataElementCollection",
+              "elementId": "Material1",
+              "elements": [
+                { "objectType": "SingleValuedDataElement", "elementId": "material", "value": "Polycarbonate", "valueDataType": "xsd:string" },
+                { "objectType": "SingleValuedDataElement", "elementId": "share", "value": 42.0, "valueDataType": "xsd:decimal" }
+              ]
             },
             {
-              "objectType": "SingleValuedDataElement",
-              "elementId": "Aluminium",
-              "value": 31.5,
-              "valueDataType": "xsd:decimal"
+              "objectType": "DataElementCollection",
+              "elementId": "Material2",
+              "elements": [
+                { "objectType": "SingleValuedDataElement", "elementId": "material", "value": "Aluminium", "valueDataType": "xsd:string" },
+                { "objectType": "SingleValuedDataElement", "elementId": "share", "value": 31.5, "valueDataType": "xsd:decimal" }
+              ]
             },
             {
-              "objectType": "SingleValuedDataElement",
-              "elementId": "Electronics",
-              "value": 26.5,
-              "valueDataType": "xsd:decimal"
+              "objectType": "DataElementCollection",
+              "elementId": "Material3",
+              "elements": [
+                { "objectType": "SingleValuedDataElement", "elementId": "material", "value": "Electronics", "valueDataType": "xsd:string" },
+                { "objectType": "SingleValuedDataElement", "elementId": "share", "value": 26.5, "valueDataType": "xsd:decimal" }
+              ]
             }
           ]
         }
@@ -257,7 +263,12 @@ Authorization: Bearer <token>
 
 ### Response `201 Created`
 
-The stored passport, enriched with `lastUpdated` (server timestamp):
+The stored passport, enriched with `lastUpdated` (server timestamp), in the
+compressed representation (EN 18223:2026 5.2), which every method returning a
+passport uses unless the request says `?representation=full` (EN 18222:2026
+8.1). Each data element is a member named by its `elementId`; `objectType`,
+`dictionaryReference`, `valueDataType` and the units are left to the data
+dictionary:
 
 ```json
 {
@@ -269,9 +280,48 @@ The stored passport, enriched with `lastUpdated` (server timestamp):
   "lastUpdated": "2026-07-13T09:14:02Z",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
   "facilityId": "https://id.lumina.example/414/0952012345009",
-  "elements": [ "… as in the request …" ]
+  "ProductIdentification": {
+    "ModelIdentifier": "LUM-A60-827-806",
+    "BrandName": "Lumina",
+    "LightSourceType": "LED",
+    "CapType": "E27"
+  },
+  "EnergyPerformance": {
+    "OnModePower": 8.5,
+    "LuminousFlux": 806,
+    "LuminousEfficacy": 94.8,
+    "EnergyEfficiencyClass": "E",
+    "EprelRegistrationNumber": "1234567"
+  },
+  "LightQuality": {
+    "CorrelatedColourTemperature": 2700,
+    "ColourRenderingIndex": 80,
+    "Dimmable": false
+  },
+  "Durability": {
+    "RatedLifetime": 15000,
+    "SwitchingCycles": 100000
+  },
+  "SubstancesOfConcern": {
+    "MercuryContent": 0.0,
+    "MaterialComposition": [
+      { "material": "Polycarbonate", "share": 42.0 },
+      { "material": "Aluminium", "share": 31.5 },
+      { "material": "Electronics", "share": 26.5 }
+    ]
+  },
+  "DeclarationOfConformity": {
+    "contentType": "application/pdf",
+    "url": "https://docs.lumina.example/doc/LUM-A60-827-806/doc.pdf"
+  }
 }
 ```
+
+`MaterialComposition` is a `MultiValuedDataElement` of like items, each a
+`DataElementCollection` of `material` and `share`. In the compressed form the
+items are identified by their position (EN 18223:2026 5.2.7) and each carries its
+material by name. `POST /dpp/v1/dpps?representation=full` answers with the
+document as in the request, `elements` included.
 
 ---
 
@@ -288,7 +338,21 @@ Accept: application/json
 
 ### Response `200 OK`
 
-Complete DPP document (identical to the response in 1.).
+Complete DPP document in the compressed representation (identical to the
+response in 1.).
+
+### The full representation
+
+```http
+GET /dpp/v1/dpps/https%3A%2F%2Fdpp.lumina.example%2F01%2F09520123456788%2F8546?representation=full HTTP/1.1
+Accept: application/json
+```
+
+answers with the expanded form of EN 18223:2026 Annex A: the header attributes
+and `elements`, exactly as submitted. `representation` takes `compressed` (the
+default) or `full`; any other value is answered with `400 Bad Request` and the
+Result object. The same holds for every read, for `POST /dpps` and for the
+`PATCH` methods.
 
 ---
 
@@ -304,7 +368,8 @@ GET /dpp/v1/dppsByProductId/https%3A%2F%2Fid.lumina.example%2F01%2F0952012345678
 
 ### Response `200 OK`
 
-The current (`Active`) passport for this product — complete DPP document.
+The current (`Active`) passport for this product — complete DPP document,
+compressed unless `?representation=full` is given.
 
 ---
 
@@ -323,7 +388,7 @@ GET /dpp/v1/dppsByIdAndDate/did%3Aoyd%3AzQmY3j9By89J8rZR7SiewfA2ebNdoBWsx5BmJbD7
 The archived version that was valid at that point in time — for example still with
 `"EnergyEfficiencyClass": "F"` before the reassessment.
 
-### Error case `400 Bad Request` (Result object, EN 18222:2026 Table 13)
+### Error case `400 Bad Request` (Result object, EN 18222:2026 Table 12)
 
 ```json
 {
@@ -410,7 +475,8 @@ The complete document after the patch — `facilityId` new, `lastUpdated` refres
   "lastUpdated": "2026-07-13T10:02:47Z",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS",
   "facilityId": "https://id.lumina.example/414/0952012345016",
-  "elements": [ "… unchanged …" ]
+  "ProductIdentification": { "…": "unchanged, as in 1." },
+  "EnergyPerformance": { "…": "unchanged, as in 1." }
 }
 ```
 
@@ -427,6 +493,18 @@ GET /dpp/v1/dpps/{DPP}/collections/EnergyPerformance HTTP/1.1
 ```
 
 ### Response `200 OK`
+
+```json
+{
+  "OnModePower": 8.5,
+  "LuminousFlux": 806,
+  "LuminousEfficacy": 94.8,
+  "EnergyEfficiencyClass": "E",
+  "EprelRegistrationNumber": "1234567"
+}
+```
+
+With `?representation=full`:
 
 ```json
 {
@@ -468,7 +546,7 @@ Merge patch on exactly one data group.
 ### Request
 
 ```http
-PATCH /dpp/v1/dpps/{DPP}/collections/LightQuality HTTP/1.1
+PATCH /dpp/v1/dpps/{DPP}/collections/LightQuality?representation=full HTTP/1.1
 Content-Type: application/merge-patch+json
 Authorization: Bearer <token>
 ```
@@ -480,6 +558,9 @@ Authorization: Bearer <token>
 ```
 
 ### Response `200 OK`
+
+In the full representation, because `dictionaryReference` is part of it; the
+compressed form leaves it to the data dictionary and would show the values only.
 
 ```json
 {
@@ -505,6 +586,14 @@ GET /dpp/v1/dpps/{DPP}/elements/EnergyPerformance/LuminousFlux HTTP/1.1
 ```
 
 ### Response `200 OK`
+
+The value the path selects in the compressed passport — here a bare JSON number:
+
+```json
+806
+```
+
+With `?representation=full`, the element object:
 
 ```json
 {
@@ -536,7 +625,17 @@ Authorization: Bearer <token>
 }
 ```
 
+The body is a merge patch on the element object of the full representation.
+
 ### Response `200 OK`
+
+The element after the patch, compressed:
+
+```json
+"D"
+```
+
+With `?representation=full`:
 
 ```json
 {
@@ -571,17 +670,23 @@ Authorization: Bearer <token>
 }
 ```
 
-### Response `201 Created`
+### Response `502 Bad Gateway`
 
 ```json
 {
-  "statusCode": "SuccessCreated",
-  "registrationId": "urn:ec:dpp:registry:9f1c8a2e-4d3b-4c7a-b1e5-6f0a2d9c4b71"
+  "statusCode": "ServerErrorBadGateway",
+  "message": [
+    {
+      "messageType": "Error",
+      "text": "This service is not connected to the EU DPP Registry; the passport has not been registered",
+      "code": "registry_not_connected"
+    }
+  ]
 }
 ```
 
-> The call to the real EC registry is still a placeholder in the service
-> (`EcRegistryClient`, see `registry_controller.rb`).
+> The service is not connected to the EU DPP Registry. It checks the entry and
+> answers `502`; nothing is registered and no registration identifier is returned.
 
 ---
 

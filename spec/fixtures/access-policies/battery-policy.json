@@ -1,0 +1,18 @@
+{
+  "id": "https://dpp.example.org/access-policies/ev-battery/1",
+  "title": "Electric vehicle battery",
+  "scheme": "https://w3id.org/soya/dpp-access/v1",
+  "rules": [
+    { "path": "Identification", "accessClass": "public" },
+    { "path": "General", "accessClass": "public" },
+    { "path": "General/ServiceStartDate", "accessClass": "legitimateInterest" },
+    { "path": "General/BatteryStatus", "accessClass": "legitimateInterest" },
+    { "path": "CarbonFootprint", "accessClass": "public" },
+    { "path": "Composition", "accessClass": "legitimateInterest" },
+    { "path": "Composition/HazardousSubstances", "accessClass": "public" },
+    { "path": "Dismantling", "accessClass": "https://w3id.org/soya/dpp-access/v1#legitimateInterest" },
+    { "path": "Performance", "accessClass": "legitimateInterest" },
+    { "path": "Compliance/DeclarationOfConformity", "accessClass": "public" },
+    { "path": "Compliance/TestReportResults", "accessClass": "authority" }
+  ]
+}

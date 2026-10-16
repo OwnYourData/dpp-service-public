@@ -1,12 +1,16 @@
 # syntax=docker/dockerfile:1
 #
-# DPP Service — Rails 7.1 API (Ruby 3.2.2), PostgreSQL in production.
+# DPP Service — Rails 7.2 API, PostgreSQL in production.
 # Multi-stage: build gems with toolchain, ship a slim runtime image.
 # Build for the cluster architecture:
 #   docker buildx build --platform linux/amd64 -t ghcr.io/oyd-private/dpp-service:<tag> . --push
 
+# One Ruby for both stages. Keep it equal to .ruby-version and to RUBY VERSION
+# in Gemfile.lock -- bundle install does not rewrite the latter on its own.
+ARG RUBY_VERSION=3.3.8
+
 ############################  build stage  ############################
-FROM ruby:3.2.8-slim AS build
+FROM ruby:${RUBY_VERSION}-slim AS build
 
 ENV BUNDLE_PATH="/usr/local/bundle"
 
@@ -35,7 +39,7 @@ RUN bundle lock --add-platform x86_64-linux aarch64-linux \
     && rm -rf "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
 ############################  runtime stage  ############################
-FROM ruby:3.2.8-slim AS runtime
+FROM ruby:${RUBY_VERSION}-slim AS runtime
 
 ENV RAILS_ENV="production" \
     RACK_ENV="production" \

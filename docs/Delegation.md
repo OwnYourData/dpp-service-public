@@ -1,18 +1,18 @@
 # Delegation without a shared secret
 
-**Status:** Implemented and in production. The delegation fully replaces the
-storage JWT that carried `client_secret` in `X-DPP-Storage`; no `client_secret`
-is stored or accepted any more. There was **no migration path** — the pods,
-collections and OAuth applications from before were deleted and created anew.
+**Status:** Implemented and in production. `X-DPP-Storage` carries a
+delegation signed by the economic operator; no `client_secret` is stored or
+accepted.
 
 
 ---
 
 ## 1. Why
 
-Today the economic operator hands the DPP Service a storage JWT containing
-`client_id` and `client_secret`. That is not an access token, it is the
-credentials themselves. Five problems follow from this:
+The obvious way to let the DPP Service write into a pod is for the economic
+operator to hand it a storage JWT containing `client_id` and `client_secret`.
+That is not an access token, it is the credentials themselves. Five problems
+follow from this:
 
 1. **Unlimited power of attorney.** Access tokens expire after two hours, the
    `client_secret` never does. Revocation means: delete the OAuth application
@@ -30,14 +30,13 @@ credentials themselves. Five problems follow from this:
    an action of the holder, regardless of whether they initiated it. The log
    proves *that*, not *who authorized it*.
 
-On top of that: the storage JWT is built with `alg: none` today, so it is no
-proof at all. Whoever intercepts one can have data written into someone else's
-pod.
+On top of that: a storage JWT built with `alg: none` is no proof at all.
+Whoever intercepts one can have data written into someone else's pod.
 
 **The actual design flaw:** the holder already has a signing key and uses it in
-the same call to sign their bearer token for the DPP Service. They nevertheless
-hand over a password. Public-key cryptography on one side of the request, a
-shared secret on the other.
+the same call to sign their bearer token for the DPP Service. Handing over a
+password as well would mean public-key cryptography on one side of the request
+and a shared secret on the other.
 
 ## 2. Target picture
 
@@ -61,30 +60,67 @@ JWT bearer".
 | **Identity DID of the economic operator** | the economic operator | write token to the DPP Service, **delegation assertion**, owner binding |
 | **Passport DID** (one per DPP) | Variant A: the DPP Service; Variant B: the holder or the secure element | identifier of the passport, commitment of the payload hash (see `Integrity.md`) |
 | **Service DID of the DPP Service** | the DPP Service | client assertion, DPoP |
+| **Reader DID of the DPP Service** (one per pod) | the DPP Service | its identity as the protected statutory reader of a DPP hosting collection at that pod |
 
 The delegation is signed with the **identity DID**, not with the passport DID.
 At `CreateDPP` the passport DID does not even exist yet in variant A.
 
-## 4. Provisioning — what changes at the intermediary
+The reader DIDs are separate from the service DID and from each other: the
+reader of a staging pod is not the reader of a production pod. The intermediary
+enters the reader DID of its pod as a fixed value when a DPP hosting contract is
+signed. Each reader belongs to exactly one pod, identified by the pod's base
+URL. Configuration, per reader `<NAME>`:
 
-So far: create pod, organization, collection and OAuth application, then hand
-over `client_id` + `client_secret`.
+| Variable | Content |
+|---|---|
+| `DPP_READERS` | names of the readers, comma-separated (`STAGING,PRODUCTION`) |
+| `DPP_READER_<NAME>_POD` | base URL of the pod, as the pod knows it |
+| `DPP_READER_<NAME>_DID` | the reader's `did:oyd` |
+| `DPP_READER_<NAME>_DOC_KEY` | its document key, multibase |
 
-New: create pod, organization and collection and **enter the holder's identity
-DID as the `controller_did` of the collection**. All that is handed over is
-now:
+A configuration in which two readers share a pod or a DID, a reader DID equals
+the service DID, or a key does not decode is refused as a whole; the service
+logs why and lists no reader. `bin/rails dpp:readers:check` checks the service
+DID and every reader DID against the key that resolves for it.
+
+**The read grant.** As protected reader the service signs its own read grant
+(`typ` `pod-read-delegation+jwt`, `kid` `<reader DID>#key-doc`): `iss` and `sub`
+are the reader DID, `aud` is the pod, `collections` names the one collection,
+`act` is `["read"]`, and there is no `product_id`. The economic operator signs
+nothing for it and cannot revoke it. The grant is not stored: it is signed
+again whenever it is needed, from the start of the current 30-day window, and
+runs 90 days from there. Ed25519 signatures are deterministic, so all through a
+window every instance of the service presents the same grant under the same
+`jti`, the name under which the custodian lists and revokes it; a grant in use
+has at least 60 days left. Client assertion and DPoP proofs are signed with the
+same document key of the reader DID. The token lasts at most 600 s and is
+fetched again with the same grant shortly before it runs out.
+
+The service reads with it what a write delegation may not: the object list of
+the collection and the index cards and their meta, to find the controlled card
+of a passport (AccessClasses.md §6) when its object id is not known. A pod that
+does not know the reader answers the grant with `invalid_grant`; that ends the
+lookup with a message of its own and touches neither writing nor the public
+read path. `bin/rails dpp:readers:measure DPP=<digitalProductPassportId>` reads
+the controlled card of a passport this way and reports what came back, without
+printing values, grant or token.
+
+## 4. Provisioning at the intermediary
+
+The intermediary creates pod, organization and collection and **enters the
+holder's identity DID as the `controller_did` of the collection**. All that is
+handed over is:
 
 ```json
 { "base_url": "https://dpp.go-data.at", "collection_id": "4" }
 ```
 
-Both are **not secret**. So the provisioning step does not disappear, it just
-no longer hands out anything confidential.
+Both are **not secret**: provisioning hands out nothing confidential.
 
 > **Prerequisite:** the economic operator needs an identity DID *before* they
 > can be provisioned. That is a new hurdle in onboarding and needs a guided
 > creation flow, otherwise we merely shift the problem to the customer.
-> See open item 7.
+> See open item 5.
 
 ## 5. The delegation assertion
 
@@ -130,7 +166,12 @@ objects it may write — exactly those whose subject the delegation names. That
 read is not an operation in the sense of `act`: it cannot be requested, it
 cannot be held on its own, and it exists only as the reverse side of a write
 permission. `read` stays reserved as an `act` value (D3); a mandate that
-authorises reading alone does not exist.
+authorises reading alone does not exist. The DPP Service reads the public part
+of a passport over the custodian's public path, without a token (§12). It reads
+this way only the controlled card of a passport held as two cards
+(AccessClasses.md §6), and only right before it writes that passport: the
+controlled card carries the same `uniqueProductIdentifier` as the public one,
+so the same delegation names it, covers writing it and covers reading it.
 
 Not included is the object's index card — `meta`, schema, visibility. A
 delegated token that asks for it (`show_meta=TRUE`) is refused; anything beyond
@@ -182,6 +223,12 @@ broken by its presence, and one that follows the RFC needs it.
 > `GET /.well-known/dpp-service` returning `{ "did": …, "audience": … }` is
 > still sensible — but as **discovery** for the holder, so that they know what
 > to enter in `sub`, not as a security mechanism.
+>
+> The same document lists the reader DIDs (§3), one entry per pod:
+> `"readers": [{ "pod": "https://dpp.go-data.at", "did": "did:oyd:…" }]`. The
+> intermediary compares the entry for its own pod with the value it has
+> configured; it does not take the reader DID from here. Without configured
+> readers the member is absent.
 
 ## 7. Token request
 
@@ -206,10 +253,13 @@ Response:
 No refresh token. If the access token expires, a new one is fetched with the
 same delegation — the delegation *is* the long-lived artifact, and unlike a
 refresh token it is useless to anyone except the service named in `sub`.
+A resource request the pod answers with `401 invalid_token` is repeated once,
+with a token newly fetched under the same delegation, at most once per incoming
+request; `invalid_grant` at the token endpoint is final and is not repeated.
 
 ## 8. Verification rules in the pod
 
-Fail-closed, in this order. Every failure is `invalid_grant` unless §14 names a
+Fail-closed, in this order. Every failure is `invalid_grant` unless §15 names a
 more specific code for that situation; the reason goes into the log, not into
 the response.
 
@@ -225,7 +275,18 @@ the response.
    second token request of the day into a rejected replay. Replay protection
    sits on the short-lived statements, where it already is — rule 7 and rule 9.
 6. `iss` is the registered `controller_did` of the collection named in
-   `collection`.
+   `collection`, and that collection is not locked for write acts. The
+   intermediary locks a collection when the DPP hosting contract (D2A) for it
+   is revoked (§12). A write delegation for a locked collection is refused with
+   `invalid_grant`, at every attempt. Write tokens already issued for the
+   collection stop working at once: the resource answers them with
+   `401 invalid_token`, the one new token request that follows (§7) is refused
+   with `invalid_grant`, and the write ends there. With no token issued any
+   more, the read that goes with a write permission (§5) ends as well. Write
+   requests with any other token of the pod, such as one of the owner
+   organisation, are answered with `403 collection_write_locked`. Reading is not
+   affected: the public path (§12) and read grants (`pod-read-delegation+jwt`,
+   §3) work as before.
 7. Client assertion valid, `iss == sub`, `aud` is the token endpoint,
    lifetime ≤ 60 s, its own `jti` store.
 8. **The delegation's `sub` == the client assertion's `iss`.** Without this
@@ -244,18 +305,17 @@ Only then is a token issued, bound to `cnf.jkt`, with
 
 ## 9. What the DPP Service stores
 
-| Field | so far | new |
-|---|---|---|
-| `storage_base_url` | plaintext | unchanged |
-| `storage_collection_id` | plaintext | unchanged |
-| `storage_credentials_enc` | AES-256-GCM encrypted | **dropped** |
-| `storage_delegation` | — | the delegation assertion in plaintext |
+| Field | Content |
+|---|---|
+| `storage_base_url` | base URL of the pod, plaintext |
+| `storage_collection_id` | collection, plaintext |
+| `storage_delegation` | the delegation assertion, plaintext |
 
-The delegation is no longer a secret: without the private key of the service
-DID it is useless. This removes the credential hoarding from problem 4 and
-`KEY_VAULT_KEK` is then only needed for the passport keys of variant A.
+The delegation is not a secret: without the private key of the service DID it
+is useless. This removes the credential hoarding of problem 4, and
+`KEY_VAULT_KEK` is needed only for the passport keys of variant A.
 
-The header is still called `X-DPP-Storage`, its content in future is:
+The header `X-DPP-Storage` carries:
 
 ```json
 { "base_url": "https://dpp.go-data.at", "collection_id": "4",
@@ -266,14 +326,15 @@ The header is still called `X-DPP-Storage`, its content in future is:
 
 | Artifact | Proposal | Rationale |
 |---|---|---|
-| Delegation | 90 days | long enough that read-through and updates run without the holder's involvement; short enough that a forgotten delegation expires by itself. Renewal is a signed act of its own (§11), so the figure is the interval at which the holder has to reach for their key per passport |
+| Delegation | 90 days | long enough that updates run without the holder's involvement; short enough that a forgotten delegation expires by itself. Renewal is a signed act of its own (§11), so the figure is the interval at which the holder has to reach for their key per passport |
 | Client assertion | 60 s | is created anew per token request |
 | DPoP proof | 30 s | is created anew per request |
 | Access token | 10 min | short, because it can be re-fetched at will |
 | `jti` store | until `exp` + 60 s | after that `exp` protects |
 
 Public read paths need **no** token — by far the largest share of accesses
-therefore runs entirely without this apparatus.
+therefore runs entirely without this apparatus. That includes the DPP Service's
+own reads of a passport held at a custodian (§12).
 
 ## 11. Renewal
 
@@ -369,6 +430,21 @@ minted for it.
 - **By DID revocation:** if the holder revokes their identity DID, resolution
   fails and all their delegations die. Careful: the positive cache window
   (300 s) is the delay with which this takes effect.
+- **By the intermediary:** when the D2A for a collection is revoked, the
+  intermediary locks the collection for write acts (`create`, `update`,
+  `delete`). No write delegation for it is redeemed any more, and write tokens
+  already issued stop working at once (§8 rule 6). The lock is final: neither
+  the owner organisation nor a fresh delegation (§11) lifts it.
+
+All four end writing, not reading. The DPP Service reads the public part of a
+passport over the custodian's public path
+(`GET {base_url}/dpp/v1/dpps/{dppId}?representation=full`, `Accept:
+application/json`), without a token and without the delegation. This holds for
+`ReadDPPById` and `ReadDPPByProductId` as well as for the read that precedes
+`UpdateDPP` and a change of custodian. A passport whose delegation has expired
+or been revoked therefore stays readable through the service, as it does at the
+custodian; `UpdateDPP` and `DeleteDPPById` answer `ClientNotAuthorized` until a
+fresh mandate is handed over (§11), and for good once the collection is locked.
 
 ## 13. Key loss
 
@@ -407,7 +483,7 @@ true for anything that still authenticates with a shared secret. The claim this
 model earns is "the DPP path needs no shared secret", not "the intermediary
 works without shared secrets".
 
-## 15. Error mapping (EN 18222:2026 Table 16)
+## 15. Error mapping (EN 18222:2026 Table 15)
 
 `invalid_dpop_proof` (RFC 9449 §7.1) and `insufficient_scope` (RFC 6750 §3.1)
 are prescribed by their respective RFCs; where this table names one of them it
@@ -416,11 +492,25 @@ takes precedence over the `invalid_grant` default of §8.
 | Situation | Pod | DPP Service → client |
 |---|---|---|
 | delegation expired or revoked | `invalid_grant` | `ClientNotAuthorized` (401) |
-| `iss` not the controller of the collection | `invalid_grant` | `ClientForbidden` (403) |
+| `iss` not the controller of the collection | `invalid_grant` | `ClientNotAuthorized` (401) |
 | `act` does not cover the operation | `insufficient_scope` | `ClientForbidden` (403) |
+| collection locked for write acts, write delegation presented | `invalid_grant` | `ClientNotAuthorized` (401) |
+| collection locked for write acts, write token already issued | `401 invalid_token`, then `invalid_grant` for the new token (§7) | `ClientNotAuthorized` (401) |
+| collection locked for write acts, any other token of the pod | `403 collection_write_locked` | — (not a path of the DPP Service) |
 | DPoP proof missing or not matching | `invalid_dpop_proof` | `ClientNotAuthorized` (401) |
-| DID not resolvable | `invalid_grant` | `ServerErrorBadGateway` (502) |
+| `iss` not resolvable | — (refused by the DPP Service before the pod is asked) | `ClientNotAuthorized` (401) |
 | pod not reachable | — | `ServerErrorBadGateway` (502) |
+
+The pod does not say which rule a refused grant failed (§8), so the DPP
+Service cannot tell an expired or revoked delegation from one whose `iss` is
+not the controller of the collection: every `invalid_grant` becomes
+`ClientNotAuthorized`, and the distinction lives in the pod's log. Only
+`insufficient_scope` becomes `ClientForbidden`. The DPP Service checks
+signature, `sub`, `aud`, `collection`, validity window, `product_id` and `act`
+of a delegation itself before it presents it, and answers a failure there the
+same way: `act` with `ClientForbidden`, everything else with
+`ClientNotAuthorized`. A delegation for a product other than the passport's
+`uniqueProductIdentifier` is refused with `ClientForbidden` (§11).
 
 ## 16. Decisions taken (2026-08-19)
 
@@ -435,9 +525,9 @@ The uniqueness constraint is `(collection, product_id, sub)`, not
 during a provider handover in which nobody may write — precisely the property
 the exit argument rests on — and it would not even solve the problem it looks
 like it solves, since two updates from the *same* service collide in the same
-way. Concurrent writes are handled one layer up: `UpdateDPP` takes a version
-precondition and a stale one is refused. The write log stays the record of who
-changed what.
+way. Concurrent writes belong one layer up, in a version precondition on
+`UpdateDPP` (open item 6); without one the later write wins. The write log
+stays the record of who changed what.
 
 **D2 — `product_id: "*"` is not offered.** One delegation per passport, one
 signature by the holder per `CreateDPP`. This keeps the binding to the object
@@ -454,10 +544,13 @@ strings; today only `create`, `update` and `delete` are accepted and everything
 else is refused fail-closed with its own log reason. What must *not* happen is
 closing the vocabulary: no enum type, no `CHECK` constraint on three values, no
 `act` column that only fits what exists today. Reading controlled data under
-prEN 18239 needs a role attestation model — how does the pod learn that someone
-*is* a refurbisher or a market surveillance authority — and that is a separate
-piece of work, not a fourth value in this array. Reserving the slot keeps the
-later addition a code change instead of a migration.
+prEN 18239 needs a role attestation model — who says that someone *is* a
+refurbisher or a market surveillance authority — and that is a separate piece
+of work, not a fourth value in this array. It is built that way: access grants
+at the DPP Service say who may read which class (AccessClasses.md §7), and the
+service reads the controlled part at the pod under the read grant of its reader
+DID (§3), not under a write delegation. Reserving the slot keeps a later
+addition a code change instead of a migration.
 
 **D4 — A delegated token may read what it may write, payload only.** Found on
 2026-08-19 in the first joint run: `CreateDPP` completed end to end, `UpdateDPP`
@@ -475,13 +568,10 @@ applies an RFC 7396 merge patch and answers with the updated passport (EN
 the object goes. A write-only mandate would therefore not keep the content from
 the delegate — it would only make the operations it grants impossible. That is
 the argument, and it is worth being precise about it: "the passport is public
-via its product identifier anyway" is *not*, because passports need not stay public, and the
-same objection is what rules out reading through the public path.
+via its product identifier anyway" is *not*, because a passport need not be
+public in all its parts.
 
-Three alternatives were weighed and dropped. Reading through the **public path**
-holds only as long as every passport is public — the assumption we do not want
-to build on, and the question would return later with data already in place.
-Replacing `PATCH` with a **full `PUT`** discards the RFC 7396 semantics the
+Two alternatives were weighed and dropped. Replacing `PATCH` with a **full `PUT`** discards the RFC 7396 semantics the
 service API is built on and turns every field change into a full replacement,
 which loses concurrent edits. Letting the **pod apply the patch itself** looks
 attractive, because then the service would never read — but the service has to
@@ -499,6 +589,9 @@ pinned instead by two tests on the pod side: reading the subject the delegation
 names succeeds, reading a different subject in the same collection does not.
 Whoever changes that behaviour has to change those tests, which is where the
 next implementer will look.
+
+The DPP Service itself reads the public part of a passport over the public path
+(§12), so its reads do not end with the mandate.
 
 **D5 — Where the pod builds this.** Nothing about the three assertions is
 DPP-specific, so nothing about them is built in the DPP-specific layer.

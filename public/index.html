@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/oyd-mark.svg" type="image/svg+xml">
 <title>DPP Service · OwnYourData</title>
 <meta name="description" content="Public instance of the DPP Service, an open-source implementation of the EN 18222:2026 lifecycle API for Digital Product Passports, operated by OwnYourData.">
 <style>
@@ -42,8 +43,9 @@
   .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
   header { padding: 20px 0; border-bottom: 1px solid var(--line); }
   header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .brand { font-weight: 600; letter-spacing: .01em; }
-  .brand span { color: var(--muted); font-weight: 400; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
+  .brand .mark { width: 15px; height: auto; display: block; }
+  .brand span { color: var(--muted); font-weight: 400; margin-left: -5px; }
   header nav a { color: var(--muted); text-decoration: none; margin-left: 18px; font-size: 15px; }
   header nav a:hover { color: var(--text); }
   .hero { padding: 56px 0 36px; }
@@ -58,6 +60,7 @@
   .btn.secondary { color: var(--accent); background: transparent; }
   h2 { font-size: 20px; margin: 44px 0 16px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+  .grid.two { grid-template-columns: repeat(2, 1fr); }
   .card {
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 20px; display: flex; flex-direction: column; gap: 10px;
@@ -85,10 +88,13 @@
   code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
   footer { margin-top: 56px; padding: 24px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
   footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  footer a { color: var(--muted); margin-right: 16px; }
+  footer a { color: var(--muted); }
+  footer .legal a { margin-right: 16px; }
+  footer .funding { flex-basis: 100%; font-size: 13px; }
   @media (max-width: 560px) {
     header nav a { margin: 0 14px 0 0; }
     .hero { padding-top: 36px; }
+    .grid.two { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -96,8 +102,9 @@
 
 <header>
   <div class="wrap">
-    <div class="brand">DPP Service <span>· OwnYourData</span></div>
+    <div class="brand"><img class="mark" src="/oyd-mark.svg" alt="" width="15" height="28">DPP Service <span>· OwnYourData</span></div>
     <nav>
+      <a href="/kb/">Knowledge Base</a>
       <a href="/api-docs/index.html">API</a>
       <a href="https://github.com/OwnYourData/dpp-service-public">GitHub</a>
     </nav>
@@ -120,12 +127,24 @@
   </section>
 
   <h2>Tools</h2>
-  <div class="grid">
+  <div class="grid two">
+    <article class="card">
+      <span class="badge live">New</span>
+      <h3>DPP Knowledge Base</h3>
+      <p>Self-contained articles on what the EU requires, how the published standards fit together and how these tools put them into practice.</p>
+      <div class="links">
+        <a href="/kb/">All articles</a>
+        <a href="/kb/laws-and-standards/">Laws and standards</a>
+        <a href="/kb/dpp-roadmap/">Roadmap</a>
+      </div>
+    </article>
+
     <article class="card">
       <span class="badge live">Available</span>
       <h3>DPP Manager</h3>
       <p>Application for economic operators that runs on their own computer: describe products, create passports and publish them through a DPP service.</p>
       <div class="links">
+        <a href="/kb/dpp-manager/">Explained</a>
         <a href="https://github.com/OwnYourData/dpp-service-public/blob/main/docs/DPP-Manager-Demo.md">Walkthrough</a>
         <a href="https://github.com/OwnYourData/dpp-manager-public">Source</a>
       </div>
@@ -136,6 +155,7 @@
       <h3>DPP Linter</h3>
       <p>Enter a product identifier and see whether the passport behind it resolves, is readable without an account and follows the published data model.</p>
       <div class="links">
+        <a href="/kb/dpp-linter/">Explained</a>
         <a href="https://dpplint.ownyourdata.eu">dpplint.ownyourdata.eu</a>
         <a href="https://github.com/OwnYourData/dpplint">Source</a>
       </div>
@@ -146,6 +166,7 @@
       <h3>DPP Service Validator</h3>
       <p>Daily automated checks of listed DPP services against open criteria, with results published for everyone to see.</p>
       <div class="links">
+        <a href="/kb/dpp-service-validator/">Explained</a>
         <a href="https://ownyourdata.github.io/dpp-validator/">Results</a>
         <a href="https://github.com/OwnYourData/dpp-criteria">Criteria</a>
         <a href="https://github.com/OwnYourData/dpp-validator">Source</a>
@@ -172,6 +193,7 @@
       <li><a href="https://github.com/OwnYourData/dpp-criteria">dpp-criteria</a><span class="what">Open criteria and service list – contributions welcome</span></li>
       <li><a href="https://github.com/OwnYourData/dpplint">dpplint</a><span class="what">DPP Linter – checks the passport behind a product identifier</span></li>
       <li><a href="https://github.com/OwnYourData/dpp-validator">dpp-validator</a><span class="what">DPP Service Validator – daily checks of listed DPP services against the criteria</span></li>
+      <li><a href="https://github.com/OwnYourData/dpp-knowledge-base">dpp-knowledge-base</a><span class="what">DPP Knowledge Base – self-contained articles on Digital Product Passports</span></li>
     </ul>
   </div>
 
@@ -199,10 +221,11 @@
 <footer>
   <div class="wrap">
     <div>Operated by <a href="https://www.ownyourdata.eu/en/">OwnYourData</a></div>
-    <div>
+    <div class="legal">
       <a href="https://www.ownyourdata.eu/en/imprint/">Imprint</a>
       <a href="https://www.ownyourdata.eu/en/privacy-policy/">Privacy</a>
     </div>
+    <div class="funding"><!-- funding:begin -->The DPP Service is part of <a href="https://dpp-austria.at/">PACE-DPP</a>. This Lighthouse Project has been made possible by financial contributions from the Austrian Federal Ministry of Innovation, Mobility and Infrastructure (<a href="https://www.bmimi.gv.at/en.html">BMIMI</a>, formerly BMK), supported by the Austrian Research Promotion Agency (FFG) under grant number <a href="https://projekte.ffg.at/projekt/5128301">917177</a>, as well as from the German Federal Ministry of Research, Technology and Space (BMFTR, formerly BMWK), supported by the German Research Promotion Agency (DLR-PT).<!-- funding:end --></div>
   </div>
 </footer>
 

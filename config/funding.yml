@@ -1,0 +1,24 @@
+# Funding notice of PACE-DPP: the one place where its wording is kept.
+#
+# The footer of the start page (public/index.html) and the "Funding" section of
+# the README are written from this file. After changing it, run
+#
+#   bin/rails funding:write
+#
+# and commit the three files together; spec/lib/funding_notice_spec.rb fails
+# while either copy differs from what is written here.
+#
+# Links are written as in Markdown, [text](url). %{component} and %{title} are
+# filled in: the README names the project with its full title, the footer
+# does not.
+component: The DPP Service
+title: Promoting and Accelerating a Digital Product Passport based Data-Service Ecosystem
+text: >-
+  %{component} is part of [PACE-DPP](https://dpp-austria.at/)%{title}.
+  This Lighthouse Project has been made possible by financial contributions
+  from the Austrian Federal Ministry of Innovation, Mobility and Infrastructure
+  ([BMIMI](https://www.bmimi.gv.at/en.html), formerly BMK), supported by the
+  Austrian Research Promotion Agency (FFG) under grant number
+  [917177](https://projekte.ffg.at/projekt/5128301), as well as from the German
+  Federal Ministry of Research, Technology and Space (BMFTR, formerly BMWK),
+  supported by the German Research Promotion Agency (DLR-PT).

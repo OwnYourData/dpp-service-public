@@ -61,6 +61,26 @@ RSpec.describe "Landing page", type: :request do
     expect(body).not_to match(/conformant|compliant|certified/i)
   end
 
+  it "shows the OwnYourData mark beside the title and uses it as the icon" do
+    get "/"
+
+    expect(response.body).to include('<link rel="icon" href="/oyd-mark.svg" type="image/svg+xml">')
+    expect(response.body).to include('<img class="mark" src="/oyd-mark.svg" alt=""')
+
+    get "/oyd-mark.svg"
+
+    expect(response).to have_http_status(:ok)
+    expect(response.media_type).to eq("image/svg+xml")
+  end
+
+  it "names the funding of PACE-DPP once, in the footer" do
+    get "/"
+
+    body = response.body.dup.force_encoding(Encoding::UTF_8)
+    expect(body.scan("917177").size).to eq(1)
+    expect(body[body.index("<footer>")..]).to include(FundingNotice.html)
+  end
+
   it "leaves the API untouched" do
     get "/up"
 

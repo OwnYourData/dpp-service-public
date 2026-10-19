@@ -244,6 +244,25 @@ RSpec.describe AvailableServices do
       expect(entry(validator: checked.merge("proposed_failed" => 1)).validator_detail).to eq("1 proposed criterion failed · read paths only · weekly")
     end
 
+    it "names the software and version of our own test instance, and where its release is" do
+      release = "https://github.com/example/software/releases/tag/v1.1.2"
+      own = { "status" => "checked", "mode" => "test-instance", "cadence" => "weekly", "passed" => 10, "total" => 10,
+              "test_instance" => { "software" => "Some service", "version" => "1.1.2", "release" => release } }
+
+      instance = entry(validator: own).validator_test_instance
+      expect([instance.label, instance.release_url]).to eq(["version\u00A01.1.2", release])
+      expect(entry(validator: own).validator_detail).to eq("weekly")
+      expect(entry(validator: own.merge("proposed_failed" => 1)).validator_detail).to eq("1 proposed criterion failed · weekly")
+
+      other = own.merge("test_instance" => { "software" => "Other software", "version" => "2.0" })
+      expect(entry(validator: other).validator_test_instance.to_h).to eq(label: "Other software\u00A02.0", release_url: nil)
+      expect(entry(validator: own.merge("test_instance" => { "software" => "Other software" })).validator_test_instance.label).to eq("Other software")
+      expect(entry(validator: own.merge("test_instance" => { "release" => "data:text/html,x" })).validator_test_instance.to_h)
+        .to eq(label: nil, release_url: nil)
+      expect(entry(validator: own.merge("status" => "pending")).validator_test_instance.label).to eq("version\u00A01.1.2")
+      expect(entry(validator: own.merge("mode" => "read-only")).validator_test_instance).to be_nil
+    end
+
     it "names the validator's warnings beside its count, which includes them" do
       checked = { "status" => "checked", "passed" => 7, "total" => 11, "failed" => 4 }
 
@@ -299,7 +318,7 @@ RSpec.describe AvailableServices do
     it "tolerates an entry that has nothing but a name" do
       e = described_class.new("name" => "Bare")
 
-      expect([e.url, e.source, e.licence, e.linter_note, e.validator_count, e.validator_detail]).to all(be_nil)
+      expect([e.url, e.source, e.licence, e.linter_note, e.validator_count, e.validator_detail, e.validator_test_instance]).to all(be_nil)
       expect(e.provider).to eq("")
       expect(e.passports).to eq([])
     end

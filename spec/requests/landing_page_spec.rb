@@ -168,7 +168,7 @@ RSpec.describe "Landing page", type: :request do
       '<a href="https://ownyourdata.github.io/dpp-validator/services/ownyourdata-dpp-service.html">details</a>'
     )
     expect(services_table).to include('<span class="sub">1 proposed criterion failed · daily</span>')
-    ["needs credentials", "no public instance", "no EN 18222 paths yet"].each do |text|
+    ["needs credentials", "no EN 18222 paths yet"].each do |text|
       expect(services_table).to include(%(<span class="tone-neutral">#{text}</span>))
     end
   end
@@ -193,6 +193,39 @@ RSpec.describe "Landing page", type: :request do
       '<a href="https://ownyourdata.github.io/dpp-validator/services/freedpp.html">details</a>'
     )
     expect(row).to include('<span class="sub">read paths only · weekly</span>')
+  end
+
+  # Software without a public instance is checked on an instance we run
+  # ourselves; the line under the result says so and links the release.
+  it "says under a result on our own test instance which release was checked" do
+    get "/"
+
+    row = services_table.scan(/<tr[^>]*>.*?<\/tr>/m).find { |r| r.include?(">Eclipse BaSyx DPP API</a>") }
+    expect(row).to include(
+      '<span class="tone-pass">10 of 10</span> · 2 warnings · ' \
+      '<a href="https://ownyourdata.github.io/dpp-validator/services/eclipse-basyx-dpp-api.html">details</a>'
+    )
+    expect(row).to include(
+      '<span class="sub">on our own test instance ' \
+      "(<a href=\"https://github.com/eclipse-basyx/basyx-go-components/releases/tag/v1.1.2\">version\u00A01.1.2</a>) · weekly</span>"
+    )
+    expect(row).to include('<span class="tone-neutral">no public example passport</span>')
+  end
+
+  it "names the test instance before its first run, and links no release that is not a web address" do
+    services = [{ "name" => "Waiting", "validator" => { "status" => "pending", "mode" => "test-instance", "cadence" => "weekly",
+                                                         "test_instance" => { "software" => "Other <software>", "version" => "2.0",
+                                                                              "release" => "javascript:alert(1)" } } }]
+    allow(OutboundHttp).to receive(:request)
+      .and_return(OutboundHttp::Response.new(code: "200", body: JSON.generate("notice" => "n", "services" => services), message: "OK", version: "2.0"))
+    allow(ENV).to receive(:[]).and_call_original
+    allow(ENV).to receive(:[]).with("DPP_AVAILABLE_SERVICES_URL").and_return("https://validator.example.org/list.json")
+
+    get "/"
+
+    expect(services_table).to include('<span class="tone-neutral">first run pending</span>')
+    expect(services_table).to include("<span class=\"sub\">on our own test instance (Other &lt;software&gt;\u00A02.0) · weekly</span>")
+    expect(services_table).not_to include("javascript:")
   end
 
   it "words every status of the validator the same way in the page" do

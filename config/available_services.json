@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-18T17:21:38Z",
+  "generated_at": "2026-10-19T11:19:43Z",
   "notice": "Results of automated checks only, from a research project that shares what we currently know. The list is not complete and no legal assessment; the results are no certification and establish no presumption of conformity. Entries from our research come from our own research and may be incomplete or out of date.",
   "counting": "passed: active criteria with result passed or warning; failed: result failed; total: passed + failed; warnings: passed with a warning, included in passed; skipped criteria are not counted",
   "services": [
@@ -33,7 +33,7 @@
             "total": 5,
             "failed": 0,
             "warnings": 1,
-            "checked_at": "2026-10-18",
+            "checked_at": "2026-10-19",
             "note": null
           }
         ]
@@ -49,7 +49,7 @@
         "failed": 0,
         "warnings": 0,
         "proposed_failed": 1,
-        "checked_at": "2026-10-18"
+        "checked_at": "2026-10-19"
       }
     },
     {
@@ -78,7 +78,22 @@
         "note": "no public example passport"
       },
       "validator": {
-        "status": "no_public_instance"
+        "status": "checked",
+        "mode": "test-instance",
+        "cadence": "weekly",
+        "details_url": "https://ownyourdata.github.io/dpp-validator/services/eclipse-basyx-dpp-api.html",
+        "test_instance": {
+          "software": "Eclipse BaSyx DPP API",
+          "version": "1.1.2",
+          "release": "https://github.com/eclipse-basyx/basyx-go-components/releases/tag/v1.1.2"
+        },
+        "summary_text": "10 of 10 automated checks passed",
+        "passed": 10,
+        "total": 10,
+        "failed": 0,
+        "warnings": 2,
+        "proposed_failed": 0,
+        "checked_at": "2026-10-19"
       }
     },
     {
@@ -111,7 +126,7 @@
             "total": 4,
             "failed": 1,
             "warnings": 1,
-            "checked_at": "2026-10-18",
+            "checked_at": "2026-10-19",
             "note": null
           }
         ]
@@ -127,7 +142,7 @@
         "failed": 4,
         "warnings": 2,
         "proposed_failed": 0,
-        "checked_at": "2026-10-18"
+        "checked_at": "2026-10-19"
       }
     },
     {
@@ -166,7 +181,7 @@
         "failed": 0,
         "warnings": 1,
         "proposed_failed": 0,
-        "checked_at": "2026-10-18"
+        "checked_at": "2026-10-19"
       }
     },
     {
@@ -228,7 +243,7 @@
             "total": 5,
             "failed": 1,
             "warnings": 2,
-            "checked_at": "2026-10-18",
+            "checked_at": "2026-10-19",
             "note": null
           }
         ]
@@ -267,7 +282,7 @@
             "total": 4,
             "failed": 2,
             "warnings": 0,
-            "checked_at": "2026-10-18",
+            "checked_at": "2026-10-19",
             "note": null
           }
         ]

@@ -51,8 +51,9 @@
 <% else -%>
             <span class="tone-neutral"><%= s.validator_status_text %></span>
 <% end -%>
-<% if s.validator_detail -%>
-            <span class="sub"><%= s.validator_detail %></span>
+<% test_instance = s.validator_test_instance -%>
+<% if test_instance || s.validator_detail -%>
+            <span class="sub"><% if test_instance %>on our own test instance<% if test_instance.label %> (<% if test_instance.release_url %><a href="<%= test_instance.release_url %>"><%= test_instance.label %></a><% else %><%= test_instance.label %><% end %>)<% end %><%= " · " if s.validator_detail %><% end %><%= s.validator_detail %></span>
 <% end -%>
           </td>
         </tr>

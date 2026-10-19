@@ -42,6 +42,13 @@ class AvailableServices
       end
     end
 
+    # The instance of a service's software that we run ourselves and check,
+    # for software without a public instance: which software in which version
+    # (only the version when the software is the service itself; the version
+    # stays on the line of the word before it), and where that release is
+    # published.
+    TestInstance = Struct.new(:label, :release_url, keyword_init: true)
+
     def self.sorted(services)
       services.map { |s| new(s) }.sort_by(&:sort_key)
     end
@@ -140,13 +147,29 @@ class AvailableServices
       integer(dig("validator", "proposed_failed")) || 0
     end
 
+    # For a service the validator checks on our own test instance, also before
+    # the first run: the software and release of that instance.
+    def validator_test_instance
+      return unless dig("validator", "mode") == "test-instance"
+
+      software = dig("validator", "test_instance", "software").to_s.strip.presence
+      version = dig("validator", "test_instance", "version").to_s.strip.presence
+      software = nil if software == name
+      label = if software && version then "#{software}\u00A0#{version}"
+              elsif version then "version\u00A0#{version}"
+              else software
+              end
+      TestInstance.new(label: label, release_url: web_url(dig("validator", "test_instance", "release")))
+    end
+
     # For a service that was not checked: why, in a few words.
     def validator_status_text
       STATUS_TEXT.fetch(dig("validator", "status").to_s, OTHER_STATUS_TEXT)
     end
 
     # The line under the result or the status: the note of the entry, or how
-    # the service is checked.
+    # the service is checked. On a test instance the page names that instance
+    # first (validator_test_instance).
     def validator_detail
       note = dig("validator", "note").to_s.strip.presence
       parts = []

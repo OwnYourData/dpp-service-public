@@ -181,7 +181,7 @@ bundle exec rspec
    change it unnoticed. Grants for `authority` are taken only from the issuers
    listed in `DPP_AUTHORITY_ISSUERS`.
 2. **EU registry client (EN 18222:2026 §5).** `registerDPP` checks the entry and
-   answers `502` (`registry_not_connected`); nothing is registered. The Commission
+   answers `502` (`registryNotConnected`); nothing is registered. The Commission
    publishes no API specification for the EU DPP Registry.
 3. **Content negotiation (EN 18216:2026 §5).** JSON is implemented; XML, JSON-LD
    and HTML renderers are not.

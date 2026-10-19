@@ -41,11 +41,12 @@ module Api
         # 502 rather than a code outside EN 18222:2026 Table 15: the upstream
         # that would have to answer is not reachable from here. The entry is
         # checked first, so a malformed request still learns what is wrong with it.
+        # Message codes are camelCase, like readerNotEntered.
         render_result(
           "ServerErrorBadGateway",
           text: "This service is not connected to the EU DPP Registry; " \
                 "the passport has not been registered",
-          code: "registry_not_connected"
+          code: "registryNotConnected"
         )
       end
 

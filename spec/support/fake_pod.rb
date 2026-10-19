@@ -20,8 +20,12 @@ require "uri"
 # gives a token that may write and read payloads, a read grant of a protected
 # reader (listed in +readers+) one that may also list objects and read index
 # cards and meta. A write token asking for those gets 403 "Not authorized",
-# as the custodian answers it. A read grant of a DID that is not listed gets
-# 400 invalid_grant.
+# as the custodian answers it. A read grant of a DID that is not listed --
+# for the whole pod in +readers+, or in +collection_readers+ for every
+# collection the grant names -- gets 400 invalid_grant. With +unreachable+ set
+# every request fails as a refused connection; +read_grant_failure+ makes only
+# read grants fail, with [status, body] or as a refused connection
+# (:unreachable).
 #
 # Every request is logged as "METHOD /path" (without the query), and every
 # payload write as [object id, type, payload], so the specs can check what
@@ -34,13 +38,17 @@ class FakePod
 
   EPOCH = Time.utc(2026, 10, 15, 8)
 
-  attr_reader :base_url, :cards, :log, :writes, :headers, :grants, :readers
+  attr_reader :base_url, :cards, :log, :writes, :headers, :grants, :readers, :collection_readers
   # [status, body] to answer the creation of a controlled card with, or nil.
   attr_accessor :refuse_controlled
   # A proc (card) -> [status, body] or nil, consulted before a payload write.
   attr_accessor :fail_write
   # Whether the versions of controlled cards are served (O12); on by default.
   attr_accessor :controlled_versions
+  # Whether the custodian cannot be reached at all.
+  attr_accessor :unreachable
+  # [status, body] to answer every read grant with, or :unreachable.
+  attr_accessor :read_grant_failure
 
   def initialize(base_url)
     @base_url = base_url
@@ -52,6 +60,7 @@ class FakePod
     @headers  = []
     @grants   = []
     @readers  = []
+    @collection_readers = Hash.new { |hash, id| hash[id] = [] }
     @read_tokens = []
     @issued_read = []
     @controlled_versions = true
@@ -79,6 +88,8 @@ class FakePod
   end
 
   def call(req)
+    raise OutboundHttp::ConnectionError, "Errno::ECONNREFUSED: Connection refused" if unreachable
+
     path, = req.path.split("?")
     log << "#{req.method.to_s.upcase} #{path}"
     headers << [req.method, path, req["Authorization"]]
@@ -141,7 +152,9 @@ class FakePod
     end
     if header && header["typ"] == "pod-read-delegation+jwt"
       grants << claims
-      return [400, { "error" => "invalid_grant" }] unless readers.include?(claims["iss"])
+      raise OutboundHttp::ConnectionError, "Errno::ECONNREFUSED: Connection refused" if read_grant_failure == :unreachable
+      return read_grant_failure if read_grant_failure
+      return [400, { "error" => "invalid_grant" }] unless reader?(claims["iss"], Array(claims["collections"]))
 
       token = "read-token-#{tick}"
       @read_tokens << token
@@ -150,6 +163,11 @@ class FakePod
                      "scope" => "collection:#{claims['collections'].join(',')} act:read" }]
     end
     [200, { "access_token" => "token-#{tick}", "token_type" => "DPoP", "expires_in" => 600 }]
+  end
+
+  def reader?(did, collections)
+    readers.include?(did) ||
+      (collections.any? && collections.all? { |id| collection_readers.fetch(id.to_s, []).include?(did) })
   end
 
   def presented(req) = req["Authorization"].to_s.delete_prefix("DPoP ")

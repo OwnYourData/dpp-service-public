@@ -136,6 +136,96 @@ RSpec.describe "Reading with access rights", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
+    # The custodian has not entered this service as reader of the passport's
+    # collection (anymore): it answers the read grant with invalid_grant. A
+    # reader with access rights then gets what a reader without them gets, the
+    # public part, with 200; the answer and the access log say why, and
+    # nothing is read at the custodian.
+    describe "at a collection without this service's reader" do
+      let(:unavailable) { "unavailable;reason=readerNotEntered" }
+      let(:date) { CGI.escape(Time.now.utc.iso8601) }
+
+      before do
+        read(passport_paths.first)
+        @public_body = response.parsed_body
+        pod.readers.clear
+        pod.withdraw_read_tokens!
+        PodStorage.reset_token_cache!
+        pod.log.clear
+      end
+
+      it "gives every role the public part with 200 and says the controlled part is unavailable, and why" do
+        [li_reader, au_reader, owner].each do |reader|
+          (passport_paths + ["/dpp/v1/dppsByIdAndDate/#{enc}?representation=full&date=#{date}"]).each do |path|
+            read(path, as: reader)
+
+            expect(response).to have_http_status(:ok)
+            expect(response.parsed_body).to eq(@public_body)
+            expect(response.headers["X-DPP-Controlled-Part"]).to eq(unavailable)
+            expect(response.headers["X-DPP-Access-Roles"]).to be_nil
+            expect(response.headers["Cache-Control"]).to eq("private, no-store")
+            expect(response.body).not_to include("SN-0921", "OnModePower")
+          end
+        end
+      end
+
+      it "answers the fine-granular paths from the public part, and says why a controlled attribute is not there" do
+        read("/dpp/v1/dpps/#{enc}/elements/BrandName", as: au_reader)
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq("Lumina")
+        expect(response.headers["X-DPP-Controlled-Part"]).to eq(unavailable)
+
+        read("/dpp/v1/dpps/#{enc}/elements/SerialNumber", as: li_reader)
+        expect(response).to have_http_status(:not_found)
+        expect(response.headers["X-DPP-Controlled-Part"]).to eq(unavailable)
+        expect(response.parsed_body["message"].first["text"])
+          .to eq("Element not found in the public part; the controlled part of this passport is unavailable")
+        expect(response.body).not_to include("SN-0921")
+
+        read("/dpp/v1/dpps/#{enc}/elements/SerialNumber")
+        expect(response).to have_http_status(:not_found)
+        expect(response.headers["X-DPP-Controlled-Part"]).to be_nil
+      end
+
+      it "reads nothing at the custodian and logs each access with its reason" do
+        [li_reader, au_reader, owner].each { |reader| read(passport_paths.first, as: reader) }
+
+        expect(pod.log.grep(%r{\AGET /(object|collection|dpp/v1/controlled)/})).to be_empty
+        entries = AccessEvent.where(dpp_id: dpp_id, event: "read")
+        expect(entries.count).to eq(3)
+        expect(entries.map { |e| [e.reader_did, e.status, e.reason, e.roles.presence, e.custodian] })
+          .to contain_exactly([li_reader, 200, "readerNotEntered", nil, nil], [au_reader, 200, "readerNotEntered", nil, nil],
+                              [owner, 200, "readerNotEntered", nil, nil])
+      end
+
+      it "stays recognisable when the object id of the controlled card has to be looked up first" do
+        Dpp.find(dpp_id).update_column(:storage_controlled_object_id, nil)
+
+        read(passport_paths.first, as: au_reader)
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq(@public_body)
+        expect(response.headers["X-DPP-Controlled-Part"]).to eq(unavailable)
+      end
+
+      it "answers 502 when the custodian refuses the read grant otherwise, or cannot be reached" do
+        pod.readers << reader.did
+        pod.read_grant_failure = [400, { "error" => "invalid_dpop_proof" }]
+        read(passport_paths.first, as: li_reader)
+        expect(response).to have_http_status(:bad_gateway)
+        expect(response.body).not_to include("SN-0921")
+
+        PodStorage.reset_token_cache!
+        pod.read_grant_failure = :unreachable
+        read(passport_paths.first, as: li_reader)
+        expect(response).to have_http_status(:bad_gateway)
+        expect(response.parsed_body["message"].first["text"]).to match(/unreachable/)
+
+        read(passport_paths.first)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     describe "earlier versions" do
       before do
         update_passport(serial: "SN-NEW", power: 9.0, brand: "Lumina 2")
@@ -171,13 +261,57 @@ RSpec.describe "Reading with access rights", type: :request do
         expect(value_of(response.parsed_body, "OnModePower")).to eq(7.5)
       end
 
-      it "says the controlled part is unavailable when the custodian serves no versions of it" do
-        pod.controlled_versions = false
-        read(version_path(card_stamps(FakePod::PUBLIC).first), as: au_reader)
+      # The custodian serves no versions of controlled cards: a reader with
+      # access rights gets the public part of the version, and the answer and
+      # the access log say why the controlled part is missing.
+      describe "at a custodian that serves no versions of controlled cards" do
+        let(:unavailable) { "unavailable;reason=versionsNotServed" }
 
-        expect(response).to have_http_status(:ok)
-        expect(response.headers["X-DPP-Controlled-Part"]).to eq("unavailable")
-        expect(element_ids(response.parsed_body)).to eq(%w[BrandName])
+        before { pod.controlled_versions = false }
+
+        it "gives every role the public part of the version, says why, and names no classes" do
+          path = version_path(card_stamps(FakePod::PUBLIC).first)
+          read(path)
+          public_body = response.parsed_body
+
+          [li_reader, au_reader, owner].each do |as|
+            read(path, as: as)
+
+            expect(response).to have_http_status(:ok)
+            expect(response.parsed_body).to eq(public_body)
+            expect(element_ids(response.parsed_body)).to eq(%w[BrandName])
+            expect(response.headers["X-DPP-Controlled-Part"]).to eq(unavailable)
+            expect(response.headers["X-DPP-Access-Roles"]).to be_nil
+            expect(response.headers["Cache-Control"]).to eq("private, no-store")
+          end
+
+          entries = AccessEvent.where(dpp_id: dpp_id, event: "read", operation: "ReadDPPVersionByIdAndDate")
+          expect(entries.map { |e| [e.reader_did, e.status, e.reason, e.roles.presence, e.controlled_digest] })
+            .to contain_exactly([li_reader, 200, "versionsNotServed", nil, nil],
+                                [au_reader, 200, "versionsNotServed", nil, nil],
+                                [owner, 200, "versionsNotServed", nil, nil])
+        end
+
+        it "names the classes when the public version holds an attribute that is controlled today" do
+          stricter = policy_doc.merge("id" => "https://dpp.example.org/access-policies/cap-020/2",
+                                      "rules" => policy_doc["rules"] + [{ "path" => "BrandName",
+                                                                          "accessClass" => "legitimateInterest" }])
+          put "/dpp/v1/access-policies", params: stricter.to_json, headers: json_headers(owner)
+          expect(response.status).to be_in([200, 201])
+          update_passport({ "X-DPP-Access-Policy" => stricter["id"] })
+          path = version_path(card_stamps(FakePod::PUBLIC).first)
+
+          read(path)
+          expect(element_ids(response.parsed_body)).to be_empty
+
+          read(path, as: li_reader)
+          expect(response).to have_http_status(:ok)
+          expect(value_of(response.parsed_body, "BrandName")).to eq("Lumina")
+          expect(value_of(response.parsed_body, "SerialNumber")).to be_nil
+          expect(response.headers["X-DPP-Access-Roles"]).to eq("legitimateInterest")
+          expect(response.headers["X-DPP-Controlled-Part"]).to eq(unavailable)
+          expect(AccessEvent.where(event: "read", reader_did: li_reader).last.roles).to eq(["legitimateInterest"])
+        end
       end
     end
   end

@@ -368,7 +368,7 @@ RSpec.describe "DPP API", type: :request do
       body = JSON.parse(response.body)
       expect(body["statusCode"]).to eq("ServerErrorBadGateway")
       expect(body).not_to have_key("registrationId")
-      expect(body["message"].first["code"]).to eq("registry_not_connected")
+      expect(body["message"].first["code"]).to eq("registryNotConnected")
     end
 
     # EN 18222:2026 7.1 Table 11 spells the operator uniqueEconomicOperatorIdentifier

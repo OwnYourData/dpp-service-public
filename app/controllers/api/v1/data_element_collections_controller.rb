@@ -22,7 +22,10 @@ module Api
         access   = PassportAccess.current(@dpp, reader: reader_did)
         document = access.document
         collection = find_collection(document, params[:element_id])
-        return render_result("ClientErrorResourceNotFound", text: "Collection not found") if collection.nil?
+        if collection.nil?
+          report_access(access) if access.controlled
+          return render_result("ClientErrorResourceNotFound", text: missing_text("Collection", access))
+        end
 
         report_commitment(@dpp)
         report_access(access)

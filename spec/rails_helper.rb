@@ -27,6 +27,10 @@ RSpec.configure do |config|
   # suite comes from the same address within the same minute.
   config.before { ApplicationController::RATE_LIMIT_STORE.clear }
 
+  # Whether this service is entered as reader of a collection is kept in the
+  # process for a while (ReaderAdmission); each example asks its own custodian.
+  config.before { ReaderAdmission.reset! }
+
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!

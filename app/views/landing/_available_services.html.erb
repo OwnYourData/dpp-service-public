@@ -1,0 +1,68 @@
+  <div class="section-head">
+    <div>
+      <h2 id="available-services">Available DPP services</h2>
+      <p class="intro">Services that implement EN&nbsp;18222:2026, including this one. Each entry says where its data comes from: from the operator, or from our own research, which may be incomplete.</p>
+    </div>
+    <a class="btn secondary" href="https://github.com/OwnYourData/dpp-criteria/blob/main/services/README.md">Add or correct your service</a>
+  </div>
+  <div class="panel services">
+    <table class="services-table" aria-labelledby="available-services">
+      <thead>
+        <tr>
+          <th scope="col">Service</th>
+          <th scope="col">Licence</th>
+          <th scope="col">Example passports · DPP Linter</th>
+          <th scope="col">Service checks · Validator</th>
+        </tr>
+      </thead>
+      <tbody>
+<% services.each do |s| -%>
+        <tr<%= ' class="this"'.html_safe if s.this_service? %>>
+          <td data-label="Service">
+            <% if s.url %><a class="name" href="<%= s.url %>"><%= s.name %></a><% else %><span class="name"><%= s.name %></span><% end %><% if s.this_service? %><span class="badge live">this service</span><% end %>
+<% if s.provider.present? -%>
+            <span class="sub"><%= s.provider %></span>
+<% end -%>
+<% case s.source -%>
+<% when :operator -%>
+            <span class="sub"><span class="src operator" aria-hidden="true"></span>entry maintained by the operator</span>
+<% when :research -%>
+            <span class="sub"><span class="src research" aria-hidden="true"></span><%= ["our research", s.as_of].compact.join(" · ") %></span>
+<% end -%>
+          </td>
+          <td data-label="Licence"><%= s.licence || "–" %></td>
+          <td data-label="Example passports · DPP Linter">
+<% if s.passports.any? -%>
+<% s.passports.each do |p| -%>
+            <div class="passport">
+              <% if p.lint_url %><a href="<%= p.lint_url %>"><%= p.label %></a><% else %><%= p.label %><% end %>
+<% if p.count || p.details.any? -%>
+              <span class="sub"><% if p.count %><span class="tone-<%= p.count.tone %>"><%= p.count.text %> passed</span><% end %><% p.details.each_with_index do |d, i| %><%= " · " if p.count || i.positive? %><%= d %><% end %></span>
+<% end -%>
+            </div>
+<% end -%>
+<% else -%>
+            <span class="tone-neutral"><%= s.linter_note || "no example passport" %></span>
+<% end -%>
+          </td>
+          <td data-label="Service checks · Validator">
+<% if s.validator_checked? && s.validator_count -%>
+            <span class="tone-<%= s.validator_count.tone %>"><%= s.validator_count.text %></span><% if s.validator_warnings_text %> · <%= s.validator_warnings_text %><% end %><% if s.validator_details_url %> · <a href="<%= s.validator_details_url %>">details</a><% end %>
+<% else -%>
+            <span class="tone-neutral"><%= s.validator_status_text %></span>
+<% end -%>
+<% if s.validator_detail -%>
+            <span class="sub"><%= s.validator_detail %></span>
+<% end -%>
+          </td>
+        </tr>
+<% end -%>
+      </tbody>
+    </table>
+  </div>
+  <ul class="legend">
+    <li><span class="src operator" aria-hidden="true"></span>Entry maintained by the operator (pull request to dpp-criteria)</li>
+    <li><span class="src research" aria-hidden="true"></span>Entry from our research – public information, may be incomplete; the operator can confirm or correct it</li>
+  </ul>
+  <p class="services-notice"><%= notice %></p>
+  <p class="services-more">Beyond services: research projects, initiatives and standards around the DPP – <a href="/kb/research-and-initiatives/">Knowledge Base</a></p>

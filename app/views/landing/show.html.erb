@@ -17,6 +17,7 @@
     --accent-soft: #e3f2ec;
     --wip: #8a5a00;
     --wip-soft: #fbf0d9;
+    --bad: #b42318;
     --radius: 12px;
   }
   @media (prefers-color-scheme: dark) {
@@ -30,6 +31,7 @@
       --accent-soft: #173229;
       --wip: #e6b85c;
       --wip-soft: #33291a;
+      --bad: #f28b82;
     }
   }
   * { box-sizing: border-box; }
@@ -66,6 +68,11 @@
     padding: 20px; display: flex; flex-direction: column; gap: 10px;
   }
   .card h3 { margin: 0; font-size: 17px; }
+  .card h3 a { color: inherit; text-decoration: none; border-radius: 4px; }
+  .card h3 a .go { color: var(--accent); margin-left: 6px; display: inline-block; transition: transform .15s; }
+  .card h3 a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  .card h3 a:hover .go { transform: translateX(2px); }
+  .card h3 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; flex: 1; }
   .card .links { font-size: 15px; display: flex; gap: 14px; flex-wrap: wrap; }
   .soon { color: var(--muted); }
@@ -85,6 +92,45 @@
   ul.repos li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   ul.repos li:last-child { border-bottom: 0; }
   ul.repos .what { color: var(--muted); font-size: 15px; }
+  .section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px 24px; flex-wrap: wrap; margin: 44px 0 16px; }
+  .section-head h2 { margin: 0 0 6px; }
+  .section-head .intro { margin: 0; color: var(--muted); font-size: 15px; max-width: 640px; }
+  .section-head .btn { flex-shrink: 0; }
+  .services { padding: 0; overflow: hidden; }
+  table.services-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .services-table th { text-align: left; font-size: 13px; font-weight: 600; color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: bottom; }
+  .services-table td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .services-table tbody tr:last-child td { border-bottom: 0; }
+  .services-table tr.this td { background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface)); }
+  .services-table tr.this td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .services-table .name { font-weight: 600; }
+  .services-table th:nth-child(1) { width: 28%; }
+  .services-table th:nth-child(2) { width: 20%; }
+  .services-table th:nth-child(3) { width: 26%; }
+  .services-table .badge { margin-left: 6px; vertical-align: 1px; font-size: 11px; padding: 2px 7px; white-space: nowrap; }
+  .services-table .sub { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 2px; }
+  .services-table .passport + .passport { margin-top: 8px; }
+  .src { display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; margin-right: 5px; vertical-align: 0; }
+  .src.operator { background: currentColor; }
+  .tone-pass { color: var(--accent); font-weight: 600; }
+  .tone-warn { color: var(--wip); font-weight: 600; }
+  .tone-fail { color: var(--bad); font-weight: 600; }
+  .tone-neutral { color: var(--muted); }
+  .legend { margin: 10px 2px 0; padding: 0; list-style: none; color: var(--muted); font-size: 13px; }
+  .legend li { margin: 2px 0; }
+  .services-notice { margin: 10px 2px 0; color: var(--muted); font-size: 13px; max-width: 760px; }
+  .services-more { margin: 8px 2px 0; color: var(--muted); font-size: 13px; }
+  @media (max-width: 639px) {
+    .services-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .services-table, .services-table tbody, .services-table tr, .services-table td { display: block; width: 100%; }
+    .services-table tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+    .services-table tbody tr:last-child { border-bottom: 0; }
+    .services-table td, .services-table tbody tr:last-child td { border-bottom: 0; padding: 6px 16px; }
+    .services-table tr.this { background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface)); box-shadow: inset 3px 0 0 var(--accent); }
+    .services-table tr.this td { background: transparent; }
+    .services-table tr.this td:first-child { box-shadow: none; }
+    .services-table td::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+  }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
   footer { margin-top: 56px; padding: 24px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
   footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -130,7 +176,7 @@
   <div class="grid two">
     <article class="card">
       <span class="badge live">New</span>
-      <h3>DPP Knowledge Base</h3>
+      <h3><a href="/kb/">DPP Knowledge Base<span class="go" aria-hidden="true">→</span></a></h3>
       <p>Self-contained articles on what the EU requires, how the published standards fit together and how these tools put them into practice.</p>
       <div class="links">
         <a href="/kb/">All articles</a>
@@ -141,7 +187,7 @@
 
     <article class="card">
       <span class="badge live">Available</span>
-      <h3>DPP Manager</h3>
+      <h3><a href="https://hub.docker.com/r/oydeu/dpp-manager">DPP Manager<span class="go" aria-hidden="true">→</span></a></h3>
       <p>Application for economic operators that runs on their own computer: describe products, create passports and publish them through a DPP service.</p>
       <div class="links">
         <a href="/kb/dpp-manager/">Explained</a>
@@ -152,7 +198,7 @@
 
     <article class="card">
       <span class="badge live">Available</span>
-      <h3>DPP Linter</h3>
+      <h3><a href="https://dpplint.ownyourdata.eu/">DPP Linter<span class="go" aria-hidden="true">→</span></a></h3>
       <p>Enter a product identifier and see whether the passport behind it resolves, is readable without an account and follows the published data model.</p>
       <div class="links">
         <a href="/kb/dpp-linter/">Explained</a>
@@ -163,7 +209,7 @@
 
     <article class="card">
       <span class="badge live">Available</span>
-      <h3>DPP Service Validator</h3>
+      <h3><a href="https://ownyourdata.github.io/dpp-validator/">DPP Service Validator<span class="go" aria-hidden="true">→</span></a></h3>
       <p>Daily automated checks of listed DPP services against open criteria, with results published for everyone to see.</p>
       <div class="links">
         <a href="/kb/dpp-service-validator/">Explained</a>
@@ -174,16 +220,7 @@
     </article>
   </div>
 
-  <h2>Other DPP services</h2>
-  <div class="panel">
-    <p><span class="badge live">Open</span></p>
-    <p>
-      So far the validator checks this service only (<a href="https://ownyourdata.github.io/dpp-validator/">results</a>).
-      Other operators add their service themselves, by pull request to
-      <a href="https://github.com/OwnYourData/dpp-criteria">dpp-criteria</a>.
-    </p>
-    <p><a href="https://github.com/OwnYourData/dpp-criteria/blob/main/services/README.md">How to add your DPP service to the daily checks</a></p>
-  </div>
+  <%= render "available_services", services: @services, notice: @services_notice %>
 
   <h2>Source code</h2>
   <div class="panel">

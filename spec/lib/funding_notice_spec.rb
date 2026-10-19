@@ -23,7 +23,7 @@ RSpec.describe FundingNotice do
   end
 
   it "keeps the footer of the start page as the configuration says" do
-    page = Rails.root.join("public", "index.html").to_s
+    page = Rails.root.join("app", "views", "landing", "show.html.erb").to_s
 
     expect(described_class.current(page)).to eq(described_class.html)
   end

@@ -679,7 +679,7 @@ Authorization: Bearer <token>
     {
       "messageType": "Error",
       "text": "This service is not connected to the EU DPP Registry; the passport has not been registered",
-      "code": "registry_not_connected"
+      "code": "registryNotConnected"
     }
   ]
 }

@@ -23,7 +23,7 @@ info:
     `https%3A%2F%2Fdpp.example.org%2F01%2F09520123456788%2F8546`.
     The service disables content-type suffix routing (`.json`), so dots inside
     an identifier are preserved.
-  version: 0.1.0
+  version: 0.2.0
   contact:
     name: DPP Service (OwnYourData)
   license:
@@ -85,7 +85,10 @@ paths:
         With an access policy (`X-DPP-Access-Policy`) and a custodian that holds
         controlled cards, the passport is written as a public and a controlled
         card (docs/AccessClasses.md §6); on a custodian that does not, a policy
-        that leaves attributes not public is refused with 400. The custodian's
+        that leaves attributes not public is refused with 400, and so it is at a
+        collection for which the custodian has not entered this service as
+        reader (message code `readerNotEntered`), before anything is written.
+        The custodian's
         refusals of a card are answered with 409 (identifier held in a
         collection of another economic operator, or the cards of the passport do
         not match) and 403 (delegation does not cover the controlled card). The
@@ -136,8 +139,11 @@ paths:
         `ControlledData`. A reader with access rights -- the owner, or a reader
         DID holding an access grant -- presents its bearer token and gets in
         addition the attributes of the classes it may read (§8). A token that is
-        presented but does not hold is answered with 401. The same holds for
-        every read method.
+        presented but does not hold is answered with 401. If the custodian does
+        not accept this service as reader of the passport's collection, a reader
+        with access rights gets the public part with
+        `X-DPP-Controlled-Part: unavailable;reason=readerNotEntered`. The same
+        holds for every read method.
       operationId: readDPPById
       x-semanticId: https://jtc24/dpp/API/ReadDPPById/1/0
       parameters:
@@ -148,6 +154,7 @@ paths:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
+            X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
           description: Success — requested DPP.
           content:
             application/json:
@@ -538,6 +545,7 @@ paths:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
+            X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
           description: Success — latest active DPP.
           content:
             application/json:
@@ -564,7 +572,10 @@ paths:
         Table 3 and Table 16). Optional for the economic operator. Each reader
         gets the same classes as for the current passport; every version is
         filtered by the passport's access policy as it is today
-        (docs/AccessClasses.md §9).
+        (docs/AccessClasses.md §9). If the custodian serves no versions of
+        controlled cards, a reader with access rights gets the public part of
+        the version with
+        `X-DPP-Controlled-Part: unavailable;reason=versionsNotServed`.
       operationId: readDPPVersionByIdAndDate
       x-semanticId: https://jtc24/dpp/API/ReadDPPVersionByIdAndDate/1/0
       parameters:
@@ -660,7 +671,7 @@ paths:
         (EN 18222:2026 5.2, Table 8 and Table 17).
         This deployment is not connected to the EU DPP Registry. A complete
         entry is answered with 502 ServerErrorBadGateway (message code
-        registry_not_connected); nothing is registered and no registration
+        `registryNotConnected`); nothing is registered and no registration
         identifier is returned.
       operationId: registerProductDPP
       x-semanticId: https://jtc24/dpp/API/RegisterProductDPP/1/0
@@ -776,6 +787,7 @@ paths:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
+            X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
           description: Success — requested data element.
           content:
             application/json:
@@ -873,9 +885,13 @@ components:
     ControlledPart:
       description: >-
         `unavailable` — the reader's access rights reach further than what could
-        be read: the custodian serves no versions of controlled cards, so the
-        answer holds the public part of that version only.
-      schema: { type: string, enum: [unavailable] }
+        be read, so the answer holds the public part only. An RFC 8941 item;
+        the parameter `reason` says why: `readerNotEntered`, the custodian does
+        not accept this service as reader of the passport's collection;
+        `versionsNotServed`, the custodian serves no versions of controlled
+        cards (ReadDPPVersionByIdAndDate). Such an answer carries
+        `Cache-Control: private, no-store`.
+      schema: { type: string, example: 'unavailable;reason=readerNotEntered' }
 
   parameters:
     DppId:
@@ -1025,7 +1041,12 @@ components:
         text: { type: string }
         code:
           type: string
-          description: Technology-dependent status or error code.
+          description: >-
+            Technology-dependent status or error code, in camelCase. This
+            service sets `readerNotEntered` on the 400 of a write to a
+            collection for which the custodian has not entered this service as
+            reader, and `registryNotConnected` on the 502 of
+            RegisterProductDPP.
         correlationId:
           type: string
           description: Identifier to relate several result messages across systems.

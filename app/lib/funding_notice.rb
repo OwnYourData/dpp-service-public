@@ -5,9 +5,8 @@ require "yaml"
 
 # The funding notice of PACE-DPP, kept once in config/funding.yml.
 #
-# Two places show it: the footer of the start page, which is a static file, and
-# the README. Neither can read the configuration while it is shown, so both hold
-# a copy between two markers, and `bin/rails funding:write` replaces that copy
+# Two places show it: the footer of the start page and the README. Both hold a
+# copy between two markers, and `bin/rails funding:write` replaces that copy
 # with what the configuration says. The spec compares them, so a copy that was
 # not rewritten does not go unnoticed.
 module FundingNotice
@@ -47,7 +46,7 @@ module FundingNotice
   # from the markers (a line break in Markdown, nothing inside the footer).
   def copies
     [
-      [File.join(ROOT, "public", "index.html"), html, ""],
+      [File.join(ROOT, "app", "views", "landing", "show.html.erb"), html, ""],
       [readme, markdown, "\n"]
     ]
   end

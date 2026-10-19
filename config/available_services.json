@@ -1,0 +1,280 @@
+{
+  "generated_at": "2026-10-18T17:21:38Z",
+  "notice": "Results of automated checks only, from a research project that shares what we currently know. The list is not complete and no legal assessment; the results are no certification and establish no presumption of conformity. Entries from our research come from our own research and may be incomplete or out of date.",
+  "counting": "passed: active criteria with result passed or warning; failed: result failed; total: passed + failed; warnings: passed with a warning, included in passed; skipped criteria are not counted",
+  "services": [
+    {
+      "id": "ownyourdata-dpp-service",
+      "name": "OwnYourData DPP Service",
+      "url": "https://dpp-service.ownyourdata.eu/",
+      "provider": {
+        "name": "OwnYourData",
+        "country": "AT"
+      },
+      "this_service": true,
+      "entry": {
+        "source": "operator",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "Apache-2.0",
+        "spdx": [
+          "Apache-2.0"
+        ]
+      },
+      "linter": {
+        "passports": [
+          {
+            "product_id": "https://dpp.oydapp.eu/01/09520123456788/21/000001",
+            "label": "reference passport",
+            "lint_url": "https://dpplint.ownyourdata.eu/?productId=https%3A%2F%2Fdpp.oydapp.eu%2F01%2F09520123456788%2F21%2F000001",
+            "summary_text": "5 of 5 automated checks passed",
+            "passed": 5,
+            "total": 5,
+            "failed": 0,
+            "warnings": 1,
+            "checked_at": "2026-10-18",
+            "note": null
+          }
+        ]
+      },
+      "validator": {
+        "status": "checked",
+        "mode": "full",
+        "cadence": "daily",
+        "details_url": "https://ownyourdata.github.io/dpp-validator/services/ownyourdata-dpp-service.html",
+        "summary_text": "15 of 15 automated checks passed",
+        "passed": 15,
+        "total": 15,
+        "failed": 0,
+        "warnings": 0,
+        "proposed_failed": 1,
+        "checked_at": "2026-10-18"
+      }
+    },
+    {
+      "id": "eclipse-basyx-dpp-api",
+      "name": "Eclipse BaSyx DPP API",
+      "url": "https://dpp.basyx.org/",
+      "provider": {
+        "name": "Fraunhofer IESE",
+        "country": "DE"
+      },
+      "this_service": false,
+      "entry": {
+        "source": "research",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "MIT",
+        "spdx": [
+          "MIT"
+        ]
+      },
+      "linter": {
+        "passports": [
+
+        ],
+        "note": "no public example passport"
+      },
+      "validator": {
+        "status": "no_public_instance"
+      }
+    },
+    {
+      "id": "freedpp",
+      "name": "freeDPP",
+      "url": "https://freedpp.eu/",
+      "provider": {
+        "name": "inndata Datentechnik GmbH",
+        "country": "AT"
+      },
+      "this_service": false,
+      "entry": {
+        "source": "research",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "GPL-3.0",
+        "spdx": [
+          "GPL-3.0-only"
+        ]
+      },
+      "linter": {
+        "passports": [
+          {
+            "product_id": "https://drill.freedpp.eu/01/5012345101095",
+            "label": "drill passport",
+            "lint_url": "https://dpplint.ownyourdata.eu/?productId=https%3A%2F%2Fdrill.freedpp.eu%2F01%2F5012345101095",
+            "summary_text": "3 of 4 automated checks passed",
+            "passed": 3,
+            "total": 4,
+            "failed": 1,
+            "warnings": 1,
+            "checked_at": "2026-10-18",
+            "note": null
+          }
+        ]
+      },
+      "validator": {
+        "status": "checked",
+        "mode": "read-only",
+        "cadence": "weekly",
+        "details_url": "https://ownyourdata.github.io/dpp-validator/services/freedpp.html",
+        "summary_text": "7 of 11 automated checks passed",
+        "passed": 7,
+        "total": 11,
+        "failed": 4,
+        "warnings": 2,
+        "proposed_failed": 0,
+        "checked_at": "2026-10-18"
+      }
+    },
+    {
+      "id": "opc-ua-cloud-library",
+      "name": "OPC UA Cloud Library",
+      "url": "https://uacloudlibrary.opcfoundation.org",
+      "provider": {
+        "name": "OPC Foundation",
+        "country": null
+      },
+      "this_service": false,
+      "entry": {
+        "source": "research",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "OPC Foundation MIT License 1.00",
+        "spdx": [
+
+        ]
+      },
+      "linter": {
+        "passports": [
+
+        ],
+        "note": "no public example passport"
+      },
+      "validator": {
+        "status": "checked",
+        "mode": "read-only",
+        "cadence": "weekly",
+        "details_url": "https://ownyourdata.github.io/dpp-validator/services/opc-ua-cloud-library.html",
+        "summary_text": "2 of 2 automated checks passed",
+        "passed": 2,
+        "total": 2,
+        "failed": 0,
+        "warnings": 1,
+        "proposed_failed": 0,
+        "checked_at": "2026-10-18"
+      }
+    },
+    {
+      "id": "open-dpp",
+      "name": "open-dpp",
+      "url": "https://open-dpp.de/",
+      "provider": {
+        "name": "open-dpp GmbH",
+        "country": "DE"
+      },
+      "this_service": false,
+      "entry": {
+        "source": "research",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "AGPL-3.0; hosted cloud commercial",
+        "spdx": [
+          "AGPL-3.0-only"
+        ]
+      },
+      "linter": {
+        "passports": [
+
+        ],
+        "note": "no public example passport"
+      },
+      "validator": {
+        "status": "no_en18222_paths"
+      }
+    },
+    {
+      "id": "opendpp",
+      "name": "OpenDPP",
+      "url": "https://opendpp-node.eu/",
+      "provider": {
+        "name": "Opendpp UAB",
+        "country": "LT"
+      },
+      "this_service": false,
+      "entry": {
+        "source": "research",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "commercial; interop kit and SDKs Apache-2.0",
+        "spdx": [
+
+        ]
+      },
+      "linter": {
+        "passports": [
+          {
+            "product_id": "https://opendpp-node.eu/01/09501101532007/21/demo-batteries-lfp-cell-200",
+            "label": "demo battery cell",
+            "lint_url": "https://dpplint.ownyourdata.eu/?productId=https%3A%2F%2Fopendpp-node.eu%2F01%2F09501101532007%2F21%2Fdemo-batteries-lfp-cell-200",
+            "summary_text": "4 of 5 automated checks passed",
+            "passed": 4,
+            "total": 5,
+            "failed": 1,
+            "warnings": 2,
+            "checked_at": "2026-10-18",
+            "note": null
+          }
+        ]
+      },
+      "validator": {
+        "status": "needs_credentials"
+      }
+    },
+    {
+      "id": "passportlab",
+      "name": "PassportLab",
+      "url": "https://www.passportlab.io",
+      "provider": {
+        "name": "NextGate Digital UG",
+        "country": "DE"
+      },
+      "this_service": false,
+      "entry": {
+        "source": "research",
+        "as_of": "2026-10-18"
+      },
+      "licence": {
+        "text": "commercial (freemium)",
+        "spdx": [
+
+        ]
+      },
+      "linter": {
+        "passports": [
+          {
+            "product_id": "https://api.passportlab.io/api/v1/public/dpp/DPP-04099999000036-BAT-IND-2026-0001",
+            "label": "demo battery",
+            "lint_url": "https://dpplint.ownyourdata.eu/?productId=https%3A%2F%2Fapi.passportlab.io%2Fapi%2Fv1%2Fpublic%2Fdpp%2FDPP-04099999000036-BAT-IND-2026-0001",
+            "summary_text": "2 of 4 automated checks passed",
+            "passed": 2,
+            "total": 4,
+            "failed": 2,
+            "warnings": 0,
+            "checked_at": "2026-10-18",
+            "note": null
+          }
+        ]
+      },
+      "validator": {
+        "status": "no_en18222_paths"
+      }
+    }
+  ]
+}

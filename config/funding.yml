@@ -1,6 +1,6 @@
 # Funding notice of PACE-DPP: the one place where its wording is kept.
 #
-# The footer of the start page (public/index.html) and the "Funding" section of
+# The footer of the start page (app/views/landing/show.html.erb) and the "Funding" section of
 # the README are written from this file. After changing it, run
 #
 #   bin/rails funding:write

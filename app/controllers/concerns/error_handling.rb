@@ -49,9 +49,19 @@ module ErrorHandling
     end
 
     # A write that would hand attributes that are not public to a custodian
-    # that publishes everything it holds (ControlledCards).
+    # that publishes everything it holds (ControlledCards), or to a collection
+    # at which the custodian has not entered this service as reader
+    # (ReaderAdmission); the latter with the code "readerNotEntered".
     rescue_from Dpp::ControlledPartNotHeld do |e|
-      render_result("ClientErrorBadRequest", text: "Refused: #{e.message}")
+      code = e.is_a?(Dpp::ReaderNotEntered) ? Dpp::ReaderNotEntered::CODE : nil
+      render_result("ClientErrorBadRequest", text: "Refused: #{e.message}", code: code)
+    end
+
+    # The same write to a custodian listed as holding controlled cards, for
+    # which this deployment has no reader DID configured.
+    rescue_from Dpp::ReaderNotConfigured do |e|
+      Rails.logger.error("[reader] #{e.message}")
+      render_result("ServerInternalError", text: "Refused: #{e.message}")
     end
 
     # Registered policies are immutable (RegisteredAccessPolicy).

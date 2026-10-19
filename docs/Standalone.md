@@ -74,6 +74,7 @@ All settings come from environment variables.
 | `DID_AUTH_CACHE_TTL` | `300` | how long a resolved public key stays valid |
 | `DID_AUTH_MAX_LIFETIME` | `900` | longest accepted token lifetime in seconds |
 | `DPP_ACCESS_LOG_RETENTION_DAYS` | `1826` | days entries of the access log are kept; `bin/rails dpp:access:prune` removes older ones |
+| `DPP_AVAILABLE_SERVICES_URL` | — (none) | https URL of the JSON list of available DPP services shown on the start page; fetched at most once an hour; a list without `notice` is not taken, and when fetching fails the last good list stays. Without it the start page shows the list shipped in `config/available_services.json` |
 
 **Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
 DID is created.** Without the variable the service derives the key from
@@ -334,7 +335,7 @@ process.
   individual passport is placed in a hosting pod, remains unused. Without it
   the service stores locally — that is the default and needs no configuration.
 * **No registry connection.** `registerDPP` checks the entry and answers `502`
-  (`registry_not_connected`); nothing is registered. The Commission publishes no
+  (`registryNotConnected`); nothing is registered. The Commission publishes no
   API specification for the EU DPP Registry.
 * **Roles by access grant only.** Signature verification (`DPP_AUTH_MODE=did`),
   owner binding, access classes and reading per role are implemented

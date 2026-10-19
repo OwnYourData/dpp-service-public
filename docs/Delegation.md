@@ -99,10 +99,16 @@ fetched again with the same grant shortly before it runs out.
 The service reads with it what a write delegation may not: the object list of
 the collection and the index cards and their meta, to find the controlled card
 of a passport (AccessClasses.md §6) when its object id is not known. A pod that
-does not know the reader answers the grant with `invalid_grant`; that ends the
-lookup with a message of its own and touches neither writing nor the public
-read path. `bin/rails dpp:readers:measure DPP=<digitalProductPassportId>` reads
-the controlled card of a passport this way and reports what came back, without
+does not know the reader answers the grant with `invalid_grant`. A reader with
+access rights then gets the public part, with a header that says the
+controlled part is unavailable and why (AccessClasses.md §8); the public read
+path is untouched.
+Before a passport with attributes that are not public is written to a
+collection, the service asks for a token under the read grant for that
+collection; if the pod answers `invalid_grant`, the passport is refused before
+anything is written (AccessClasses.md §6).
+`bin/rails dpp:readers:measure DPP=<digitalProductPassportId>` reads the
+controlled card of a passport this way and reports what came back, without
 printing values, grant or token.
 
 ## 4. Provisioning at the intermediary
@@ -499,6 +505,8 @@ takes precedence over the `invalid_grant` default of §8.
 | collection locked for write acts, any other token of the pod | `403 collection_write_locked` | — (not a path of the DPP Service) |
 | DPoP proof missing or not matching | `invalid_dpop_proof` | `ClientNotAuthorized` (401) |
 | `iss` not resolvable | — (refused by the DPP Service before the pod is asked) | `ClientNotAuthorized` (401) |
+| passport with attributes that are not public, this service not entered as reader of the target collection | `invalid_grant` on the read grant (§3) | `ClientErrorBadRequest` (400) with message code `readerNotEntered`, nothing written |
+| read with access rights, this service not entered as reader of the passport's collection | `invalid_grant` on the read grant (§3) | `200` with the public part and `X-DPP-Controlled-Part: unavailable;reason=readerNotEntered` |
 | pod not reachable | — | `ServerErrorBadGateway` (502) |
 
 The pod does not say which rule a refused grant failed (§8), so the DPP

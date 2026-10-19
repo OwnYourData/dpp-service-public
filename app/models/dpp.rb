@@ -111,6 +111,20 @@ class Dpp < ApplicationRecord
   # custodian that publishes everything it holds (ControlledCards).
   class ControlledPartNotHeld < StandardError; end
 
+  # Raised when a write would hand attributes that are not public to a
+  # collection at which the custodian has not entered this service as reader
+  # (ReaderAdmission): no one could read them there with access rights. CODE
+  # goes into the message of the refusal, so that a client recognises it
+  # without reading the text; it is the reason a read of such a passport
+  # gives (PassportAccess::READER_NOT_ENTERED).
+  class ReaderNotEntered < ControlledPartNotHeld
+    CODE = "readerNotEntered"
+  end
+
+  # Raised when no reader DID is configured for a custodian that is listed as
+  # holding controlled cards (ReaderDid, ControlledCards).
+  class ReaderNotConfigured < StandardError; end
+
   # The whole DPP document, without the header columns: locally the +content+
   # column; for a pod-backed DPP its public card, read over the custodian's
   # public path, and -- for a split passport -- its controlled card, read with
@@ -200,18 +214,25 @@ class Dpp < ApplicationRecord
     pod? && access_policy_record.present? && ControlledCards.held_by?(storage_base_url)
   end
 
-  # Refuses +document+ for a custodian at +base_url+ that does not hold
-  # controlled cards, if the access policy leaves attributes of it that are
-  # not public: written there, they would be published.
-  def ensure_controlled_part_held!(document, base_url)
-    return if access_policy.nil? || ControlledCards.held_by?(base_url)
+  # Refuses +document+ for collection +collection_id+ at the custodian at
+  # +base_url+ if the access policy leaves attributes of it that are not
+  # public, and either the custodian does not hold controlled cards -- written
+  # there, they would be published -- or it has not entered this service as
+  # reader of the collection -- written there, no one could read them with
+  # access rights (ReaderAdmission). Checked before anything is written.
+  def ensure_controlled_part_held!(document, base_url, collection_id)
+    return if access_policy.nil?
 
     controlled = access_policy.classify(document).classes.reject { |_, c| c == AccessClass.public_class }.keys
     return if controlled.empty?
 
-    raise ControlledPartNotHeld,
-          "the access policy leaves #{controlled.size} attribute(s) of this passport that are not public, " \
-          "and the custodian at #{base_url} does not hold controlled parts: it would publish them"
+    unless ControlledCards.held_by?(base_url)
+      raise ControlledPartNotHeld,
+            "the access policy leaves #{controlled.size} attribute(s) of this passport that are not public, " \
+            "and the custodian at #{base_url} does not hold controlled parts: it would publish them"
+    end
+
+    ensure_reader_entered!(base_url, collection_id, controlled.size)
   end
 
   # Hand the passport to a different custodian.
@@ -274,6 +295,23 @@ class Dpp < ApplicationRecord
 
   private
 
+  def ensure_reader_entered!(base_url, collection_id, count)
+    case ReaderAdmission.check(base_url, collection_id)
+    when :entered then nil
+    when :no_reader
+      raise ReaderNotConfigured,
+            "this service has no reader DID for the custodian at #{base_url}, so the #{count} attribute(s) " \
+            "of this passport that are not public could not be read there with access rights; nothing was written"
+    else
+      reader = ReaderDid.for_pod(base_url)
+      raise ReaderNotEntered,
+            "the custodian at #{base_url} has no reader entered for collection #{collection_id}, so the " \
+            "#{count} attribute(s) of this passport that are not public could not be read there with access " \
+            "rights. Nothing was written. Please ask the custodian to enter this service's reader " \
+            "#{reader&.did} for the collection"
+    end
+  end
+
   # The public card's document, as the custodian serves it.
   def public_content
     return {} unless pod? && storage_object_id.present?
@@ -312,8 +350,11 @@ class Dpp < ApplicationRecord
       found = begin
         protected_reader.locate_controlled_card(dpp_id)
       rescue PodStorage::Error => e
-        raise PodStorage::Error, "the object id of the controlled card of #{dpp_id} is not known here, " \
-                                 "and it could not be looked up at the custodian: #{e.message}"
+        # A custodian that does not accept this service as reader stays
+        # recognisable as such (PassportAccess).
+        failure = e.is_a?(PodStorage::ProtectedReader::NotAdmitted) ? e.class : PodStorage::Error
+        raise failure, "the object id of the controlled card of #{dpp_id} is not known here, " \
+                       "and it could not be looked up at the custodian: #{e.message}"
       end
       update_column(:storage_controlled_object_id, found) if found
     end
@@ -488,7 +529,7 @@ class Dpp < ApplicationRecord
 
     merged = JsonMergePatch.apply(to_document, patch.deep_stringify_keys)
     access_classification(merged)
-    ensure_controlled_part_held!(merged, storage_base_url) if pod?
+    ensure_controlled_part_held!(merged, storage_base_url, storage_collection_id) if pod?
 
     transaction do
       archive_current_version!

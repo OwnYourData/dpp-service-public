@@ -10,7 +10,9 @@ require_relative "../support/fake_pod"
 # with everything that is not public (docs/AccessClasses.md, PassportSplit).
 #
 # The pod client is real; the custodians are FakePod instances behind
-# OutboundHttp, so what reaches them, and in which order, is visible.
+# OutboundHttp, so what reaches them, and in which order, is visible. Both
+# custodians that hold controlled cards have entered this service as reader
+# unless an example says otherwise (ReaderAdmission).
 RSpec.describe "Public and controlled card", type: :request do
   let(:held)    { "https://dpp-staging.go-data.at" }
   let(:held2)   { "https://dpp-vault.example" }
@@ -25,6 +27,15 @@ RSpec.describe "Public and controlled card", type: :request do
 
   let(:holder)      { Ed25519::SigningKey.new(Digest::SHA256.digest("controlled-card/holder")) }
   let(:service_key) { Ed25519::SigningKey.new(Digest::SHA256.digest("controlled-card/service")) }
+
+  let(:held_reader) do
+    instance_double(ReaderDid, did: "did:oyd:zQmReader", pod: held,
+                               signing_key: Ed25519::SigningKey.new(Digest::SHA256.digest("controlled-card/reader")))
+  end
+  let(:held2_reader) do
+    instance_double(ReaderDid, did: "did:oyd:zQmReader2", pod: held2,
+                               signing_key: Ed25519::SigningKey.new(Digest::SHA256.digest("controlled-card/reader2")))
+  end
 
   let(:policy_doc) do
     { "id" => "https://dpp.example.org/access-policies/lamp/1",
@@ -99,6 +110,9 @@ RSpec.describe "Public and controlled card", type: :request do
     allow(DidOyd).to receive(:revoke)
     allow(ENV).to receive(:[]).and_call_original
     allow(ENV).to receive(:[]).with("DPP_CONTROLLED_CARD_PODS").and_return("#{held}, #{held2}")
+    allow(ReaderDid).to receive(:for_pod) { |url| { held => held_reader, held2 => held2_reader }[url] }
+    pods[held].readers << held_reader.did
+    pods[held2].readers << held2_reader.did
     allow(OutboundHttp).to receive(:perform) do |req, **|
       fake = pods.values.find { |p| p.handles?(req) } || raise("no custodian for #{req.url}")
       status, body = fake.call(req)
@@ -179,6 +193,7 @@ RSpec.describe "Public and controlled card", type: :request do
 
       expect(response).to have_http_status(:bad_request)
       expect(response.parsed_body["message"].first["text"]).to match(/would publish them/)
+      expect(response.parsed_body["message"].first).not_to have_key("code")
       expect(pods[plain].log.grep(/object/)).to be_empty
       expect(DidOyd).not_to have_received(:mint)
       expect(Dpp.count).to eq(0)
@@ -346,7 +361,10 @@ RSpec.describe "Public and controlled card", type: :request do
         expect(value_at(pod.controlled_payload(dpp_id), "ProductIdentification", "BatchNumber")).to eq("LOT-42")
       end
 
-      it "writes nothing and says why when the custodian does not know this service as reader" do
+      it "writes nothing and says why when the custodian has removed this service as reader meanwhile" do
+        pod.readers.clear
+        pod.withdraw_read_tokens!
+
         patch_passport({ "facilityId" => "https://id.lumina.example/414/5" })
 
         expect(response).to have_http_status(:bad_gateway)
@@ -448,6 +466,161 @@ RSpec.describe "Public and controlled card", type: :request do
       expect(response).to have_http_status(:unauthorized)
       expect(response.parsed_body["message"].first["text"]).to match(/renew it/)
       expect(pods[held2].writes).to be_empty
+    end
+  end
+
+  describe "the reader of the target collection" do
+    include ActiveSupport::Testing::TimeHelpers
+
+    after { travel_back }
+
+    def create_in(collection_id, base_url: held)
+      post "/dpp/v1/dpps?representation=full",
+           params: document.to_json,
+           headers: { "Content-Type" => "application/json", "Authorization" => bearer,
+                      "X-DPP-Storage" => storage_header(base_url, collection_id),
+                      "X-DPP-Access-Policy" => policy.policy_id }
+    end
+
+    def message = response.parsed_body["message"].first["text"]
+    def code = response.parsed_body["message"].first["code"]
+    def objects_touched(fake = pod) = fake.log.grep(%r{\A(POST|PUT|DELETE) /object})
+
+    it "is asked under the read grant for the collection of the mandate, and the passport is written where it is entered" do
+      create_passport
+
+      expect(response).to have_http_status(:created)
+      expect(pod.grants.map { |claims| [claims["iss"], claims["collections"]] }).to eq([[held_reader.did, ["4"]]])
+      expect(types_written).to eq([FakePod::CONTROLLED, FakePod::PUBLIC])
+    end
+
+    it "refuses a passport for a collection without that reader, says what to do, and writes and mints nothing" do
+      pod.readers.clear
+
+      create_passport
+
+      expect(response).to have_http_status(:bad_request)
+      expect(response.parsed_body["statusCode"]).to eq("ClientErrorBadRequest")
+      expect(code).to eq("readerNotEntered")
+      expect(message).to start_with("Refused: the custodian at #{held} has no reader entered for collection 4")
+      expect(message).to include("3 attribute(s) of this passport that are not public", "Nothing was written",
+                                 "ask the custodian to enter this service's reader #{held_reader.did}")
+      expect(objects_touched).to be_empty
+      expect(pod.cards).to be_empty
+      expect(DidOyd).not_to have_received(:mint)
+      expect(Dpp.count).to eq(0)
+    end
+
+    it "asks for the target collection, not for the custodian as a whole" do
+      pod.readers.clear
+      pod.collection_readers["5"] << held_reader.did
+
+      create_in("4")
+      expect(response).to have_http_status(:bad_request)
+      expect(objects_touched).to be_empty
+
+      create_in("5")
+      expect(response).to have_http_status(:created)
+      expect(types_written).to eq([FakePod::CONTROLLED, FakePod::PUBLIC])
+    end
+
+    it "does not ask for a passport whose policy leaves every attribute public" do
+      pod.readers.clear
+      open_policy = RegisteredAccessPolicy.register!(nil, policy_doc.merge("id" => "https://dpp.example.org/p/open",
+                                                                           "default" => "public", "rules" => [])).first
+      post "/dpp/v1/dpps", params: document.to_json,
+                           headers: { "Content-Type" => "application/json", "Authorization" => bearer,
+                                      "X-DPP-Storage" => storage_header(held),
+                                      "X-DPP-Access-Policy" => open_policy.policy_id }
+
+      expect(response).to have_http_status(:created)
+      expect(pod.grants).to be_empty
+    end
+
+    it "keeps an entered reader for a while: a later write does not ask again" do
+      create_passport
+      PodStorage.reset_token_cache!
+      travel(ReaderAdmission::ADMITTED_TTL - 30)
+
+      patch_passport({ "facilityId" => "https://id.lumina.example/414/6" })
+
+      expect(response).to have_http_status(:ok)
+      expect(pod.grants.size).to eq(1)
+    end
+
+    it "refuses an update once the reader is gone, after the kept answer has run out, and writes nothing" do
+      create_passport
+      pod.writes.clear
+      pod.readers.clear
+      PodStorage.reset_token_cache!
+      travel(ReaderAdmission::ADMITTED_TTL + 1)
+
+      patch_passport({ "facilityId" => "https://id.lumina.example/414/7" })
+
+      expect(response).to have_http_status(:bad_request)
+      expect(message).to match(/no reader entered for collection 4/)
+      expect(code).to eq("readerNotEntered")
+      expect(pod.writes).to be_empty
+      expect(pod.public_payload(dpp_id)["facilityId"]).to be_nil
+    end
+
+    it "keeps a missing reader only briefly" do
+      pod.readers.clear
+      create_passport
+      expect(response).to have_http_status(:bad_request)
+
+      pod.readers << held_reader.did
+      create_passport
+      expect(response).to have_http_status(:bad_request)
+      expect(pod.grants.size).to eq(1)
+
+      travel(ReaderAdmission::REFUSED_TTL + 1)
+      create_passport
+      expect(response).to have_http_status(:created)
+      expect(pod.grants.size).to eq(2)
+    end
+
+    it "moves a passport only to a collection at which the new custodian has entered the reader" do
+      create_passport
+      pods[held2].readers.clear
+
+      post "/dpp/v1/dpps/#{enc}/custody",
+           headers: { "Authorization" => bearer, "X-DPP-Storage" => storage_header(held2, "9") }
+
+      expect(response).to have_http_status(:bad_request)
+      expect(message).to match(/custodian at #{Regexp.escape(held2)} has no reader entered for collection 9/)
+      expect(code).to eq("readerNotEntered")
+      expect(objects_touched(pods[held2])).to be_empty
+      expect(Dpp.find(dpp_id).storage_base_url).to eq(held)
+    end
+
+    it "refuses with 502 and writes nothing when the custodian cannot be asked, and asks again next time" do
+      pod.unreachable = true
+
+      create_passport
+
+      expect(response).to have_http_status(:bad_gateway)
+      expect(response.parsed_body["statusCode"]).to eq("ServerErrorBadGateway")
+      expect(message).to match(/entered as reader of collection 4 .* could not be checked .* nothing was written/)
+      expect(code).to be_nil
+      expect(DidOyd).not_to have_received(:mint)
+      expect(Dpp.count).to eq(0)
+
+      pod.unreachable = false
+      create_passport
+      expect(response).to have_http_status(:created)
+    end
+
+    it "refuses with 500 when no reader DID is configured for a custodian that holds controlled cards" do
+      allow(ReaderDid).to receive(:for_pod).and_return(nil)
+
+      create_passport
+
+      expect(response).to have_http_status(:internal_server_error)
+      expect(message).to match(/no reader DID for the custodian at #{Regexp.escape(held)}.*nothing was written/)
+      expect(code).to be_nil
+      expect(pod.log).to be_empty
+      expect(Dpp.count).to eq(0)
     end
   end
 

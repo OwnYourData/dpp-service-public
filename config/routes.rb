@@ -97,6 +97,10 @@ Rails.application.routes.draw do
   mount Rswag::Api::Engine => "/api-docs"
   mount Rswag::Ui::Engine => "/api-docs"
 
+  # The start page. Rendered rather than served from public/ because the list
+  # of available DPP services on it comes from dpp-validator.
+  root "landing#show"
+
   # Health check
   get "up", to: proc { [200, { "Content-Type" => "application/json" }, ['{"status":"ok"}']] }
 end

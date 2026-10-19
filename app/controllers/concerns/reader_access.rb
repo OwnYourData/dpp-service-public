@@ -14,9 +14,11 @@
 #
 # The answer says in headers, never in the passport, which access classes were
 # applied (X-DPP-Access-Roles) and whether access rights reached further than
-# what could be read (X-DPP-Controlled-Part: unavailable). An answer with
-# access rights is for the one reader only and is not stored by any cache; every
-# answer varies with Authorization.
+# what could be read (X-DPP-Controlled-Part: unavailable, as an RFC 8941 item
+# with the reason as parameter where there is one, e.g.
+# "unavailable;reason=readerNotEntered"). An answer with access rights is for
+# the one reader only and is not stored by any cache; every answer varies with
+# Authorization.
 module ReaderAccess
   extend ActiveSupport::Concern
 
@@ -38,10 +40,19 @@ module ReaderAccess
   end
 
   def report_access(result)
-    if result.classes.any?
-      response.set_header(ROLES_HEADER, result.classes.join(", "))
-      response.set_header("Cache-Control", "private, no-store")
-    end
-    response.set_header(CONTROLLED_HEADER, result.controlled) if result.controlled
+    response.set_header(ROLES_HEADER, result.classes.join(", ")) if result.classes.any?
+    response.set_header("Cache-Control", "private, no-store") if result.classes.any? || result.controlled
+    return unless result.controlled
+
+    response.set_header(CONTROLLED_HEADER,
+                        result.reason ? "#{result.controlled};reason=#{result.reason}" : result.controlled)
+  end
+
+  # The text of a 404 on a fine-granular read path: an element that is not in
+  # what could be read may be in the controlled part that could not.
+  def missing_text(what, result)
+    return "#{what} not found" unless result.controlled
+
+    "#{what} not found in the public part; the controlled part of this passport is unavailable"
   end
 end

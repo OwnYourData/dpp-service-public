@@ -201,6 +201,25 @@ would publish those attributes, and a published value cannot be called back.
 A policy that leaves every attribute public is accepted there, and the
 passport is held as one card.
 
+**Collections without the service's reader.** At a custodian that holds
+controlled cards, the same writes first ask whether the custodian has entered
+this service as protected reader of the target collection (Delegation.md §3):
+the service requests a token under its read grant for that collection, and the
+custodian answers `invalid_grant` if the reader is not entered. Without the
+reader no one could read the controlled card through this service, so such a
+passport is refused with `400 ClientErrorBadRequest` before anything is
+written, minted or moved. The message carries the code `readerNotEntered`,
+names the custodian, the collection and the reader DID, and asks the economic
+operator to have the custodian enter it.
+A passport whose policy leaves every attribute public is not checked.
+
+The answer is kept for a while in each instance of the service: an entered
+reader for 15 minutes, a missing one for one minute, so a reader entered
+meanwhile is seen soon. A custodian that cannot be asked leaves the question
+open: the write is refused with `502 ServerErrorBadGateway`, and the next
+write asks again. Neither grant nor token is logged. How a passport already
+held at such a collection is read is in §8.
+
 **A change of custodian** takes the controlled card along. It is read under
 the delegation for the current custodian; if that has expired, the change is
 refused until the delegation is renewed. `release_previous` releases both
@@ -324,6 +343,27 @@ Vary: Authorization
 Every answer of a read path varies with `Authorization`; one with access rights
 is not stored by any cache.
 
+**When the controlled part cannot be read.** If the custodian does not accept
+this service as reader of the passport's collection — its token endpoint
+answers the read grant with `invalid_grant` — a reader with access rights gets
+what a reader without them gets: the public part, with `200`. The answer says
+so in a header, as an RFC 8941 item with the reason:
+
+```http
+X-DPP-Controlled-Part: unavailable;reason=readerNotEntered
+Cache-Control: private, no-store
+```
+
+It carries no `X-DPP-Access-Roles`, since no class beyond `public` was
+applied. On the fine-granular paths an attribute of the controlled part is
+answered with `404` and the same header, and the message says that the
+controlled part of the passport is unavailable. Nothing is read at the
+custodian; the access log records the read with the reason (§10), and the
+service's log names the custodian and the collection. The economic operator
+settles it with the custodian, who enters the reader. Any other failure at
+the custodian — no answer, or a refusal other than `invalid_grant` — is
+answered with `502 ServerErrorBadGateway`.
+
 Every read with access rights is logged, and so is every read by a reader with
 a valid token but without a valid grant for a passport that has a policy
 (§10). A reader without a token is not logged: it reads what is public.
@@ -347,8 +387,12 @@ public.
   custodian's public path. For a reader with access rights the service adds the
   version of the controlled card whose digest that public card names, read
   under its read grant. A custodian that does not serve versions of controlled
-  cards leaves the reader with the public part, and the answer says so:
-  `X-DPP-Controlled-Part: unavailable`.
+  cards leaves the reader with the public part of the version, and the answer
+  says so: `X-DPP-Controlled-Part: unavailable;reason=versionsNotServed`.
+  `X-DPP-Access-Roles` is only sent if the reader's classes let through more
+  of that public part than a reader without access rights gets: an attribute
+  that is controlled today but was public in that version. A custodian that
+  does not accept this service as reader is answered as in §8.
 - **In the service's own database**, every version holds the whole passport,
   together with its policy and owner, so it stays readable per role after the
   passport has been deleted.
@@ -377,8 +421,12 @@ DID, the classes applied and whether the reader is the owner or holds grants
 `ReadDPPVersionByIdAndDate`, the HTTP status of the answer, the request id,
 and, at a custodian, the object read there and the `ControlledData` of the
 version handed out. A refusal says why: `noGrant`, or the grant concerned and
-`revoked`, `expired`, `notYetValid` or `issuerNotListed`. The log never holds
-content, tokens or signed statements.
+`revoked`, `expired`, `notYetValid` or `issuerNotListed`. A read whose
+controlled part could not be read because the custodian does not accept this
+service as reader (§8) is a `read` with no classes applied and the reason
+`readerNotEntered`; an earlier version whose controlled card the custodian
+does not serve (§9) is a `read` with the reason `versionsNotServed`. The log
+never holds content, tokens or signed statements.
 
 An answer that hands out the controlled part is only sent once its entry is
 written; if it cannot be written, the answer is `500` and nothing of the

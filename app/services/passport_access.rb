@@ -34,10 +34,23 @@ class PassportAccess
 
   # +classes+: the access classes beyond public that were applied (notations);
   # +controlled+: "unavailable" when access rights reached further than what
-  # could be read.
-  Result = Struct.new(:document, :classes, :controlled, keyword_init: true)
+  # could be read; +reason+: why (READER_NOT_ENTERED, VERSIONS_NOT_SERVED).
+  Result = Struct.new(:document, :classes, :controlled, :reason, keyword_init: true)
 
   UNAVAILABLE = "unavailable"
+
+  # The custodian does not accept this service as reader of the passport's
+  # collection: its token endpoint answers the read grant with invalid_grant
+  # (PodStorage::ProtectedReader::NotAdmitted). A reader with access rights
+  # then gets what a reader without them gets, the public part, and the
+  # answer and the access log say why. Any other failure at the custodian
+  # stays an upstream failure (502).
+  READER_NOT_ENTERED = "readerNotEntered"
+
+  # The custodian serves no versions of controlled cards, so an earlier
+  # version of a pod-backed passport is read without the controlled card it
+  # names (versions_not_served).
+  VERSIONS_NOT_SERVED = "versionsNotServed"
 
   # How many versions of a controlled card are tried when the one at the
   # requested time does not match the public version.
@@ -86,6 +99,8 @@ class PassportAccess
         published, full = current_parts(dpp, published)
         entry[:controlled_digest] = PassportSplit.named_digest(published)
         result(dpp.dpp_id, policy, access.roles, published, full)
+      rescue PodStorage::ProtectedReader::NotAdmitted => e
+        reader_not_entered(dpp.dpp_id, policy, published, entry, e)
       end
     end
   end
@@ -144,12 +159,13 @@ class PassportAccess
     logged(dpp.dpp_id, dpp.owner_did, access) do |entry|
       named = PassportSplit.named_digest(published)
       controlled = named ? archived_controlled(dpp, time, named) : nil
+      next versions_not_served(dpp.dpp_id, policy, access.roles, published, entry) if named && controlled.nil?
+
       full = controlled ? PassportSplit.merge(published, controlled) : PassportSplit.strip(published)
       entry[:controlled_digest] = named if controlled
-
-      answer = result(dpp.dpp_id, policy, access.roles, published, full)
-      answer.controlled = UNAVAILABLE if named && controlled.nil?
-      answer
+      result(dpp.dpp_id, policy, access.roles, published, full)
+    rescue PodStorage::ProtectedReader::NotAdmitted => e
+      reader_not_entered(dpp.dpp_id, policy, published, entry, e)
     end
   end
 
@@ -226,6 +242,37 @@ class PassportAccess
     raise
   ensure
     AccessLog.access(entry) if entry
+  end
+
+  # The public part, as a reader without access rights gets it, for a reader
+  # whose access rights could not be served because the custodian does not
+  # accept this service as reader of the collection. Nothing of the controlled
+  # part was read; the entry in the access log says why.
+  def reader_not_entered(dpp_id, policy, published, entry, error)
+    Rails.logger.info("[access] the controlled part of #{dpp_id} is unavailable to #{@reader}: #{error.message}; " \
+                      "the public part is handed out")
+    entry[:reason] = READER_NOT_ENTERED
+    answer = result(dpp_id, policy, [], published, PassportSplit.strip(published))
+    answer.controlled = UNAVAILABLE
+    answer.reason = READER_NOT_ENTERED
+    answer
+  end
+
+  # An earlier version of a pod-backed passport whose controlled card the
+  # custodian does not serve: the public version, filtered by the reader's
+  # classes, and the classes applied only if they let more through than a
+  # reader without access rights gets. The answer and the access log say why
+  # the controlled part is missing.
+  def versions_not_served(dpp_id, policy, roles, published, entry)
+    Rails.logger.info("[access] the custodian serves no version of the controlled card of #{dpp_id}; " \
+                      "#{@reader} gets the public part of the version")
+    public_part = PassportSplit.strip(published)
+    applied = policy.visible_for(roles, public_part) == policy.visible_for([], public_part) ? [] : roles
+    entry[:reason] = VERSIONS_NOT_SERVED
+    answer = result(dpp_id, policy, applied, published, public_part)
+    answer.controlled = UNAVAILABLE
+    answer.reason = VERSIONS_NOT_SERVED
+    answer
   end
 
   def last_policy(dpp_id)

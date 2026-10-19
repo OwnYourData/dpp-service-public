@@ -33,7 +33,10 @@ module Api
         access   = PassportAccess.current(@dpp, reader: reader_did)
         document = access.document
         element = @element_path.resolve(document)
-        return render_result("ClientErrorResourceNotFound", text: "Element not found") if element.nil?
+        if element.nil?
+          report_access(access) if access.controlled
+          return render_result("ClientErrorResourceNotFound", text: missing_text("Element", access))
+        end
 
         report_commitment(@dpp)
         report_access(access)

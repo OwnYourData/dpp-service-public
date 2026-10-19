@@ -89,7 +89,7 @@ module Api
         if (policy = access_policy_param)
           policy.policy.classify(dpp.to_document)
           dpp.access_policy_record = policy
-          dpp.ensure_controlled_part_held!(dpp.to_document, storage.base_url) if storage
+          dpp.ensure_controlled_part_held!(dpp.to_document, storage.base_url, storage.collection_id) if storage
         end
 
         # The mandate names one passport (D2). That name has to be the one of
@@ -297,7 +297,7 @@ module Api
                                      "delegation for its current custodian, which has expired; renew it " \
                                      "(POST /dpp/v1/dpps/{id}/delegation) before changing the custodian")
         end
-        @dpp.ensure_controlled_part_held!(@dpp.to_document, storage.base_url)
+        @dpp.ensure_controlled_part_held!(@dpp.to_document, storage.base_url, storage.collection_id)
 
         previous = @dpp.move_to_pod!(storage)
         released = release_previous? ? release_custody(previous) : false

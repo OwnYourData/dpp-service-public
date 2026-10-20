@@ -34,6 +34,14 @@ class Dpp < ApplicationRecord
   validate :product_id_is_a_carrier_identifier, on: :create
   before_validation :assign_product_key
   before_save :split_local_content, unless: :pod?
+  before_save :discard_signature, if: :signature_affected?
+
+  # What the public part of a passport is made of. A write that changes any of
+  # them changes what the signature of the economic operator covers
+  # (OperatorSignature), so that signature does not survive it.
+  PUBLIC_ATTRIBUTES = %w[dpp_id product_id granularity dpp_schema_version dpp_status
+                         economic_operator_id facility_id last_update content
+                         controlled_content access_policy_id].freeze
 
   scope :active, -> { where(dpp_status: "Active") }
 
@@ -579,6 +587,20 @@ class Dpp < ApplicationRecord
     payload = PassportSplit.controlled_payload(controlled_part)
     self.controlled_content = payload
     self.content = PassportSplit.public_payload(public_part, payload)
+  end
+
+  # Every write discards the signature of the economic operator, and the
+  # passport waits for a new one (docs/Integrity.md section 10). A passport that
+  # was never signed stays unsigned rather than becoming "pending".
+  def signature_affected?
+    signature_state.present? && persisted? &&
+      PUBLIC_ATTRIBUTES.any? { |attribute| will_save_change_to_attribute?(attribute) }
+  end
+
+  def discard_signature
+    self.signature_jws        = nil
+    self.signature_state      = OperatorSignature::PENDING
+    self.signature_checked_at = nil
   end
 
   # The whole local document, put together again if it is held in two parts.

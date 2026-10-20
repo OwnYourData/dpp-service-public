@@ -113,6 +113,7 @@ paths:
               description: The availability period as stored, echoed when one was given.
               schema: { type: string, format: date }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: SuccessCreated — DPP created.
           content:
@@ -153,12 +154,15 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
             X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
           description: Success — requested DPP.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DigitalProductPassport' }
+            application/jose:
+              schema: { $ref: '#/components/schemas/OperatorSignature' }
         '401': { $ref: '#/components/responses/NotAuthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -189,6 +193,7 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: Success — updated DPP.
           content:
@@ -351,6 +356,58 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Result' }
+
+  /dpps/{dppId}/signature:
+    parameters:
+      - $ref: '#/components/parameters/DppId'
+    put:
+      tags: [Life Cycle API]
+      summary: Sign the passport as its economic operator
+      description: >-
+        Not part of EN 18222:2026. The owner of a passport this service holds
+        in its own database submits a JWS in the compact serialization over the
+        public part of the passport in the full representation, as a reader
+        without access rights receives it, signed with the document key of its
+        DID (`kid` `<DID>#key-doc`, `alg` `EdDSA`). The service checks the
+        signature against the DID as resolved and the payload against the
+        passport as delivered now (compared as JSON), and keeps it; it never
+        signs itself. Every write discards the signature again. If the signer
+        is not the `economicOperatorId` of the passport, the signature is
+        accepted and the answer carries a message of type `Warning`
+        (docs/Integrity.md section 10).
+      operationId: signDPP
+      requestBody:
+        required: true
+        content:
+          application/jose:
+            schema: { $ref: '#/components/schemas/OperatorSignature' }
+      responses:
+        '200':
+          headers:
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
+          description: Success — signature accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '400':
+          description: >-
+            ClientErrorBadRequest — not a compact JWS with that header, a
+            signature that does not verify, a payload that is not the passport
+            as delivered now (fetch it again and sign that), or a passport held
+            by a custodian.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '403':
+          description: >-
+            ClientForbidden — the bearer token or the `kid` names another DID
+            than the owner of the passport, or bearer tokens are not verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /access-policies:
     put:
@@ -544,12 +601,15 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
             X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
           description: Success — latest active DPP.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DigitalProductPassport' }
+            application/jose:
+              schema: { $ref: '#/components/schemas/OperatorSignature' }
         '401': { $ref: '#/components/responses/NotAuthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -741,6 +801,7 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: Success — updated DataElementCollection.
           content:
@@ -815,6 +876,7 @@ paths:
           headers:
             X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
           description: Success — updated data element.
           content:
@@ -865,6 +927,18 @@ components:
         `X-DPP-Storage` is a header. A write is never refused because a
         commitment is outstanding; the state is reported instead.
       schema: { type: string, enum: [committed, pending, stale] }
+    SignatureState:
+      description: >-
+        The signature of the economic operator over the public part of the
+        passport (docs/Integrity.md section 10). `none` — never signed.
+        `pending` — written after the last signature, which is discarded; a new
+        one is expected. `signed` — accepted, and it still verified at the last
+        check. `stale` — it no longer verifies (the key of the DID changed, or
+        the DID is revoked or cannot be resolved) and is not delivered. The
+        read paths hand out the JWS with `Accept: application/jose` only when it
+        covers exactly the JSON the same request would get: with
+        `representation=full` and to a reader without access classes applied.
+      schema: { type: string, enum: [none, pending, signed, stale] }
     AccessPolicy:
       description: >-
         On a write of the owner on a passport with an access policy: the policy
@@ -1006,6 +1080,13 @@ components:
   # Schemas
   ###########################################################################
   schemas:
+    OperatorSignature:
+      type: string
+      description: >-
+        A JWS in the compact serialization (RFC 7515) whose payload is the
+        public part of the passport in the full representation, signed by the
+        economic operator with the document key of its DID.
+      example: eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDpveWQ6elFt4oCmI2tleS1kb2MifQ.eyJkaWdpdGFsUHJvZHVjdFBhc3Nwb3J0SWQiOiLigKYifQ.c2lnbmF0dXJl
     Identifier:
       type: string
       description: Globally unique identifier; SHOULD be a URI/URL (see EN 18219:2026, incl. W3C DID schemes).

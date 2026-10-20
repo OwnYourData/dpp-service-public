@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_10_17_000018) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_20_000019) do
   create_table "access_event_parties", force: :cascade do |t|
     t.bigint "access_event_id", null: false
     t.string "did", null: false
@@ -122,6 +122,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_17_000018) do
     t.bigint "access_policy_id"
     t.string "storage_controlled_object_id"
     t.json "controlled_content"
+    t.text "signature_jws"
+    t.string "signature_state"
+    t.datetime "signature_checked_at"
     t.index ["access_policy_id"], name: "index_dpps_on_access_policy_id"
     t.index ["did_commit_state"], name: "index_dpps_on_did_commit_state"
     t.index ["dpp_id"], name: "index_dpps_on_dpp_id", unique: true

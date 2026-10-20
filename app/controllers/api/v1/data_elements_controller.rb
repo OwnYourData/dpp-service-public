@@ -58,6 +58,7 @@ module Api
         container[key] = JsonMergePatch.apply(container[key], merge_patch_body)
         @dpp.apply_merge_patch!(document)
         commit_payload(@dpp)
+        report_signature(@dpp)
         report_access_policy(@dpp)
         document = @dpp.to_document
         render_element(@element_path.resolve(document), document: document)

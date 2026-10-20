@@ -156,6 +156,7 @@ module Api
         end
 
         commit_payload(dpp)
+        report_signature(dpp)
         report_access_policy(dpp)
         response.headers["X-DPP-Retain-Until"] = dpp.retain_until.iso8601 if dpp.retain_until
         render_passport(dpp.to_document, status_code: "SuccessCreated")
@@ -164,12 +165,14 @@ module Api
       # GET /dpp/v1/dpps/:dpp_id  — ReadDPPById (§4.2, Table 1)
       #
       # The public part, or more for a reader with access rights
-      # (PassportAccess).
+      # (PassportAccess). With Accept: application/jose the signature of the
+      # economic operator, where it covers exactly that answer
+      # (OperatorSignatureDelivery).
       def show
         result = PassportAccess.current(@dpp, reader: reader_did)
         report_commitment(@dpp)
         report_access(result)
-        render_passport(result.document)
+        render_passport_or_signature(@dpp, result.document)
       end
 
       # PATCH /dpp/v1/dpps/:dpp_id  — UpdateDPP, RFC 7396 (§4.7, Table 6)
@@ -184,6 +187,7 @@ module Api
         @dpp.access_policy_record = replacement if replacement
         @dpp.apply_merge_patch!(merge_patch_body)
         commit_payload(@dpp)
+        report_signature(@dpp)
         report_access_policy(@dpp)
         render_passport(@dpp.to_document)
       end
@@ -443,7 +447,7 @@ module Api
         result = PassportAccess.current(dpp, reader: reader_did)
         report_commitment(dpp)
         report_access(result)
-        render_passport(result.document)
+        render_passport_or_signature(dpp, result.document)
       end
 
       # GET /dpp/v1/dppsByIdAndDate/:dpp_id?date=

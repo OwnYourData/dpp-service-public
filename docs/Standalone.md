@@ -73,6 +73,8 @@ All settings come from environment variables.
 | `DPP_FORCE_SSL` | `true` | redirect http to https. Right behind a proxy that terminates TLS, wrong on a machine with nothing in front of it — the compose file below switches it off |
 | `DID_AUTH_CACHE_TTL` | `300` | how long a resolved public key stays valid |
 | `DID_AUTH_MAX_LIFETIME` | `900` | longest accepted token lifetime in seconds |
+| `DPP_SIGNATURE_RECHECK_INTERVAL` | `300` | seconds after which the key behind the signature of the economic operator is checked again on a read (docs/Integrity.md section 10) |
+| `DPP_SIGNATURE_MAX_BYTES` | `5242880` | largest signature of the economic operator accepted, in bytes |
 | `DPP_ACCESS_LOG_RETENTION_DAYS` | `1826` | days entries of the access log are kept; `bin/rails dpp:access:prune` removes older ones |
 | `DPP_AVAILABLE_SERVICES_URL` | — (none) | https URL of the JSON list of available DPP services shown on the start page; fetched at most once an hour; a list without `notice` is not taken, and when fetching fails the last good list stays. Without it the start page shows the list shipped in `config/available_services.json` |
 

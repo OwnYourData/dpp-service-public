@@ -1,7 +1,8 @@
 # Identifiers, version chain and integrity
 
 **Status:** describes what the service does. Section 6 says how the state of a
-commitment is reported, section 9 what is still open.
+commitment is reported, section 10 how the economic operator signs a passport,
+section 11 what is still open.
 
 Reference: EN 18219:2026 (identifiers), prEN 18246 (authenticity and integrity),
 EN 18221:2026 (storage, archiving, persistence).
@@ -299,7 +300,157 @@ A write that breaks off between the two cards can leave the public card naming
 a controlled payload that is not, or not yet, the one stored. Repeating the
 write restores the match.
 
-## 10. Open items
+## 10. The signature of the economic operator
+
+The commitment of section 4 is written with the key of the passport
+identifier. It shows that the content is the one that was attested, but not
+who attested it: nothing a reader can check links the passport DID to the
+economic operator. The passport names the operator in `economicOperatorId`, but
+that statement is itself attested with the key of the passport DID. EN 18219:2026
+describes economic operator DIDs as the means to sign passports, with the
+public key in the DID document, and EN 18246:2026 names the economic operator as
+the typical issuer of signed passport data. The economic operator therefore
+signs the passport with the key of its own DID, and a reader fetches that
+signature next to the passport.
+
+### Form
+
+- A JWS in the compact serialization (RFC 7515).
+- Protected header: `alg` is `EdDSA`, `kid` is `<DID>#key-doc`, the document
+  key of the economic operator's DID, written as in its bearer tokens (without
+  the location suffix of the default repository). `crit` and `b64` are not
+  allowed; other members are ignored.
+- Payload: the passport as a JSON object, namely its public part in the full
+  representation, as a reader without access rights receives it
+  (sections 4 and 9). Two payloads are the same if their JSON canonicalization
+  (RFC 8785) is the same: unlike the commitment, which hashes bytes, the
+  signature covers content, so the order of keys and whitespace do not matter.
+- Media type: `application/jose`. The payload is the passport itself, not a
+  Verifiable Credential, which `application/vc+jwt` would announce.
+
+### What it covers
+
+Exactly what `payloadHash` covers: the current version of the public part, in
+the full representation.
+
+- **The controlled part through `ControlledData`.** The public part names the
+  salted digest of the controlled payload (section 9), so the signature binds the
+  controlled part the same way the commitment does. The service compares the
+  two before it hands out anything of the controlled part (AccessClasses.md §8);
+  a reader with access rights cannot recompute the digest, since the salt is
+  never handed out.
+- **Not the view of a reader with access rights.** Such a reader gets the
+  public part with more data elements, and which ones depends on its access
+  classes. No signature is delivered with such an answer (see *Delivery*), so a
+  verifier never compares a signature with a passport that has more in it than
+  was signed. There is no separate signature over the controlled part: its
+  attributes fall into several classes, and a signature over all of them would
+  hand every class to a reader that may read one.
+- **Not the compressed representation.** It is derived from the full one and
+  leaves out what a data dictionary holds; it is not signed.
+- **Not earlier versions.** Only the current version carries a signature;
+  `ReadDPPVersionByIdAndDate` delivers none.
+
+The signature does not need the commitment: it works for a passport identified
+by an `https` URL as well, which has no DID log. Where both exist, they cover the
+same content, and each proves something the other does not: the commitment that
+the content was not changed since the holder of the passport key attested it,
+the signature who stands behind it.
+
+### Signing
+
+Every write changes the public part, at least its `lastUpdated`, and the
+signature has to be renewed. The cycle is that of variant B in section 5: after
+a write, the economic operator fetches the public part in the full
+representation without a token, signs it and submits the signature:
+
+```
+PUT /dpp/v1/dpps/{dppId}/signature
+Authorization: Bearer <token of the owner>
+Content-Type: application/jose
+
+<compact JWS>
+```
+
+The service accepts it for a passport it holds itself and checks, in this
+order:
+
+1. the JWS is compact, with the header above;
+2. the bearer token is the owner's, the DID that created the passport, and
+   the DID in `kid` is that same DID;
+3. the signature verifies with the document key of that DID as resolved now;
+4. the payload is the public part in the full representation as it is
+   delivered now.
+
+An accepted signature is answered with `200` and
+`X-DPP-Signature-State: signed`. If the DID in `kid` is not the
+`economicOperatorId` of the passport, the signature is accepted all the same
+and the answer says so in a message of type `Warning`: the signer may be an
+authorised representative, which a verifier cannot recognise, and a verifier
+reports a signature that is not the economic operator's. A refused signature
+leaves the passport as it was: `400 ClientErrorBadRequest` for a malformed JWS,
+a signature that does not verify, a payload that is not the passport as
+delivered now (a write may have come in between: fetch and sign again), or a
+passport held by a custodian; `401` without a valid token; `403
+ClientForbidden` if the token or `kid` names another DID than the owner, or
+while bearer tokens are not verified (`DPP_AUTH_MODE` other than `did`), since
+then there is no owner to compare with.
+
+### State
+
+The state travels in a header, like that of the commitment (section 6), on the
+answers of `ReadDPPById` and `ReadDPPByProductId`, of every write, and of the
+signature itself:
+
+```
+X-DPP-Signature-State: signed
+```
+
+| state | meaning |
+|---|---|
+| `none` | no signature was ever accepted |
+| `pending` | the passport was written after the last accepted signature, which is discarded; a new one is expected |
+| `signed` | accepted, and at the last check it still verified |
+| `stale` | the stored signature no longer verifies: the key of the DID changed, or the DID is revoked or cannot be resolved. It is not delivered |
+
+### Validity
+
+- **Every write discards the signature**, and the passport is `pending`:
+  `UpdateDPP`, also one that only names a new access policy, and the
+  fine-granular writes. `DeleteDPPById` removes it with the passport.
+- **A signature is delivered only if its payload is the public part as it
+  stands.** This is compared on every delivery and costs no network, so a
+  signature that no longer matches the passport is never handed out, whichever
+  path changed it.
+- **The key is checked again on reads**, at most once per
+  `DPP_SIGNATURE_RECHECK_INTERVAL` (300 seconds by default, as long as a
+  resolved key is cached). A signature that no longer verifies, or whose DID
+  cannot be resolved, is `stale`; once it verifies again it is `signed` again.
+  A signature is never delivered on the assumption that it still holds.
+
+### Delivery
+
+`ReadDPPById` and `ReadDPPByProductId` answer with the JWS
+(`Content-Type: application/jose`) when the request prefers `application/jose`
+over `application/json` in its `Accept` header, the state is `signed`, and the
+payload is exactly the JSON the same request would get otherwise. In practice
+that means:
+
+- the request asks for `representation=full`, since the compressed
+  representation is not signed;
+- the reader gets the public part, with no access class applied. A reader with
+  access rights who wants the signature fetches it without a token.
+
+Otherwise the answer is the JSON one, as without the `Accept` header, with
+`X-DPP-Signature-State`. A verifier that compares the signature with the JSON
+answer to the same request therefore never finds a mismatch, whoever asks and
+in which representation. Every answer of these paths varies with `Accept`.
+
+Only passports this service keeps in its own database carry a signature here.
+A passport held by a custodian is read at the custodian, over the carrier and
+the `serviceEndpoint`, and the service accepts no signature for it.
+
+## 11. Open items
 
 1. The commitment is the `payloadHash` attribute of the `DigitalProductPassport`
    service entry. prEN 18246 makes no stipulation on the name, so it is fixed in
@@ -309,13 +460,14 @@ write restores the match.
    (Yes — otherwise an entry without a payload reference can arise.)
 3. Collision behaviour on concurrent updates: the service knows the expected
    predecessor hash and could lock optimistically (`If-Match`).
-4. `bin/verify_dpp <carrier URL>` executes steps 1–6 for a consumer. It needs
-   nothing but the public web — no token, no access to this service — and it
-   separates what it checks from what it does not establish: that the signing key
-   belongs to the economic operator rather than to a service acting for them
-   (EN 18219:2026 6.4.2 b) wants a Verifiable Credential at the operator DID for
-   that), and that the trust anchor is an accredited one (prEN 18246 4.8.2 /
-   5.2.2 ask for a trusted list; a self-managed DID log is not one). It also
+4. `bin/verify_dpp <carrier URL>` executes steps 1–6 for a consumer and checks
+   the signature of the economic operator (section 10). It needs nothing but the
+   public web — no token, no access to this service — and it separates what it
+   checks from what it does not establish: that the DID which signed belongs to
+   the company it stands for (EN 18219:2026 6.4.2 b) wants a Verifiable
+   Credential at the operator DID for that), and that the trust anchor is an
+   accredited one (prEN 18246 4.8.2 / 5.2.2 ask for a trusted list; a
+   self-managed DID log is not one). It also
    compares the carrier link with the endpoint the DID document names: different
    hosts are the normal case, because the carrier bears a name the economic
    operator owns and points at the custodian by CNAME, but different *bytes* mean

@@ -44,6 +44,7 @@ Rails.application.routes.draw do
       # access policy leaves to the default, and which rules reach nothing.
       # For the owner only.
       get "dpps/:dpp_id/access-policy", to: "api/v1/dpps#show_access_policy"
+      put "dpps/:dpp_id/signature", to: "api/v1/signatures#update"
 
       # --- 6  Fine Granular Life Cycle API — Table 19 ---------------------
       get   "dpps/:dpp_id/collections/:element_id",

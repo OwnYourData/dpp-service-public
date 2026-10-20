@@ -1,0 +1,241 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# sign_dpp -- sign a passport as its economic operator.
+#
+#   bundle exec ruby bin/sign_dpp <dppId | carrier URL> --keys operator.json
+#
+# The DPP Service holds no key of the economic operator and never signs on its
+# behalf (docs/Integrity.md section 10). The DPP Manager signs with the identity
+# it keeps; this is the same step for an economic operator that keeps its keys
+# elsewhere. After every write the signature is discarded, so this is run
+# again after every change.
+#
+# What is signed is what a reader without access rights receives: the public
+# part of the passport in the full representation, fetched from the service
+# without a token, as it comes. The signature is a JWS in the compact
+# serialization with the document key of the operator's DID; the bearer token
+# that submits it is signed with the same key.
+#
+# The key never travels as an argument: a document key in ARGV lands in the
+# shell history and in the process list. It comes from a JSON file (--keys) or
+# from the environment (DPP_OPERATOR_DOC_KEY).
+
+require "cgi"
+require "json"
+require "httpx"
+require "securerandom"
+require "uri"
+
+# oydid reads data with CSV, which aborts when the default external encoding is
+# not UTF-8 -- and aborts from inside a method this script does not call. Set it
+# here so the tool does not depend on the locale of whoever runs it.
+Encoding.default_external = Encoding::UTF_8
+
+begin
+  require "oydid"
+  require "jwt"
+  require "jwt/eddsa"
+rescue LoadError
+  abort("sign_dpp needs the oydid and jwt gems: run it as `bundle exec ruby bin/sign_dpp ...`")
+end
+require_relative "../app/lib/compact_jws"
+
+DEFAULT_SERVICE = ENV.fetch("DPP_SERVICE_URL", "https://dpp-service.ownyourdata.eu")
+JOSE            = "application/jose"
+TOKEN_LIFETIME  = 300
+
+EXIT_OK         = 0
+EXIT_FAILED     = 1
+EXIT_INCOMPLETE = 3
+
+def say(text)  = puts(text)
+def step(text) = puts("\n#{text}")
+def ok(text)   = puts("  [ ok ] #{text}")
+def no(text)   = puts("  [FAIL] #{text}")
+def note(text) = puts("  [note] #{text}")
+
+# Over HTTP/2, which EN 18216:2026 clause 4 requires for DPP data exchange;
+# httpx negotiates it via ALPN (Net::HTTP speaks HTTP/1.1 only).
+def request(verb, url, headers: {}, body: nil)
+  client = HTTPX.with(timeout: { connect_timeout: 5, read_timeout: 15 })
+  response = body.nil? ? client.request(verb, url, headers: headers) : client.request(verb, url, headers: headers, body: body)
+  raise response.error if response.is_a?(HTTPX::ErrorResponse)
+
+  response
+rescue StandardError => e
+  abort("cannot reach #{url}: #{e.class}: #{e.message}")
+end
+
+# The Ed25519 document key of a did:oyd as the repository publishes it.
+def published_key(did)
+  info, = Oydid.read(did, {})
+  return nil if info.nil? || info["error"].to_i != 0
+
+  raw = Oydid.multi_decode(info.dig("doc", "key").to_s.split(":").first.to_s).first
+  raw && raw.bytesize >= 32 ? Ed25519::VerifyKey.new(raw[-32..]) : nil
+rescue StandardError
+  nil
+end
+
+# --- arguments --------------------------------------------------------------
+USAGE = <<~TEXT
+  usage: bundle exec ruby bin/sign_dpp <dppId | carrier URL> [options]
+
+    --keys <file>      JSON with "did" and "document_key" of the economic
+                       operator's DID (a file as written by `oydid create`
+                       for the identity, or by hand)
+    --did <did>        the DID that signs (default: "did" from --keys, then
+                       $DPP_OPERATOR_DID, then economicOperatorId of the passport)
+    --service <url>    the DPP Service that holds the passport
+                       (default: #{DEFAULT_SERVICE}, or $DPP_SERVICE_URL)
+
+  Without --keys the key is read from $DPP_OPERATOR_DOC_KEY. A carrier URL
+  is only used to find the passport identifier.
+TEXT
+
+args    = ARGV.dup
+target  = nil
+keyfile = nil
+did     = nil
+service = DEFAULT_SERVICE
+
+until args.empty?
+  case (arg = args.shift)
+  when "--keys"    then keyfile = args.shift
+  when "--did"     then did     = args.shift
+  when "--service" then service = args.shift
+  when "-h", "--help" then abort(USAGE)
+  else
+    abort(USAGE) unless target.nil?
+    target = arg
+  end
+end
+abort(USAGE) if target.to_s.empty? || service.to_s.empty?
+service = service.chomp("/")
+
+doc_key = ENV["DPP_OPERATOR_DOC_KEY"].to_s
+if keyfile
+  abort("no such file: #{keyfile}") unless File.exist?(keyfile)
+  keys = begin
+    JSON.parse(File.read(keyfile))
+  rescue JSON::ParserError => e
+    abort("#{keyfile} is not JSON: #{e.message}")
+  end
+  doc_key = keys["document_key"].to_s if keys["document_key"]
+  did ||= keys["did"].to_s unless keys["did"].to_s.empty?
+end
+did ||= ENV["DPP_OPERATOR_DID"].to_s unless ENV["DPP_OPERATOR_DID"].to_s.empty?
+
+say("Signing #{target}")
+
+# --- 1  which passport ------------------------------------------------------
+# A passport identifier can itself be an https URL, so the service is asked
+# first; only what it does not know as a passport is taken for a carrier link.
+step("1    identify the passport")
+passport_url = ->(id) { "#{service}/dpp/v1/dpps/#{CGI.escape(id)}?representation=full" }
+dpp_id =
+  if request("GET", passport_url.call(target), headers: { "accept" => "application/json" }).status == 200
+    target
+  elsif target.start_with?("http://", "https://")
+    response = request("GET", target, headers: { "accept" => "application/json" })
+    abort("  [FAIL] #{service} holds no passport #{target}, and as a carrier link it answered #{response.status}") \
+      if response.status != 200
+    begin
+      JSON.parse(response.to_s)["digitalProductPassportId"].to_s
+    rescue JSON::ParserError => e
+      abort("  [FAIL] the carrier link did not return JSON: #{e.message}")
+    end
+  else
+    abort("  [FAIL] #{service} holds no passport #{target}")
+  end
+abort("  [FAIL] no passport identifier found") if dpp_id.empty?
+ok(dpp_id)
+
+# --- 2  what a reader without access rights receives -----------------------
+step("2    fetch the public part in the full representation, without a token")
+passport_url = passport_url.call(dpp_id)
+response = request("GET", passport_url, headers: { "accept" => "application/json" })
+if response.status != 200
+  no("#{passport_url} answered #{response.status}")
+  exit EXIT_INCOMPLETE
+end
+payload = response.to_s
+document = begin
+  JSON.parse(payload)
+rescue JSON::ParserError => e
+  abort("  [FAIL] the service did not return JSON: #{e.message}")
+end
+ok("#{payload.bytesize} bytes, signature state #{response.headers['x-dpp-signature-state'] || '-'}")
+
+if response.headers["x-dpp-signature-state"] == "signed"
+  signed = request("GET", passport_url, headers: { "accept" => JOSE })
+  jws = signed.status == 200 && signed.to_s.start_with?("eyJ") ? CompactJws.parse(signed.to_s) : nil
+  if jws&.payload == document
+    ok("already signed by #{jws.signer} -- nothing to submit")
+    exit EXIT_OK
+  end
+end
+
+# --- 3  who signs -----------------------------------------------------------
+step("3    check the key of the signing DID")
+operator = document["economicOperatorId"].to_s
+did ||= operator
+abort("  [FAIL] no DID to sign with: pass --did or --keys with \"did\"") if did.to_s.empty?
+abort("  [FAIL] no document key: pass --keys <file> or set DPP_OPERATOR_DOC_KEY") if doc_key.empty?
+
+raw = Oydid.multi_decode(doc_key).first
+abort("  [FAIL] the document key is not readable") if raw.nil? || raw.bytesize < 32
+signing_key = Ed25519::SigningKey.new(raw[-32..])
+
+published = published_key(did)
+if published.nil?
+  no("#{did} cannot be resolved")
+  exit EXIT_INCOMPLETE
+end
+unless published.to_bytes == signing_key.verify_key.to_bytes
+  no("the document key is not the one #{did} publishes")
+  exit EXIT_FAILED
+end
+ok("the document key belongs to #{did}")
+if did != operator
+  note("the passport names #{operator.empty? ? 'no' : operator} as economic operator: this is the signature")
+  note("of an authorised representative, which a verifier reports as not the operator's")
+end
+
+# --- 4  sign and submit -----------------------------------------------------
+step("4    sign it and submit the signature")
+kid     = "#{did}#key-doc"
+compact = CompactJws.sign(payload, signing_key, kid: kid)
+now     = Time.now.to_i
+token   = JWT.encode({ "iss" => did, "sub" => did, "aud" => service, "iat" => now,
+                       "exp" => now + TOKEN_LIFETIME, "jti" => SecureRandom.hex(8) },
+                     signing_key, "EdDSA", { "kid" => kid })
+
+answer = request("PUT", "#{service}/dpp/v1/dpps/#{CGI.escape(dpp_id)}/signature",
+                 headers: { "content-type" => JOSE, "authorization" => "Bearer #{token}" },
+                 body: compact)
+messages = begin
+  Array(JSON.parse(answer.to_s)["message"])
+rescue JSON::ParserError
+  []
+end
+messages.each { |m| say("  #{m['messageType'].to_s.ljust(7)} #{m['text']}") }
+if answer.status != 200
+  no("the service answered #{answer.status}")
+  exit EXIT_FAILED
+end
+ok("accepted, signature state #{answer.headers['x-dpp-signature-state']}")
+
+# --- 5  read it back --------------------------------------------------------
+step("5    read the signature back")
+back = request("GET", passport_url, headers: { "accept" => JOSE })
+if back.status == 200 && back.to_s == compact
+  ok("delivered with Accept: #{JOSE}")
+else
+  no("the service does not deliver the signature it accepted")
+  exit EXIT_INCOMPLETE
+end
+
+step("VERDICT  signed -- check it with bin/verify_dpp")
+exit EXIT_OK

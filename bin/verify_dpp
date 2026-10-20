@@ -5,8 +5,9 @@
 #
 #   bundle exec ruby bin/verify_dpp https://dpp.oydapp.eu/01/09520123456788/21/000001
 #
-# It executes the six steps of docs/Integrity.md section 4 and needs nothing but
-# the public web: no token, no access to this service, no knowledge of who the
+# It executes the six steps of docs/Integrity.md section 4 and checks the
+# signature of the economic operator (section 10). It needs nothing but the
+# public web: no token, no access to this service, no knowledge of who the
 # custodian is. That is the point -- a verification that needed the service to
 # cooperate would prove nothing about the service.
 #
@@ -14,6 +15,11 @@
 # *not established*. prEN 18246 expects an external, accredited trust anchor; a
 # self-managed DID log is not one, and this tool says so rather than printing a
 # green tick over the question.
+#
+# The exit code is that of the commitment (0 attested and unchanged, 1 mismatch,
+# 2 not committed, 3 incomplete). A signature of the economic operator that is
+# delivered but does not hold makes it a mismatch; one that is not delivered
+# changes nothing, and the verdict says whether the passport is signed.
 
 require "json"
 require "httpx"
@@ -30,6 +36,7 @@ begin
 rescue LoadError
   abort("verify_dpp needs the oydid gem: run it as `bundle exec ruby bin/verify_dpp <url>`")
 end
+require_relative "../app/lib/compact_jws"
 
 DIGEST_OPTIONS = { digest: "sha2-256", encode: "base58btc" }.freeze
 SERVICE_TYPE   = "DigitalProductPassport"
@@ -48,9 +55,9 @@ def open_(text) = puts("  [open] #{text}")
 
 # Over HTTP/2, which EN 18216:2026 clause 4 requires for DPP data exchange;
 # httpx negotiates it via ALPN (Net::HTTP speaks HTTP/1.1 only).
-def fetch(url)
+def fetch(url, accept: "application/json")
   response = HTTPX.with(timeout: { connect_timeout: 5, read_timeout: 15 })
-                  .get(url, headers: { "accept" => "application/json" })
+                  .get(url, headers: { "accept" => accept })
   raise response.error if response.is_a?(HTTPX::ErrorResponse)
 
   [response.status, response.to_s]
@@ -89,119 +96,214 @@ rescue JSON::ParserError => e
   abort("  [FAIL] not JSON: #{e.message}")
 end
 
-# --- 3  the passport names its own identifier -------------------------------
-step("3    read the passport identifier out of the document")
-did = document["digitalProductPassportId"].to_s
-abort("  [FAIL] the document carries no digitalProductPassportId") if did.empty?
-ok(did)
-unless did.start_with?("did:oyd:")
-  open_("not a did:oyd -- there is no log to check, so integrity cannot be established this way")
-  exit EXIT_NO_COMMITMENT
-end
-
-# --- 4  resolve it ----------------------------------------------------------
-step("4    resolve the identifier")
-info, msg = Oydid.read(did, {})
-abort("  [FAIL] does not resolve: #{msg}") if info.nil?
-ok("resolved, #{Array(info['log']).length} log entries")
-
 # The resolver answers with the head of the log, and does so as a bare hash
 # without the method prefix. Compare like with like, or an unchanged passport
 # gets reported as having a newer version.
 def bare(identifier) = identifier.to_s.sub(/\Adid:oyd:/, "").split("@").first.to_s
 
-head = bare(info["did"])
-if !head.empty? && head != bare(did)
-  ok("current version is did:oyd:#{head} -- the carrier keeps naming #{did}")
-end
+# Steps 3 to 6: the commitment in the DID document of the passport identifier.
+# Returns [verdict, serviceEndpoint or nil].
+def check_commitment(carrier, bytes, document)
+  # --- 3  the passport names its own identifier -------------------------------
+  endpoint = nil
+  step("3    read the passport identifier out of the document")
+  did = document["digitalProductPassportId"].to_s
+  abort("  [FAIL] the document carries no digitalProductPassportId") if did.empty?
+  ok(did)
+  unless did.start_with?("did:oyd:")
+    open_("not a did:oyd -- there is no log to check, so integrity cannot be established this way")
+    return [EXIT_NO_COMMITMENT, nil]
+  end
 
-content = info.dig("doc", "doc") || info["doc"] || {}
-entry = Array(content["service"]).find { |e| e.is_a?(Hash) && e["type"].to_s == SERVICE_TYPE }
-if entry.nil?
-  no("the DID document carries no #{SERVICE_TYPE} service entry")
-  exit EXIT_INCOMPLETE
-end
-ok("serviceEndpoint: #{entry['serviceEndpoint']}")
+  # --- 4  resolve it ----------------------------------------------------------
+  step("4    resolve the identifier")
+  info, msg = Oydid.read(did, {})
+  abort("  [FAIL] does not resolve: #{msg}") if info.nil?
+  ok("resolved, #{Array(info['log']).length} log entries")
 
-# --- 4b  the carrier link and the endpoint the DID document names -----------
-# These are legitimately different URLs, and usually different hosts as well:
-# the carrier bears a name the economic operator owns, pointed at the custodian
-# by CNAME, which is exactly what EN 18219:2026 4.6.2 (3) asks for. A different
-# host is therefore not a finding. Different *bytes* are: the commitment can
-# only ever be about the address the DID document names, so if the carrier
-# serves something else, a consumer scanning it does not get the attested
-# document -- and that is worth saying before the hashes are compared.
-endpoint = entry["serviceEndpoint"].to_s
-authoritative = bytes
+  head = bare(info["did"])
+  if !head.empty? && head != bare(did)
+    ok("current version is did:oyd:#{head} -- the carrier keeps naming #{did}")
+  end
 
-if !endpoint.empty? && endpoint != carrier
-  step("4b   compare the carrier link with the endpoint the DID document names")
-  e_code, e_body = fetch(full_form(endpoint))
-  if e_code != 200
-    no("the endpoint named in the DID document answered #{e_code}")
-    authoritative = nil
-  else
-    authoritative = e_body.dup.force_encoding(Encoding::BINARY)
-    if authoritative == bytes
-      ok("both addresses deliver the same #{bytes.bytesize} bytes")
+  content = info.dig("doc", "doc") || info["doc"] || {}
+  entry = Array(content["service"]).find { |e| e.is_a?(Hash) && e["type"].to_s == SERVICE_TYPE }
+  if entry.nil?
+    no("the DID document carries no #{SERVICE_TYPE} service entry")
+    return [EXIT_INCOMPLETE, endpoint]
+  end
+  ok("serviceEndpoint: #{entry['serviceEndpoint']}")
+
+  # --- 4b  the carrier link and the endpoint the DID document names -----------
+  # These are legitimately different URLs, and usually different hosts as well:
+  # the carrier bears a name the economic operator owns, pointed at the custodian
+  # by CNAME, which is exactly what EN 18219:2026 4.6.2 (3) asks for. A different
+  # host is therefore not a finding. Different *bytes* are: the commitment can
+  # only ever be about the address the DID document names, so if the carrier
+  # serves something else, a consumer scanning it does not get the attested
+  # document -- and that is worth saying before the hashes are compared.
+  endpoint = entry["serviceEndpoint"].to_s
+  authoritative = bytes
+
+  if !endpoint.empty? && endpoint != carrier
+    step("4b   compare the carrier link with the endpoint the DID document names")
+    e_code, e_body = fetch(full_form(endpoint))
+    if e_code != 200
+      no("the endpoint named in the DID document answered #{e_code}")
+      authoritative = nil
     else
-      no("carrier #{bytes.bytesize} bytes, named endpoint #{authoritative.bytesize} bytes -- they differ")
-      no("a consumer scanning the carrier does NOT get the attested document")
+      authoritative = e_body.dup.force_encoding(Encoding::BINARY)
+      if authoritative == bytes
+        ok("both addresses deliver the same #{bytes.bytesize} bytes")
+      else
+        no("carrier #{bytes.bytesize} bytes, named endpoint #{authoritative.bytesize} bytes -- they differ")
+        no("a consumer scanning the carrier does NOT get the attested document")
+      end
     end
   end
-end
 
-# --- 5  does the document commit to these bytes? ----------------------------
-step("5    compare the delivered bytes with the commitment in the DID document")
-if authoritative.nil?
-  no("nothing to compare: the custodian named by the DID document did not answer")
-  exit EXIT_INCOMPLETE
-end
-computed, hash_msg = Oydid.multi_hash(authoritative, DIGEST_OPTIONS)
-abort("  [FAIL] cannot hash the payload: #{hash_msg}") if computed.to_s.empty?
-say("  delivered: #{computed}")
+  # --- 5  does the document commit to these bytes? ----------------------------
+  step("5    compare the delivered bytes with the commitment in the DID document")
+  if authoritative.nil?
+    no("nothing to compare: the custodian named by the DID document did not answer")
+    return [EXIT_INCOMPLETE, endpoint]
+  end
+  computed, hash_msg = Oydid.multi_hash(authoritative, DIGEST_OPTIONS)
+  abort("  [FAIL] cannot hash the payload: #{hash_msg}") if computed.to_s.empty?
+  say("  delivered: #{computed}")
 
-committed = entry[PAYLOAD_HASH].to_s
-if committed.empty?
-  say("  committed: -")
-  open_("the DID document carries no #{PAYLOAD_HASH}: the place this passport is served")
-  open_("from is bound to the identifier, its content is not")
-  verdict = EXIT_NO_COMMITMENT
-elsif committed == computed
-  say("  committed: #{committed}")
-  ok("the content delivered is the content the holder attested")
-  verdict = EXIT_OK
-else
-  say("  committed: #{committed}")
-  no("the delivered content is NOT the attested content")
-  verdict = EXIT_MISMATCH
-end
-
-# --- 6  the log entry of the current document -------------------------------
-step("6    check the signature of the log entry that carries this document")
-log      = Array(info["log"])
-doc_id   = info["doc_log_id"]
-log_entry = doc_id.nil? ? nil : log[doc_id.to_i]
-public_doc_key = info.dig("doc", "key").to_s.split(":").first.to_s
-
-if log_entry.nil? || public_doc_key.empty?
-  open_("the resolver returned no log entry for this document, so the signature cannot be checked")
-  verdict = EXIT_INCOMPLETE if verdict == EXIT_OK
-else
-  signed = Oydid.verify(log_entry["doc"].to_s, log_entry["sig"].to_s, public_doc_key).first
-  if signed
-    ok("entry op=#{log_entry['op']} is signed with the document key of this version")
+  committed = entry[PAYLOAD_HASH].to_s
+  if committed.empty?
+    say("  committed: -")
+    open_("the DID document carries no #{PAYLOAD_HASH}: the place this passport is served")
+    open_("from is bound to the identifier, its content is not")
+    verdict = EXIT_NO_COMMITMENT
+  elsif committed == computed
+    say("  committed: #{committed}")
+    ok("the content delivered is the content the holder attested")
+    verdict = EXIT_OK
   else
-    no("the signature of entry op=#{log_entry['op']} does not verify")
+    say("  committed: #{committed}")
+    no("the delivered content is NOT the attested content")
     verdict = EXIT_MISMATCH
   end
+
+  # --- 6  the log entry of the current document -------------------------------
+  step("6    check the signature of the log entry that carries this document")
+  log      = Array(info["log"])
+  doc_id   = info["doc_log_id"]
+  log_entry = doc_id.nil? ? nil : log[doc_id.to_i]
+  public_doc_key = info.dig("doc", "key").to_s.split(":").first.to_s
+
+  if log_entry.nil? || public_doc_key.empty?
+    open_("the resolver returned no log entry for this document, so the signature cannot be checked")
+    verdict = EXIT_INCOMPLETE if verdict == EXIT_OK
+  else
+    signed = Oydid.verify(log_entry["doc"].to_s, log_entry["sig"].to_s, public_doc_key).first
+    if signed
+      ok("entry op=#{log_entry['op']} is signed with the document key of this version")
+    else
+      no("the signature of entry op=#{log_entry['op']} does not verify")
+      verdict = EXIT_MISMATCH
+    end
+  end
+
+  [verdict, endpoint]
 end
+
+# The Ed25519 key of a verification method, as its DID publishes it: the
+# document key of a did:oyd, or the key a did:key is made of. nil for anything
+# else, which this tool cannot resolve.
+def verify_key_for(kid)
+  did, fragment = kid.to_s.split("#", 2)
+  if did.to_s.start_with?("did:oyd:")
+    return nil unless fragment == "key-doc"
+
+    info, = Oydid.read(did, {})
+    return nil if info.nil? || info["error"].to_i != 0
+
+    raw = Oydid.multi_decode(info.dig("doc", "key").to_s.split(":").first.to_s).first
+  elsif did.to_s.start_with?("did:key:z")
+    raw = Oydid.multi_decode(did.delete_prefix("did:key:")).first
+    return nil unless raw&.start_with?("\xed\x01".b)
+  end
+  raw && raw.bytesize >= 32 ? Ed25519::VerifyKey.new(raw[-32..]) : nil
+rescue StandardError
+  nil
+end
+
+# Step 7: the signature of the economic operator (docs/Integrity.md section 10),
+# a JWS over exactly the JSON delivered at the same address, asked for with
+# Accept: application/jose -- at the carrier link first, as a phone would ask,
+# then at the serviceEndpoint in the full representation. Returns
+# [:valid | :invalid | :none, signer or nil].
+def check_signature(carrier, endpoint, operator)
+  step("7    check the signature of the economic operator")
+  candidates = [carrier]
+  candidates << full_form(endpoint) unless endpoint.to_s.empty?
+
+  candidates.uniq.each do |url|
+    code, text = fetch(url, accept: "application/jose")
+    next unless code == 200 && text.lstrip.start_with?("eyJ")
+
+    jws = begin
+      CompactJws.parse(text)
+    rescue CompactJws::Malformed => e
+      no("#{url} delivers something that is not a JWS: #{e.message}")
+      return [:invalid, nil]
+    end
+    say("  delivered at #{url}")
+
+    key = verify_key_for(jws.kid)
+    if key.nil?
+      no("the key #{jws.kid} cannot be resolved, so the signature cannot be checked")
+      return [:invalid, jws.signer]
+    end
+    unless CompactJws.valid?(jws, key)
+      no("the signature by #{jws.kid} does not verify")
+      return [:invalid, jws.signer]
+    end
+
+    j_code, j_body = fetch(url)
+    delivered = begin
+      j_code == 200 ? JSON.parse(j_body) : nil
+    rescue JSON::ParserError
+      nil
+    end
+    unless delivered && jws.payload == delivered
+      no("the signed content is not the passport delivered at the same address")
+      return [:invalid, jws.signer]
+    end
+
+    ok("signed by #{jws.signer}, and the signed content is the passport delivered there")
+    if jws.signer == operator
+      ok("the signer is the economic operator the passport names")
+    else
+      open_("the signer is not the economic operator the passport names (#{operator.empty? ? '-' : operator}):")
+      open_("an authorised representative, which cannot be recognised from here")
+    end
+    return [:valid, jws.signer]
+  end
+
+  open_("no signature of the economic operator is delivered for this passport")
+  [:none, nil]
+end
+
+verdict, endpoint = check_commitment(carrier, bytes, document)
+operator = document["economicOperatorId"].to_s
+signature, signer = check_signature(carrier, endpoint, operator)
+verdict = EXIT_MISMATCH if signature == :invalid
 
 # --- what this does not establish -------------------------------------------
 step("what this does NOT establish")
-open_("that the key which signed belongs to the economic operator rather than to a")
-open_("service acting for them -- EN 18219:2026 6.4.2 b) wants a Verifiable Credential")
-open_("at the operator DID for that, and none is attached today")
+if signature == :valid && signer == operator
+  open_("that #{signer} is the company it stands for -- EN 18219:2026 wants a")
+  open_("Verifiable Credential at the operator DID for that, and none is checked here")
+else
+  open_("that the key which signed belongs to the economic operator rather than to a")
+  open_("service acting for them -- EN 18219:2026 6.4.2 b) wants a Verifiable Credential")
+  open_("at the operator DID for that, and none is attached today")
+end
 open_("that the trust anchor is an accredited one: prEN 18246 4.8.2/5.2.2 ask for a")
 open_("trusted list, a self-managed DID log is not one")
 open_("anything about data the passport does not deliver publicly")
@@ -212,4 +314,9 @@ step(case verdict
      when EXIT_NO_COMMITMENT then "VERDICT  location bound, content not committed"
      else                         "VERDICT  incomplete -- see the open points above"
      end)
+say(case signature
+    when :valid   then signer == operator ? "         signed by its economic operator" : "         signed by #{signer}, not by its economic operator"
+    when :invalid then "         its signature does NOT hold"
+    else               "         not signed by its economic operator"
+    end)
 exit verdict

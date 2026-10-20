@@ -5,6 +5,7 @@ class ApplicationController < ActionController::API
   include ErrorHandling
   include TokenAuthenticatable
   include PayloadIntegrity
+  include OperatorSignatureDelivery
   include RepresentationParam
   include AccessPolicyHeader
   include ReaderAccess

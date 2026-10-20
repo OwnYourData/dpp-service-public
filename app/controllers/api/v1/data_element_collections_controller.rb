@@ -46,6 +46,7 @@ module Api
         collections[idx] = JsonMergePatch.apply(collections[idx], merge_patch_body)
         @dpp.apply_merge_patch!("elements" => collections)
         commit_payload(@dpp)
+        report_signature(@dpp)
         report_access_policy(@dpp)
         render_element(collections[idx], document: @dpp.to_document)
       end

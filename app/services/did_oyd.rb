@@ -20,7 +20,7 @@ class DidOyd
 
   # Attribute of that service entry holding the commitment to the delivered
   # payload. prEN 18246 makes no stipulation on the name (docs/Integrity.md
-  # section 9, open item 1), so it is fixed here in one place.
+  # section 11, open item 1), so it is fixed here in one place.
   PAYLOAD_HASH = "payloadHash"
 
   # Resolving goes over the network. A client-supplied identifier is checked

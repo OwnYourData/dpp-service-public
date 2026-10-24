@@ -98,8 +98,8 @@ echo "$TOKEN" | cut -d. -f2 | ruby -rbase64 -e 's = STDIN.read.strip; print Base
 
 Expected: `iss` and `sub` are the economic operator's DID, `aud` is the service.
 
-> Tokens are short-lived — which is why this line appears again before every
-> write.
+> Tokens are short-lived and accepted once — which is why this line appears
+> again before every write.
 
 > **Worth remembering:** this is the economic operator's *identity key*. The
 > *passport key* is something else, and we do not have one yet.
@@ -544,10 +544,12 @@ remembered state would still be showing.
 E1=$(printf %s "$DID1" | jq -sRr @uri)
 E2=$(printf %s "$DID2" | jq -sRr @uri)
 E3=$(printf %s "$DID3" | jq -sRr @uri)
-TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
-curl -sS -o /dev/null -w 'Delete passport 1: %{http_code}\n' -X DELETE "$BASE/dpps/$E1" -H "Authorization: Bearer $TOKEN"
-curl -sS -o /dev/null -w 'Delete passport 2: %{http_code}\n' -X DELETE "$BASE/dpps/$E2" -H "Authorization: Bearer $TOKEN"
-curl -sS -o /dev/null -w 'Delete passport 3: %{http_code}\n' -X DELETE "$BASE/dpps/$E3" -H "Authorization: Bearer $TOKEN"
+N=0
+for E in "$E1" "$E2" "$E3"; do
+  N=$((N + 1))
+  TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
+  curl -sS -o /dev/null -w "Delete passport $N: %{http_code}\n" -X DELETE "$BASE/dpps/$E" -H "Authorization: Bearer $TOKEN"
+done
 echo "--- and what about the identifiers? ---"
 curl -sS -o /dev/null -w 'DID from step 1 (service held the key): %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID1"
 curl -sS -o /dev/null -w 'DID from step 5 (we hold the key):      %{http_code}\n' "https://oydid.ownyourdata.eu/1.0/identifiers/$DID3"

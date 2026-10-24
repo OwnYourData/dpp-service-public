@@ -18,7 +18,7 @@ RSpec.describe DidTokenVerifier do
     now = Time.now.to_i
     payload = { "iss" => did, "sub" => did, "aud" => audience,
                 "iat" => now, "exp" => now + 120, "jti" => SecureRandom.hex(8) }
-        .merge(payload_overrides)
+        .merge(payload_overrides).compact
     JWT.encode(payload, key, algorithm, { "kid" => "#{did}#key-doc" }.merge(header))
   end
 
@@ -83,6 +83,64 @@ RSpec.describe DidTokenVerifier do
     it "rejects garbage" do
       expect(described_class.call("not-a-token")).to be_nil
       expect(described_class.call(nil)).to be_nil
+    end
+  end
+
+  describe "once only" do
+    it "accepts a token once and refuses it when it comes again" do
+      once = token
+
+      expect(described_class.call(once)).to be_present
+      expect(described_class.call(once)).to be_nil
+      expect(described_class.call(token)).to be_present
+    end
+
+    it "keeps the jti of each issuer apart" do
+      other     = "did:oyd:zQmOtherIssuer"
+      other_key = Ed25519::SigningKey.generate
+      allow(described_class).to receive(:resolve_public_key).with(other).and_return(other_key.verify_key.to_bytes)
+      now = Time.now.to_i
+      foreign = JWT.encode({ "iss" => other, "sub" => other, "aud" => audience, "iat" => now, "exp" => now + 60,
+                             "jti" => "shared" }, other_key, "EdDSA", { "kid" => "#{other}#key-doc" })
+
+      expect(described_class.call(token({ "jti" => "shared" }))).to be_present
+      expect(described_class.call(foreign)).to be_present
+    end
+
+    it "records only the issuer, the jti and the expiry, for as long as the token holds" do
+      claims = described_class.call(token({ "jti" => "kept" }))
+
+      use = TokenUse.find_by!(issuer: did, jti: "kept")
+      expect(use.expires_at).to eq(claims["exp"])
+      expect(TokenUse.column_names).to contain_exactly("id", "issuer", "jti", "expires_at")
+    end
+
+    it "does not record a token that fails, so a corrected one with the same jti still goes through" do
+      expect(described_class.call(token({ "jti" => "retry", "aud" => "https://somewhere.else" }))).to be_nil
+
+      expect(described_class.call(token({ "jti" => "retry" }))).to be_present
+    end
+
+    it "lets go of the record once the token has expired" do
+      TokenUse.record!(issuer: did, jti: "old", expires_at: Time.now.to_i - 1)
+      TokenUse.prune!
+
+      expect(TokenUse.where(jti: "old")).to be_empty
+    end
+
+    it "refuses a token without a jti, or with one that is not a short string" do
+      expect(described_class.call(token({ "jti" => nil }))).to be_nil
+      expect(described_class.call(token({ "jti" => 42 }))).to be_nil
+      expect(described_class.call(token({ "jti" => "x" * 256 }))).to be_nil
+    end
+
+    it "refuses a token that expires further out than the longest lifetime, with or without iat" do
+      now = Time.now.to_i
+      far = now + described_class::MAX_LIFETIME + described_class::CLOCK_SKEW + 10
+
+      expect(described_class.call(token({ "iat" => nil, "exp" => far }))).to be_nil
+      expect(described_class.call(token({ "iat" => now - 30, "exp" => now + described_class::MAX_LIFETIME - 30 })))
+        .to be_present
     end
   end
 

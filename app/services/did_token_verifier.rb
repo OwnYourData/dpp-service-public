@@ -24,8 +24,11 @@ require "timeout"
 #              "iat": …, "exp": … , "jti": … }
 #
 # +aud+ is what keeps a token issued for a different service from being replayed
-# here; together with a short lifetime that is the replay defence. A +jti+ store
-# would close the remaining window and can be added later.
+# here. Within this service a token is accepted once: its +jti+ is recorded for
+# its lifetime (TokenUse), in the database every replica shares, and the same
+# +jti+ of the same issuer is refused after that. A client mints a token per
+# request. The lifetime is bounded from now as well as from +iat+, so that no
+# record has to be kept longer than MAX_LIFETIME.
 class DidTokenVerifier
   ALGORITHM = "EdDSA"
 
@@ -43,6 +46,9 @@ class DidTokenVerifier
   # Tokens are meant to be short-lived. A long-lived one is not necessarily
   # forged, but it defeats the point of not having revocation, so it is refused.
   MAX_LIFETIME = ENV.fetch("DID_AUTH_MAX_LIFETIME", 900).to_i
+
+  # Tolerance for a client whose clock runs ahead, on the bound of +exp+.
+  CLOCK_SKEW = 60
 
   UNRESOLVABLE = "unresolvable"
 
@@ -125,16 +131,24 @@ class DidTokenVerifier
                            verify_aud:         true,
                            verify_expiration:  true,
                            verify_iat:         true,
-                           required_claims:    %w[iss aud exp])
+                           required_claims:    %w[iss aud exp jti])
 
       lifetime = claims["exp"].to_i - claims["iat"].to_i
       if claims["iat"] && lifetime > MAX_LIFETIME
         raise JWT::InvalidPayload, "token lifetime #{lifetime}s exceeds #{MAX_LIFETIME}s"
       end
+      if claims["exp"].to_i > Time.now.to_i + MAX_LIFETIME + CLOCK_SKEW
+        raise JWT::InvalidPayload, "token expires more than #{MAX_LIFETIME}s from now"
+      end
       if claims["sub"].present? && claims["sub"] != issuer
         raise JWT::InvalidSubError, "sub does not match iss (token is not self-issued)"
       end
+      jti = claims["jti"]
+      unless jti.is_a?(String) && jti.present? && jti.length <= TokenUse::MAX_JTI
+        raise JWT::InvalidJtiError, "jti must be a string of at most #{TokenUse::MAX_JTI} characters"
+      end
 
+      TokenUse.record!(issuer: issuer, jti: jti, expires_at: claims["exp"].to_i)
       claims
     end
 

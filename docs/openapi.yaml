@@ -685,10 +685,13 @@ paths:
                 Set of product identifiers (Table 4: productId, Identifier[], 1..*),
                 either as a bare JSON array or as an object whose only member is
                 productId. Identifiers are non-empty strings; any other body is
-                answered with 400.
+                answered with 400. At most 1000 identifiers per request, as many as
+                the largest page holds (configurable, `DPP_MAX_PRODUCT_IDS`); more
+                are answered with 400.
               oneOf:
                 - type: array
                   minItems: 1
+                  maxItems: 1000
                   items: { type: string, minLength: 1 }
                 - type: object
                   required: [productId]
@@ -697,6 +700,7 @@ paths:
                     productId:
                       type: array
                       minItems: 1
+                      maxItems: 1000
                       items: { type: string, minLength: 1 }
             examples:
               array:
@@ -785,9 +789,19 @@ paths:
           description: >-
             ClientNotAuthorized — read without a bearer token on an element path the
             passport's access policy does not make public, whether the element
-            exists or not (docs/AccessClasses.md §8). A public path that leads
-            nowhere is 404; a reader with a token gets 404 for an element beyond
-            its access classes.
+            exists or not (docs/AccessClasses.md §8), or with a token that does not
+            hold. A public path that leads nowhere is 404.
+          headers:
+            WWW-Authenticate: { $ref: '#/components/headers/WWWAuthenticate' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '403':
+          description: >-
+            ClientForbidden — read with a valid bearer token on an element path
+            beyond the access classes the reader holds for this passport, whether
+            the element exists or not (docs/AccessClasses.md §8). A path within them
+            that leads nowhere is 404.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Result' }
@@ -871,9 +885,19 @@ paths:
           description: >-
             ClientNotAuthorized — read without a bearer token on an element path the
             passport's access policy does not make public, whether the element
-            exists or not (docs/AccessClasses.md §8). A public path that leads
-            nowhere is 404; a reader with a token gets 404 for an element beyond
-            its access classes.
+            exists or not (docs/AccessClasses.md §8), or with a token that does not
+            hold. A public path that leads nowhere is 404.
+          headers:
+            WWW-Authenticate: { $ref: '#/components/headers/WWWAuthenticate' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '403':
+          description: >-
+            ClientForbidden — read with a valid bearer token on an element path
+            beyond the access classes the reader holds for this passport, whether
+            the element exists or not (docs/AccessClasses.md §8). A path within them
+            that leads nowhere is 404.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Result' }
@@ -919,7 +943,10 @@ components:
       bearerFormat: JWT
       description: >-
         Self-issued JWT, signed with the document key of the presenter's DID,
-        with this service as `aud` (EN 18239:2026). Public data is readable
+        with this service as `aud` (EN 18239:2026), a `jti`, and an `exp` at
+        most 15 minutes ahead. Each token is accepted once: the service records
+        issuer and `jti` until the token expires and refuses the same pair
+        after that, so a client mints one per request. Public data is readable
         without authentication; the controlled part of a passport goes to its
         owner and to readers holding an access grant for it
         (docs/AccessClasses.md §7–§8).
@@ -928,6 +955,12 @@ components:
   # Payload commitment (EN 18246:2026; docs/Integrity.md)
   ###########################################################################
   headers:
+    WWWAuthenticate:
+      description: >-
+        The authentication scheme, sent with every 401 (RFC 9110 15.5.2): `Bearer`
+        without a token, `Bearer error="invalid_token"` for a token that was
+        presented and refused (RFC 6750 3.1).
+      schema: { type: string, example: Bearer }
     PayloadHash:
       description: >-
         The hash of the payload as the custodian delivers it — sha2-256,
@@ -1070,6 +1103,8 @@ components:
           schema: { $ref: '#/components/schemas/Result' }
     NotAuthorized:
       description: ClientNotAuthorized — wrong or missing authorization credentials.
+      headers:
+        WWW-Authenticate: { $ref: '#/components/headers/WWWAuthenticate' }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Result' }

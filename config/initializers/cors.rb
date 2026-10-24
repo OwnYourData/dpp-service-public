@@ -12,7 +12,8 @@
 # apply, and a write interface open to every web page is an invitation nobody
 # needs.
 write_origins = ENV.fetch("DPP_CORS_ORIGINS", "").split(",").map(&:strip).reject(&:empty?)
-exposed = %w[Link X-Next-Cursor X-DPP-Payload-Hash X-DPP-Commit-State X-DPP-Retain-Until Retry-After]
+exposed = %w[Link X-Next-Cursor X-DPP-Payload-Hash X-DPP-Commit-State X-DPP-Retain-Until Retry-After
+             WWW-Authenticate]
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   if write_origins.any?

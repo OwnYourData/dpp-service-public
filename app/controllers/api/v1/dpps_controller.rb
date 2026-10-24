@@ -4,6 +4,12 @@ module Api
   module V1
     # EN 18222:2026 Clause 4 — Life Cycle API (Main Methods).
     class DppsController < ApplicationController
+      # The most product identifiers one ReadDPPIdsByProductIds may name: as
+      # many as the largest page holds. The set goes into one query, so a
+      # request that names more is refused as a bad request (EN 18222:2026
+      # Table 15) rather than run as a query of unbounded size.
+      MAX_PRODUCT_IDS = ENV.fetch("DPP_MAX_PRODUCT_IDS", 1000).to_i
+
       # EN 18222:2026 8.1: the methods that return a passport take the
       # representation flag. Checked first, so a bad flag on CreateDPP is
       # refused before anything is minted.
@@ -497,6 +503,11 @@ module Api
           return render_result("ClientErrorBadRequest",
                                text: "Body must be a non-empty JSON array of product identifiers (strings), " \
                                      'bare or as {"productId": [...]}')
+        end
+        if product_ids.size > MAX_PRODUCT_IDS
+          return render_result("ClientErrorBadRequest",
+                               text: "At most #{MAX_PRODUCT_IDS} product identifiers per request; this one names " \
+                                     "#{product_ids.size}")
         end
 
         limit  = params.fetch(:limit, 100).to_i.clamp(1, 1000)

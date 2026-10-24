@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_10_20_000019) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_24_000021) do
   create_table "access_event_parties", force: :cascade do |t|
     t.bigint "access_event_id", null: false
     t.string "did", null: false
@@ -134,6 +134,22 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_20_000019) do
     t.index ["product_key", "product_host"], name: "index_dpps_on_active_product", unique: true, where: "dpp_status = 'Active'"
     t.index ["product_key"], name: "index_dpps_on_product_key"
     t.index ["storage_backend"], name: "index_dpps_on_storage_backend"
+  end
+
+  create_table "rate_counters", force: :cascade do |t|
+    t.string "bucket", null: false
+    t.integer "hits", default: 0, null: false
+    t.bigint "window_ends_at", null: false
+    t.index ["bucket"], name: "index_rate_counters_on_bucket", unique: true
+    t.index ["window_ends_at"], name: "index_rate_counters_on_window_ends_at"
+  end
+
+  create_table "token_uses", force: :cascade do |t|
+    t.string "issuer", null: false
+    t.string "jti", null: false
+    t.bigint "expires_at", null: false
+    t.index ["expires_at"], name: "index_token_uses_on_expires_at"
+    t.index ["issuer", "jti"], name: "index_token_uses_on_issuer_and_jti", unique: true
   end
 
   add_foreign_key "access_event_parties", "access_events"

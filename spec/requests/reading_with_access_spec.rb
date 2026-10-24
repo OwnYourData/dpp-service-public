@@ -69,7 +69,7 @@ RSpec.describe "Reading with access rights", type: :request do
       expect(response.parsed_body).to eq("SN-0921")
 
       read("/dpp/v1/dpps/#{enc}/elements/OnModePower", as: li_reader)
-      expect(response).to have_http_status(:not_found)
+      expect(response).to have_http_status(:forbidden)
 
       read("/dpp/v1/dpps/#{enc}/elements/OnModePower", as: au_reader)
       expect(response.parsed_body).to eq(7.5)

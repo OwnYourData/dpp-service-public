@@ -66,6 +66,7 @@ RSpec.describe "DID-based authorization", type: :request do
 
       expect(response).to have_http_status(:unauthorized)
       expect(response.parsed_body["statusCode"]).to eq("ClientNotAuthorized")
+      expect(response.headers["WWW-Authenticate"]).to eq('Bearer error="invalid_token"')
     end
   end
 

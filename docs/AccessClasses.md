@@ -321,10 +321,11 @@ each reader the attributes of the classes it may read, and nothing else:
 
 A reader presents the same self-issued bearer token as a writer: signed with
 the document key of its DID, with this service as `aud`, for at most 15
-minutes. The grant itself is not presented; the service finds it by the
-reader's DID. A token that is presented but does not hold is answered with
-`401`, not read past. Without verified tokens (`DPP_AUTH_MODE` other than
-`did`) every reader gets the public part.
+minutes, and accepted once. The grant itself is not presented; the service
+finds it by the reader's DID. A token that is presented but does not hold is
+answered with `401` and `WWW-Authenticate: Bearer error="invalid_token"`, not
+read past. Without verified tokens (`DPP_AUTH_MODE` other than `did`) every
+reader gets the public part.
 
 The answer is the passport of EN 18223:2026 with more data elements, nothing
 else. The header attributes are those of the public part; `ControlledData`
@@ -344,21 +345,25 @@ is not stored by any cache.
 
 **The fine-granular paths** (`ReadDataElement` and the collection path)
 answer by the access policy alone where an element is not part of what the
-reader gets:
+reader gets. The reads of a whole passport are not affected: they give the
+public part, or what the reader's classes reach, with `200`.
 
-| Reader | Element path the policy does not make public | Public element path that leads nowhere |
+| Reader | Element path beyond the classes the reader may read | Element path within them that leads nowhere |
 |---|---|---|
-| without a bearer token | `401 ClientNotAuthorized`, whether the element exists or not | `404` |
-| with a token | `404`, as for an element that does not exist | `404` |
+| without a bearer token | `401 ClientNotAuthorized` with `WWW-Authenticate: Bearer`, whether the element exists or not | `404` |
+| with a valid token | `403 ClientForbidden`, whether the element exists or not | `404` |
 
-A path is not public when the deepest rule on it or above it, or the policy's
-default, gives it a class other than `public`, or when a rule below it does:
-a collection may hold a controlled element. The header attributes are always
-public. A request without a token therefore learns that credentials are
-needed, and nothing about which elements the passport holds. An unknown
-passport is `404`, and a passport without an access policy has nothing that
-is not public. Without verified tokens no credentials could open a path, and
-every answer stays `404`.
+A path is beyond the classes a reader may read when the deepest rule on it or
+above it, or the policy's default, gives it another class, or when a rule
+below it does: a collection may hold a controlled element. Without a token the
+reader may read `public` only; with one, the classes of its access grants, and
+the owner all of them. The header attributes are always public. A request
+therefore learns that credentials, or other access rights, are needed, and
+nothing about which elements the passport holds. A `403` is not stored by any
+cache (`Cache-Control: private, no-store`). An unknown passport is `404`, and
+a passport without an access policy has nothing that is not public. Without
+verified tokens no credentials could open a path, and every answer stays
+`404`.
 
 **When the controlled part cannot be read.** If the custodian does not accept
 this service as reader of the passport's collection — its token endpoint

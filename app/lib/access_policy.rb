@@ -113,29 +113,32 @@ class AccessPolicy
     PassportSplit.split(document) { |path| !readable.include?(classes.fetch(path)) }.first
   end
 
-  # Whether everything at the path +segments+ (element identifiers from the
-  # top) and below it is public under this policy -- judged by the policy
-  # alone, not by what a passport holds. The path takes the class of the
-  # deepest rule on it or above it, or the default; a rule below it that is
-  # not public makes it not public as well, since the path may lead there.
-  # With no segments, the question is asked of the whole passport. The
-  # header attributes of Table 1 are always public.
+  # Whether a reader who may read the classes +readable+ (AccessClass
+  # concepts, as AccessClass.readable_with gives them) may read everything at
+  # the path +segments+ (element identifiers from the top) and below it --
+  # judged by the policy alone, not by what a passport holds. The path takes
+  # the class of the deepest rule on it or above it, or the default; a rule
+  # below it with a class the reader may not read counts as well, since the
+  # path may lead there. With no segments, the question is asked of the whole
+  # passport. The header attributes of Table 1 are always public.
   #
-  # A read path uses this to answer the same for an element that is
-  # controlled and for one that does not exist, so that the answer tells
+  # A read path uses this to answer the same for an element that is withheld
+  # from the reader and for one that does not exist, so that the answer tells
   # nothing about which of the two it is.
-  def public_at?(segments)
+  def readable_at?(segments, readable)
     return true if segments.first && HEADER.include?(segments.first)
 
-    public_class = AccessClass.public_class
     rule = segments.empty? ? nil : deepest_rule(segments)
-    return false unless (rule ? rule.last : default_class) == public_class
+    return false unless readable.include?(rule ? rule.last : default_class)
 
     prefix = segments.join("/")
     rules.none? do |path, concept|
-      concept != public_class && (prefix.empty? || path.start_with?("#{prefix}/"))
+      !readable.include?(concept) && (prefix.empty? || path.start_with?("#{prefix}/"))
     end
   end
+
+  # Whether a reader without access rights may read everything at +segments+.
+  def public_at?(segments) = readable_at?(segments, [AccessClass.public_class])
 
   private
 

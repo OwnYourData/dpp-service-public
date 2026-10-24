@@ -15,23 +15,21 @@ class ApplicationController < ActionController::API
   # reading is public and cheap, writing mints DIDs and reaches custodians.
   # Configurable because the right numbers depend on who calls the instance.
   #
-  # The counter lives in this process. With several replicas each keeps its
-  # own, so the effective limit is the configured one times the replicas --
-  # still a limit, and no shared cache to operate for it.
-  RATE_LIMIT_STORE = ActiveSupport::Cache::MemoryStore.new
-  READ_LIMIT       = ENV.fetch("DPP_RATE_LIMIT_READ", 600).to_i
-  WRITE_LIMIT      = ENV.fetch("DPP_RATE_LIMIT_WRITE", 60).to_i
+  # The counts live in the database (RateCounter), which every replica shares,
+  # so the limit holds for the service as a whole however many replicas run,
+  # and for all operations of a kind together.
+  READ_LIMIT  = ENV.fetch("DPP_RATE_LIMIT_READ", 600).to_i
+  WRITE_LIMIT = ENV.fetch("DPP_RATE_LIMIT_WRITE", 60).to_i
+  RATE_WINDOW = 60
 
-  # Rails keys a limit by controller and the value of +by+; the suffix keeps the
-  # two limits of one controller from sharing a counter.
-  rate_limit to: READ_LIMIT, within: 1.minute, store: RATE_LIMIT_STORE,
-             by: -> { "#{request.remote_ip}:read" }, with: -> { too_many_requests },
-             if: -> { read_request? }
-  rate_limit to: WRITE_LIMIT, within: 1.minute, store: RATE_LIMIT_STORE,
-             by: -> { "#{request.remote_ip}:write" }, with: -> { too_many_requests },
-             unless: -> { read_request? }
+  before_action :enforce_rate_limit
 
   private
+
+  def enforce_rate_limit
+    kind, limit = read_request? ? ["read", READ_LIMIT] : ["write", WRITE_LIMIT]
+    too_many_requests if RateCounter.hit!("#{request.remote_ip}:#{kind}", within: RATE_WINDOW) > limit
+  end
 
   # ReadDPPIdsByProductIds is a POST because a set of identifiers does not fit
   # a URL, but it reads.

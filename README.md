@@ -50,8 +50,9 @@ stand-alone path, which is fully functional on its own.
 
 The hosted instance runs with `DPP_AUTH_MODE=did`: writing requires a bearer
 token that is a self-issued JWT, signed with the document key of the issuer's
-`did:oyd`, and only the DID that created a passport may change it. Reading is
-public and needs no token. A stand-alone instance starts in `permissive` mode,
+`did:oyd`, and only the DID that created a passport may change it. Each token is
+accepted once, so a client mints one per request. Reading is public and needs
+no token. A stand-alone instance starts in `permissive` mode,
 where the signature is not checked — see [docs/Standalone.md](docs/Standalone.md).
 
 `did:oyd` is one of the DID methods EN 18219:2026 admits, specified in
@@ -152,9 +153,11 @@ EN 18222:2026 8.1, an RFC 9535 JSONPath singular query over the element
 identifiers such as `$.EnergyPerformance.LuminousFlux`, percent-encoded; a query
 that is not RFC 9535 syntax or can select more than one element is answered
 with `400`. The element identifiers separated by `/` address the same element.
-Without a bearer token, an element path the passport's access policy does not
-make public is answered with `401`, whether the element exists or not
-([docs/AccessClasses.md](docs/AccessClasses.md) §8).
+An element path beyond the access classes the reader holds for the passport
+is answered with `401` without a bearer token and with `403` with a valid one,
+whether the element exists or not
+([docs/AccessClasses.md](docs/AccessClasses.md) §8). Every `401` names the
+`Bearer` scheme in `WWW-Authenticate`.
 
 ## How the standards map to the code
 
@@ -163,7 +166,7 @@ make public is answered with `401`, whether the element exists or not
 | EN 18222:2026 | API methods, status codes, Result object | routes, `app/controllers`, `ApiStatus` |
 | EN 18223:2026 | DPP semantic model (payload) | `app/models/dpp.rb`, `docs/openapi.yaml` |
 | EN 18216:2026 | Transport and formats (TLS, JSON) | `force_ssl`; TLS 1.2 and 1.3 at the ingress; response content types |
-| EN 18239:2026 | Access rights and security | `TokenAuthenticatable`; rate limit in `ApplicationController`; cross-origin policy in `config/initializers/cors.rb`; access classes and policies in `AccessClass`, `AccessPolicy`, `config/vocab/`; access grants in `AccessGrant`; reading per role in `PassportAccess`; access log in `AccessLog` |
+| EN 18239:2026 | Access rights and security | `TokenAuthenticatable`; tokens accepted once in `TokenUse`; rate limit in `ApplicationController`, counted across replicas in `RateCounter`; cross-origin policy in `config/initializers/cors.rb`; access classes and policies in `AccessClass`, `AccessPolicy`, `config/vocab/`; access grants in `AccessGrant`; reading per role in `PassportAccess`; access log in `AccessLog` |
 | EN 18221:2026 | Storage, archiving, versioning | `DppVersion`, `Dpp#archive_current_version!` |
 | EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, [`did:oyd`](https://ownyourdata.github.io/oydid/) and `did:web` |
 | EN 18246:2026 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, the signature of the economic operator in `OperatorSignature`, `bin/verify_dpp`, `bin/sign_dpp` |

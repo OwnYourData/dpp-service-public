@@ -221,9 +221,14 @@ was issued therefore keeps resolving as its document evolves.
 
 ## 9. Open points
 
-* The **backup service provider** of EN 18221 cl. 4.5 is not yet
-  appointed. The standard makes the backup copy mandatory and the primary
-  provider optional — the reverse of what one might assume.
+* The **backup copy** has no provider yet. ESPR Art. 10(4) has the economic
+  operator that places the product on the market keep a backup copy of the
+  passport with an independent DPP service provider. EN 18221:2026 provides for
+  that copy where it is required (4.3): the backup service provider then holds
+  the current version and the earlier versions that have to be kept. The
+  economic operator replicates every change to it, through the life-cycle API of
+  EN 18222:2026 or another agreed secure channel (4.5). For the passports of this
+  service no backup service provider is appointed, and nothing replicates to one.
 * The **payload hash** in the DID log binds the content of a passport to its
   identifier ([Integrity.md](Integrity.md), sections 4–6). The **signature of the
   economic operator** ([Integrity.md](Integrity.md), section 10) is carried only by

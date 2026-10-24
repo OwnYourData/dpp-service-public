@@ -48,25 +48,40 @@ module ReaderAccess
                         result.reason ? "#{result.controlled};reason=#{result.reason}" : result.controlled)
   end
 
-  # A fine-granular read without a bearer token of a path that is not public
-  # under the passport's access policy (AccessPolicy#public_at?) is refused
-  # with 401, whether or not the element exists (docs/AccessClasses.md §8):
-  # 401 says that credentials are needed, and saying it for an element that
-  # does not exist as well tells nothing about which elements a passport has.
-  # A path that is public and leads nowhere stays 404. Only where tokens are
-  # verified: otherwise no credentials could open the path.
+  # A fine-granular read of a path the reader may not read in full under the
+  # passport's access policy (AccessPolicy#readable_at?) is refused, whether
+  # or not the element exists (docs/AccessClasses.md §8): without a bearer
+  # token with 401, which says that credentials are needed; with a valid token
+  # whose access rights do not reach the path with 403. Answering an element
+  # that does not exist the same way tells nothing about which elements a
+  # passport has. A path the reader may read and that leads nowhere stays 404.
+  # Only where tokens are verified: otherwise no credentials could open the
+  # path.
   #
-  # Called once the element was not found in what the reader gets. Renders
-  # and returns true when the read is refused.
-  def refused_without_token?(dpp, segments)
-    return false unless request.authorization.blank? && DidTokenVerifier.enabled?
+  # Called once the element was not found in what the reader gets, with the
+  # PassportAccess result of the read. Renders and returns true when the read
+  # is refused.
+  def refused_by_policy?(dpp, segments, access)
+    return false unless DidTokenVerifier.enabled?
 
     policy = dpp.access_policy
-    return false if policy.nil? || policy.public_at?(segments)
+    return false if policy.nil?
 
-    render_result("ClientNotAuthorized",
-                  text: "This element path is not public: read it with a bearer token that holds the " \
-                        "access rights for it")
+    if request.authorization.blank?
+      return false if policy.public_at?(segments)
+
+      render_result("ClientNotAuthorized",
+                    text: "This element path is not public: read it with a bearer token that holds the " \
+                          "access rights for it")
+    else
+      roles = PassportAccess.new(reader_did).roles_for(dpp.dpp_id, dpp.owner_did)
+      return false if policy.readable_at?(segments, AccessClass.readable_with(roles))
+
+      report_access(access)
+      response.set_header("Cache-Control", "private, no-store")
+      render_result("ClientForbidden",
+                    text: "The access rights of this bearer token do not reach this element path")
+    end
     true
   end
 

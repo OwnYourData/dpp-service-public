@@ -64,8 +64,9 @@ All settings come from environment variables.
 | `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | public base URL of this instance; written into the `serviceEndpoint` of the DID document |
 | `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | registrar/VDR for `did:oyd` |
 | `DPP_CORS_ORIGINS` | — (none) | origins, comma-separated, from which a browser may write. Reading is open to every origin |
-| `DPP_RATE_LIMIT_READ` | `600` | reads per client address and minute; over it the answer is `429` with `Retry-After` |
-| `DPP_RATE_LIMIT_WRITE` | `60` | writes per client address and minute |
+| `DPP_RATE_LIMIT_READ` | `600` | reads per client address and minute; over it the answer is `429` with `Retry-After`. Counted in the database, so the limit holds across all replicas |
+| `DPP_RATE_LIMIT_WRITE` | `60` | writes per client address and minute, counted the same way |
+| `DPP_MAX_PRODUCT_IDS` | `1000` | product identifiers one `ReadDPPIdsByProductIds` may name; more are answered with `400` |
 | `RAILS_MAX_THREADS` | `5` | |
 | `RAILS_LOG_LEVEL` | `info` | |
 | `DPP_AUTH_MODE` | `permissive` | `did` enables signature verification of the bearer tokens and owner binding |
@@ -91,7 +92,11 @@ convenient for development and not safe for production.
 For production operation set `did`: the token must then be a self-issued JWT,
 EdDSA-signed with the document key of the issuer's `did:oyd`, carrying
 `iss` = `sub` = the issuer's DID, `aud` = the base URL of this service
-(`DPP_AUTH_AUDIENCE`), `iat`, an `exp` at most 900 s after `iat`, and `jti`.
+(`DPP_AUTH_AUDIENCE`), `iat`, an `exp` at most 900 s after `iat` and after
+now, and `jti`. Each token is accepted once: the service records issuer and
+`jti` in the database until the token expires and refuses the same pair after
+that, on every replica. A client therefore mints a token per request. A refused
+token is answered with `401` and `WWW-Authenticate: Bearer error="invalid_token"`.
 On top of that, only the DID that created a passport may update or delete it;
 another DID is refused with `403` and `statusCode` `ClientForbidden`. Reading
 is public in both modes and needs no token. A central identity provider is not

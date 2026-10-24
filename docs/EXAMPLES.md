@@ -102,21 +102,24 @@ puts JWT.encode({ "iss" => did, "sub" => did,
 `require "jwt/eddsa"` is not optional — without this line the `jwt` gem does not
 know the EdDSA algorithm and aborts with "Unsupported signing method".
 
-**Step 3 — use it.** The result goes onto every write call as
-`Authorization: Bearer …`, nothing else changes.
+**Step 3 — use it.** The result goes onto a write call as
+`Authorization: Bearer …`, nothing else changes. Each token is accepted once:
+the service records its `jti` until it expires and refuses it after that, so
+mint a fresh one for every call. Its `exp` may lie at most 15 minutes ahead.
 
 ## Setup
 
 ```bash
 BASE="https://dpp-service.ownyourdata.eu/dpp/v1"
-TOKEN="$(ruby mint_token.rb)"
+
+# A token is accepted once: auth mints a fresh one for every call.
+auth() { printf 'Authorization: Bearer %s' "$(ruby mint_token.rb)"; }
 # permissive instances only — an unsigned token, built on the spot:
 # b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
-# TOKEN="$(printf '{"alg":"none"}' | b64).$(printf '{"sub":"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS","scope":"dpp:write"}' | b64)."
+# auth() { printf 'Authorization: Bearer %s.%s.' "$(printf '{"alg":"none"}' | b64)" "$(printf '{"sub":"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS","scope":"dpp:write"}' | b64)"; }
 
-# Reusable header arrays
+# Reusable header array
 JSON=(-H "Content-Type: application/json")
-AUTH=(-H "Authorization: Bearer $TOKEN")
 
 # Identifiers (URLs / DIDs) must be percent-encoded into a single path segment.
 # Helper: encode a string for use in a URL path.
@@ -185,7 +188,7 @@ Save the request body as `create-dpp.json`:
 Create the DPP and capture the minted DID:
 
 ```bash
-RESP=$(curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d @create-dpp.json)
+RESP=$(curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth)" -d @create-dpp.json)
 echo "$RESP" | jq .
 
 DID=$(echo "$RESP" | jq -r '.digitalProductPassportId')
@@ -249,7 +252,7 @@ echo "DIDB = $DIDB"
 Then create the passport with it; nothing else changes:
 
 ```bash
-curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d "{
+curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth)" -d "{
   \"digitalProductPassportId\": \"$DIDB\",
   \"uniqueProductIdentifier\": \"$PIDB\",
   \"granularity\": \"model\",
@@ -288,7 +291,7 @@ as-is, mints nothing, and resolves nothing: the check in 2b applies to
 `did:oyd`, which the service can resolve, not to identifiers in general.
 
 ```bash
-curl -sS -X POST "$BASE/dpps" "${JSON[@]}" "${AUTH[@]}" -d '{
+curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth)" -d '{
   "digitalProductPassportId": "https://dpp-service.ownyourdata.eu/01/09520123456788/0001",
   "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
   "granularity": "model",
@@ -414,7 +417,7 @@ The previous version is archived automatically (EN 18221:2026 4.2).
 
 ```bash
 curl -sS -X PATCH "$BASE/dpps/$ENC" \
-  -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
+  -H "Content-Type: application/merge-patch+json" -H "$(auth)" \
   -d '{ "facilityId": "https://id.lumina.example/414/0952012345016" }' \
   | jq '{ facilityId, lastUpdated }'
 ```
@@ -429,7 +432,7 @@ and named by its `id`; nothing of it goes into the passport.
 ```bash
 # Expect 201, and 200 when the same policy is registered again.
 curl -sS -o /dev/null -w "register: %{http_code}\n" \
-  -X PUT "$BASE/access-policies" "${JSON[@]}" "${AUTH[@]}" \
+  -X PUT "$BASE/access-policies" "${JSON[@]}" -H "$(auth)" \
   -d '{ "id": "https://dpp.example.org/access-policies/lumina-lamp/1",
         "scheme": "https://w3id.org/soya/dpp-access/v1",
         "rules": [
@@ -445,7 +448,7 @@ the header `X-DPP-Access-Policy`; for the passport that exists already,
 
 ```bash
 curl -sS -D - -o /dev/null -X PATCH "$BASE/dpps/$ENC" \
-  -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
+  -H "Content-Type: application/merge-patch+json" -H "$(auth)" \
   -H "X-DPP-Access-Policy: https://dpp.example.org/access-policies/lumina-lamp/1" \
   -d '{}' | grep -i '^x-dpp-access-policy'
 ```
@@ -458,7 +461,7 @@ The counts say how well the policy fits the passport: no attribute is left to
 the default, and one rule reaches nothing. Which ones:
 
 ```bash
-curl -sS "$BASE/dpps/$ENC/access-policy" "${AUTH[@]}" | jq .
+curl -sS "$BASE/dpps/$ENC/access-policy" -H "$(auth)" | jq .
 ```
 
 ```json
@@ -519,7 +522,7 @@ Merge patch on one element — e.g. reclassify the energy efficiency class.
 ```bash
 curl -sS -X PATCH \
   "$BASE/dpps/$ENC/elements/EnergyPerformance/EnergyEfficiencyClass" \
-  -H "Content-Type: application/merge-patch+json" "${AUTH[@]}" \
+  -H "Content-Type: application/merge-patch+json" -H "$(auth)" \
   -d '{ "value": "D" }'
 ```
 
@@ -545,7 +548,7 @@ connected to the EU DPP Registry: it checks the entry and then answers `502`.
 Nothing is registered and no registration identifier is returned.
 
 ```bash
-curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" "${AUTH[@]}" -d '{
+curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" -H "$(auth)" -d '{
   "dppRegistryEntry": {
     "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
     "uniqueEconomicOperatorIdentifier": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
@@ -583,7 +586,7 @@ you minted yourself (2b) the service holds no key and revokes nothing.
 
 ```bash
 # Delete (expect 204)
-curl -sS -o /dev/null -w "delete:      %{http_code}\n" -X DELETE "$BASE/dpps/$ENC" "${AUTH[@]}"
+curl -sS -o /dev/null -w "delete:      %{http_code}\n" -X DELETE "$BASE/dpps/$ENC" -H "$(auth)"
 
 # The active DPP is gone (expect 404)
 curl -sS -o /dev/null -w "read active: %{http_code}\n" "$BASE/dpps/$ENC"
@@ -608,7 +611,7 @@ STORAGE_NEW='{"base_url":"https://dpp.go-data.at","collection_id":"4","delegatio
 
 # Expect 204 — no body, the passport is untouched.
 curl -sS -o /dev/null -w "renew: %{http_code}\n" \
-  -X POST "$BASE/dpps/$ENC/delegation" "${AUTH[@]}" \
+  -X POST "$BASE/dpps/$ENC/delegation" -H "$(auth)" \
   -H "X-DPP-Storage: $STORAGE_NEW"
 ```
 
@@ -619,7 +622,7 @@ Which mandate the service holds is readable, so your own record can be checked
 against it:
 
 ```bash
-curl -sS "$BASE/dpps/$ENC/delegation" "${AUTH[@]}" | jq .
+curl -sS "$BASE/dpps/$ENC/delegation" -H "$(auth)" | jq .
 ```
 
 ```json

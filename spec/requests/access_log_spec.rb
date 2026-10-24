@@ -80,11 +80,11 @@ RSpec.describe "Access log and revoking access grants", type: :request do
       expect(reads.second.grants).to be_nil
     end
 
-    it "logs the 404 of an element the reader may not read" do
+    it "logs the 403 of an element the reader may not read" do
       read("/dpp/v1/dpps/#{enc}/elements/OnModePower", as: li_reader)
 
-      expect(response).to have_http_status(:not_found)
-      expect(entries("read").last.status).to eq(404)
+      expect(response).to have_http_status(:forbidden)
+      expect(entries("read").last.status).to eq(403)
     end
 
     it "does not log a reader without a token" do

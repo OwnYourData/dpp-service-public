@@ -279,4 +279,33 @@ RSpec.describe AccessPolicy do
       expect(policy(rules).public_at?(%w[economicOperatorId])).to be(true)
     end
   end
+
+  describe "#readable_at?" do
+    let(:rules) do
+      [{ "path" => "General", "accessClass" => "public" },
+       { "path" => "General/SerialNumber", "accessClass" => "legitimateInterest" },
+       { "path" => "Compliance", "accessClass" => "authority" }]
+    end
+    let(:with_default) { policy(rules, "default" => "public") }
+
+    def readable(*roles) = AccessClass.readable_with(roles)
+
+    it "lets a reader read a path whose class, and every class below it, it holds" do
+      expect(with_default.readable_at?(%w[General SerialNumber], readable("legitimateInterest"))).to be(true)
+      expect(with_default.readable_at?(%w[General], readable("legitimateInterest"))).to be(true)
+      expect(with_default.readable_at?(%w[Compliance Report], readable("legitimateInterest"))).to be(false)
+      expect(with_default.readable_at?(%w[Compliance Report], readable("authority"))).to be(true)
+    end
+
+    it "does not let a reader read a path a rule below lifts beyond its classes" do
+      expect(with_default.readable_at?([], readable("legitimateInterest"))).to be(false)
+      expect(with_default.readable_at?([], readable("authority"))).to be(true)
+    end
+
+    it "is public_at? for a reader without access rights" do
+      [%w[General BrandName], %w[General], %w[NoSuchElement], %w[economicOperatorId], []].each do |path|
+        expect(with_default.readable_at?(path, readable)).to eq(with_default.public_at?(path)), path.inspect
+      end
+    end
+  end
 end

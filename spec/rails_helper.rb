@@ -23,10 +23,6 @@ RSpec.configure do |config|
     allow(PayloadCommitment).to receive(:refresh)
   end
 
-  # The rate limit counts per address and minute, and every request in the
-  # suite comes from the same address within the same minute.
-  config.before { ApplicationController::RATE_LIMIT_STORE.clear }
-
   # Whether this service is entered as reader of a collection is kept in the
   # process for a while (ReaderAdmission); each example asks its own custodian.
   config.before { ReaderAdmission.reset! }

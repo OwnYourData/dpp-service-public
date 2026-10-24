@@ -51,6 +51,18 @@ module ApiStatus
         }.compact
       ]
     }
+    challenge! if status_code == "ClientNotAuthorized"
     render json: result, status: STATUS_MAP.fetch(status_code, :internal_server_error)
+  end
+
+  # RFC 9110 15.5.2: every 401 names the scheme it takes, here the bearer token
+  # of RFC 6750. A token that was presented and refused gets the error code
+  # of RFC 6750 3.1; a request without one gets none, since nothing failed.
+  # Left alone where the answer has already named its challenge.
+  def challenge!
+    return if response.headers["WWW-Authenticate"].present?
+
+    refused = request.authorization.to_s.start_with?("Bearer ") && current_actor.nil?
+    response.set_header("WWW-Authenticate", refused ? 'Bearer error="invalid_token"' : "Bearer")
   end
 end

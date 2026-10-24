@@ -71,6 +71,21 @@ RSpec.describe "Bad requests", type: :request do
       expect(response).to have_http_status(:ok)
       expect(JSON.parse(response.body)["payload"]).to eq([dpp_id])
     end
+
+    it "takes as many product identifiers as the largest page holds, and refuses more with 400" do
+      cap = Api::V1::DppsController::MAX_PRODUCT_IDS
+      ids = Array.new(cap) { |i| "https://id.lumina.example/01/09520123456788/21/#{i}" }
+
+      post "/dpp/v1/dppsByProductIds", params: ids.to_json, headers: json
+      expect(response).to have_http_status(:ok)
+
+      post "/dpp/v1/dppsByProductIds", params: { productId: ids + ["https://id.lumina.example/01/x"] }.to_json,
+                                       headers: json
+      expect(response).to have_http_status(:bad_request)
+      body = JSON.parse(response.body)
+      expect(body["statusCode"]).to eq("ClientErrorBadRequest")
+      expect(body.dig("message", 0, "text")).to include("At most #{cap} product identifiers", (cap + 1).to_s)
+    end
   end
 
   describe "CreateDPP and UpdateDPPById" do

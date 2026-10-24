@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# prEN 18239: with verified tokens a passport belongs to the DID that created
+# EN 18239:2026: with verified tokens a passport belongs to the DID that created
 # it, and only that DID may change it. Signature verification alone would not
 # achieve this — it establishes *who* is calling, not *what* they may touch.
 #

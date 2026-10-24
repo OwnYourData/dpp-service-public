@@ -244,4 +244,39 @@ RSpec.describe AccessPolicy do
         .not_to include("ControlledData")
     end
   end
+
+  describe "#public_at?" do
+    let(:rules) do
+      [{ "path" => "General", "accessClass" => "public" },
+       { "path" => "General/SerialNumber", "accessClass" => "legitimateInterest" },
+       { "path" => "Compliance", "accessClass" => "authority" }]
+    end
+
+    it "judges a path by the policy alone, whether a passport has the element or not" do
+      with_default = policy(rules, "default" => "public")
+
+      expect(with_default.public_at?(%w[General BrandName])).to be(true)
+      expect(with_default.public_at?(%w[General SerialNumber])).to be(false)
+      expect(with_default.public_at?(%w[Compliance AnyReport])).to be(false)
+      expect(with_default.public_at?(%w[NoSuchElement])).to be(true)
+    end
+
+    it "is not public for a collection a controlled rule lies below" do
+      expect(policy(rules, "default" => "public").public_at?(%w[General])).to be(false)
+    end
+
+    it "gives a path no rule reaches the default, or the most restrictive class without one" do
+      expect(policy(rules).public_at?(%w[NoSuchElement])).to be(false)
+      expect(policy([], "default" => "public").public_at?(%w[NoSuchElement])).to be(true)
+    end
+
+    it "asks the whole passport when there are no segments" do
+      expect(policy([], "default" => "public").public_at?([])).to be(true)
+      expect(policy(rules, "default" => "public").public_at?([])).to be(false)
+    end
+
+    it "keeps the header attributes public" do
+      expect(policy(rules).public_at?(%w[economicOperatorId])).to be(true)
+    end
+  end
 end

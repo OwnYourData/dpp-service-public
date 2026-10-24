@@ -23,6 +23,8 @@ module Api
         document = access.document
         collection = find_collection(document, params[:element_id])
         if collection.nil?
+          return if refused_without_token?(@dpp, [params[:element_id].to_s])
+
           report_access(access) if access.controlled
           return render_result("ClientErrorResourceNotFound", text: missing_text("Collection", access))
         end

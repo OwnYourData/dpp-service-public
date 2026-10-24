@@ -2,7 +2,7 @@
 
 # Cross-origin access for browser clients.
 #
-# Reading is public (EN 18239 6.2: public DPP data is readable without
+# Reading is public (EN 18239:2026 6.1: public DPP data is readable without
 # authentication), so any origin may read: GET and HEAD everywhere, and the one
 # read that is a POST, ReadDPPIdsByProductIds.
 #

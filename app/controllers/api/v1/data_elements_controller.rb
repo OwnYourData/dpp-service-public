@@ -34,6 +34,8 @@ module Api
         document = access.document
         element = @element_path.resolve(document)
         if element.nil?
+          return if refused_without_token?(@dpp, @element_path.leading_names)
+
           report_access(access) if access.controlled
           return render_result("ClientErrorResourceNotFound", text: missing_text("Element", access))
         end

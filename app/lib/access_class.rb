@@ -2,7 +2,7 @@
 
 require "json"
 
-# The controlled vocabulary of access classes (prEN 18239: access rights are
+# The controlled vocabulary of access classes (EN 18239:2026: access rights are
 # defined per property and through controlled vocabularies, because roles change
 # over time). One class says who may read an attribute of a passport:
 #

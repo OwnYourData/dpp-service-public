@@ -77,7 +77,7 @@ RSpec.describe PayloadCommitment do
     end
 
     # The endpoint comes out of the DID document, and a consumer reaches it
-    # without a token (prEN 18239 6.1). What is hashed is the full
+    # without a token (EN 18239:2026 6.1). What is hashed is the full
     # representation (docs/Integrity.md section 4), which an EN 18222 read path
     # delivers only when asked for it.
     it "reads the full representation from the endpoint the DID document names, without a token" do

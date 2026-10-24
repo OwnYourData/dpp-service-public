@@ -59,6 +59,13 @@ class ElementIdPath
     @selectors = selectors.freeze
   end
 
+  # The element identifiers this path names from the top, up to the first
+  # index selector: what an access policy can classify without looking at the
+  # passport. An index selects by position, which only the passport can say.
+  def leading_names
+    @selectors.take_while { |kind, _| kind == :name }.map(&:last)
+  end
+
   # The element at this path, or nil.
   def resolve(document)
     container, key = locate(document)

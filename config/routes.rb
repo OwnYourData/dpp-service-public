@@ -62,8 +62,7 @@ Rails.application.routes.draw do
         to: "api/v1/dpps#by_product_id",                 # ReadDPPByProductId
         constraints: { product_id: id }
 
-    # EN 18222:2026 Table 16 keys this method on the passport identifier, not on
-    # the product identifier as the 2025 draft did.
+    # EN 18222:2026 Table 16 keys this method on the passport identifier.
     get "dppsByIdAndDate/:dpp_id",
         to: "api/v1/dpps#by_id_and_date",                # ReadDPPVersionByIdAndDate
         constraints: { dpp_id: id }
@@ -104,4 +103,5 @@ Rails.application.routes.draw do
 
   # Health check
   get "up", to: proc { [200, { "Content-Type" => "application/json" }, ['{"status":"ok"}']] }
+  get "version", to: proc { [200, { "Content-Type" => "application/json" }, [BuildInfo.to_json]] }
 end

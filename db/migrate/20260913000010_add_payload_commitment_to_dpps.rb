@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Payload commitment (prEN 18246, docs/Integrity.md section 6).
+# Payload commitment (EN 18246:2026, docs/Integrity.md section 6).
 #
 # A passport identifier is the hash over its DID document, so the *place* it is
 # served from is cryptographically bound: no custodian can be substituted

@@ -178,8 +178,8 @@ at the proxy, so the service learns the version from the request header
 `proxy_set_header X-Client-Protocol $server_protocol;`. Requests below `/dpp/v1`
 that arrived over HTTPS as HTTP/1.0 or HTTP/1.1 are then answered with `400`
 (`http_version_not_supported`). The start page, `/api-docs`,
-`/.well-known/dpp-service` and `/up` stay open to every client. Without the
-header nothing is refused.
+`/.well-known/dpp-service`, `/up` and `/version` stay open to every client.
+Without the header nothing is refused.
 
 ### With your own database
 
@@ -218,7 +218,7 @@ docker build -t dpp-service .
 
 ## 5. First run
 
-Write access needs a bearer token, read access does not (prEN 18239).
+Write access needs a bearer token, read access does not (EN 18239:2026).
 With `DPP_AUTH_MODE=permissive` (the default) an unsigned token is sufficient —
 for a first run that is enough:
 

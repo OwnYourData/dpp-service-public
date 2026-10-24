@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Reports the payload commitment (prEN 18246, docs/Integrity.md section 6) and
+# Reports the payload commitment (EN 18246:2026, docs/Integrity.md section 6) and
 # writes it after a change.
 #
 # **In headers, not in the document.** A reader of the DPP document must find

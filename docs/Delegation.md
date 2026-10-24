@@ -50,8 +50,8 @@ Three signed statements, one key model, **no secret anywhere**:
 
 Standards: RFC 7523 (JWT as a grant *and* as client authentication), RFC 9449
 (DPoP), RFC 8725 (JWT best practices, in particular the `typ` header), RFC 7009
-(revocation). All within what prEN 18239 §6.2 provides for with "OAuth 2.0 /
-JWT bearer".
+(revocation). All within what EN 18239:2026 provides for: OAuth 2.0 with JWT
+bearer tokens.
 
 ## 3. Keys and identities — do not confuse them
 
@@ -552,7 +552,7 @@ strings; today only `create`, `update` and `delete` are accepted and everything
 else is refused fail-closed with its own log reason. What must *not* happen is
 closing the vocabulary: no enum type, no `CHECK` constraint on three values, no
 `act` column that only fits what exists today. Reading controlled data under
-prEN 18239 needs a role attestation model — who says that someone *is* a
+EN 18239:2026 needs a role attestation model — who says that someone *is* a
 refurbisher or a market surveillance authority — and that is a separate piece
 of work, not a fourth value in this array. It is built that way: access grants
 at the DPP Service say who may read which class (AccessClasses.md §7), and the

@@ -70,8 +70,15 @@ RUN groupadd --system --gid 1000 rails \
     && chown -R rails:rails /app
 USER rails
 
+# The image tag and the commit it was built from, for GET /version. Handed in
+# by k8s/deploy.sh; a build without them answers null there.
+ARG DPP_IMAGE_TAG
+ARG DPP_COMMIT
+ENV DPP_IMAGE_TAG="${DPP_IMAGE_TAG}" \
+    DPP_COMMIT="${DPP_COMMIT}"
+
 EXPOSE 3000
 
-# force_ssl is on (prEN 18216); TLS is terminated at the ingress, which sets
+# force_ssl is on (EN 18216:2026); TLS is terminated at the ingress, which sets
 # X-Forwarded-Proto. Puma binds plain HTTP on :3000 inside the pod.
 CMD ["bundle", "exec", "puma", "-b", "tcp://0.0.0.0:3000", "-e", "production"]

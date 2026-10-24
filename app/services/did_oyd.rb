@@ -8,7 +8,7 @@ require "uri"
 # needs in Variante A. Keeping oydid behind this seam lets specs stub it, so the
 # test/dev environment needs neither libsodium nor network access.
 #
-# EN 18219:2026 (§5.3, W3C DID) is the normative basis; the DID document carries a
+# EN 18219:2026 (W3C DID) is the normative basis; the DID document carries a
 # service endpoint (EN 18220:2026 discovery) pointing back to the public read URL.
 class DidOyd
   class DidError < StandardError; end
@@ -19,7 +19,7 @@ class DidOyd
   SERVICE_TYPE = "DigitalProductPassport"
 
   # Attribute of that service entry holding the commitment to the delivered
-  # payload. prEN 18246 makes no stipulation on the name (docs/Integrity.md
+  # payload. EN 18246:2026 makes no stipulation on the name (docs/Integrity.md
   # section 11, open item 1), so it is fixed here in one place.
   PAYLOAD_HASH = "payloadHash"
 
@@ -33,7 +33,7 @@ class DidOyd
   KEY_TYPE = "ed25519"
 
   # OYDID repository / VDR that the DID document is published to and resolved
-  # from (prEN 18246 anchor). Default is the public OwnYourData instance.
+  # from (EN 18246:2026 anchor). Default is the public OwnYourData instance.
   def self.location
     ENV.fetch("OYDID_LOCATION", DEFAULT_LOCATION)
   end
@@ -117,7 +117,7 @@ class DidOyd
   end
 
   # Append a signed UPDATE entry that commits to the payload the custodian
-  # delivers (prEN 18246 integrity, docs/Integrity.md section 4). Variante A
+  # delivers (EN 18246:2026 integrity, docs/Integrity.md section 4). Variante A
   # only -- it needs the key material of the passport DID.
   #
   # Three properties of oydid decide the shape of this method:

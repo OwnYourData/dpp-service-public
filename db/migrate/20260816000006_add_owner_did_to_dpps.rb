@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Records which DID created a passport, so writes can be restricted to it
-# (prEN 18239: access rights). Only meaningful together with verified tokens —
+# (EN 18239:2026: access rights). Only meaningful together with verified tokens —
 # see DidTokenVerifier and DPP_AUTH_MODE.
 #
 # Deliberately a separate column and not EconomicOperatorID: that field is part

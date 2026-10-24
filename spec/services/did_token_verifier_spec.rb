@@ -4,7 +4,7 @@ require "rails_helper"
 require "ed25519"
 require "jwt/eddsa"
 
-# prEN 18239: the bearer token has to be verifiable. Here it is a self-issued
+# EN 18239:2026: the bearer token has to be verifiable. Here it is a self-issued
 # JWT signed with the document key of the issuer's did:oyd.
 #
 # DID resolution is stubbed — these examples are about the verification rules,

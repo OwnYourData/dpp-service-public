@@ -4,9 +4,9 @@ At least six different things in the DPP context are called an "identifier".
 This document sorts them out, shows how they relate using one running example,
 and names the traps.
 
-References: EN 18219 (identifiers), EN 18220 (data carriers), EN 18221
-(persistence), EN 18222 (API), EN 18223 (data model), EN 18246 (integrity),
-DPP Registry User Guide.
+References: EN 18219:2026 (identifiers), EN 18220:2026 (data carriers),
+EN 18221:2026 (persistence), EN 18222:2026 (API), EN 18223:2026 (data model),
+EN 18246:2026 (integrity), DPP Registry User Guide.
 
 ---
 
@@ -149,11 +149,10 @@ invalidate every carrier already in the field. Absent a reason to truncate,
 take the full digest.
 
 **Not admissible on the carrier: a bare DID.** It is not an https URL. On the
-software question the published edition is quieter than the draft was: Annex B
-Table B.10 notes for the DID scheme, under cl. 4.6.2 (2) consumer usage, that
-the identifier has to be parsed and resolved, where every other scheme reads
-"no additional software needed" — but that annex is informative. The multihash
-form above sidesteps the argument: it resolves in any browser.
+software question EN 18219:2026 says little: its informative Annex B notes for
+the DID scheme, under consumer usage, that the identifier has to be parsed and
+resolved, while every other scheme gets by without additional software. The
+multihash form above sidesteps the argument: it resolves in any browser.
 
 ## 6. Mapping to the standard's ID schemes
 
@@ -225,9 +224,12 @@ was issued therefore keeps resolving as its document evolves.
 * The **backup service provider** of EN 18221 cl. 4.5 is not yet
   appointed. The standard makes the backup copy mandatory and the primary
   provider optional — the reverse of what one might assume.
-* The **payload hash** in the DID log and the detached payload signature are
-  planned, not deployed. Until both exist, the public key in the DID document
-  secures the log chain but not the payload.
+* The **payload hash** in the DID log binds the content of a passport to its
+  identifier ([Integrity.md](Integrity.md), sections 4–6). The **signature of the
+  economic operator** ([Integrity.md](Integrity.md), section 10) is carried only by
+  passports this service keeps itself. For a passport held by a custodian, the
+  DID log and the payload hash show that the content is the attested one, but
+  nothing a reader can check links it to the economic operator.
 * **Retiring a previous custodian** waits for the DNS time-to-live of the
   operator's record. That value is often set by the operator's DNS provider and
   not configurable; removing the host earlier breaks access for every client

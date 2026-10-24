@@ -12,7 +12,7 @@
 # cooperate would prove nothing about the service.
 #
 # What it reports is separated on purpose into what is *checked* and what is
-# *not established*. prEN 18246 expects an external, accredited trust anchor; a
+# *not established*. EN 18246:2026 expects an external, accredited trust anchor; a
 # self-managed DID log is not one, and this tool says so rather than printing a
 # green tick over the question.
 #
@@ -304,8 +304,8 @@ else
   open_("service acting for them -- EN 18219:2026 6.4.2 b) wants a Verifiable Credential")
   open_("at the operator DID for that, and none is attached today")
 end
-open_("that the trust anchor is an accredited one: prEN 18246 4.8.2/5.2.2 ask for a")
-open_("trusted list, a self-managed DID log is not one")
+open_("that the trust anchor is an accredited one: EN 18246:2026 expects one,")
+open_("and a self-managed DID log is not")
 open_("anything about data the passport does not deliver publicly")
 
 step(case verdict

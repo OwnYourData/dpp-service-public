@@ -336,7 +336,7 @@ merge patch always applies to the full form.
 
 ### What the response headers say about the content
 
-Every read carries the state of the payload commitment (prEN 18246;
+Every read carries the state of the payload commitment (EN 18246:2026;
 docs/Integrity.md section 6):
 
 ```bash

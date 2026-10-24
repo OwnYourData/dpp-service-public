@@ -21,7 +21,7 @@
         { "@value": "Wer ein Attribut eines digitalen Produktpasses lesen darf. Die Klassen sind geordnet: Wer eine Klasse lesen darf, darf auch jede Klasse mit niedrigerer Stufe lesen.", "@language": "de" }
       ],
       "dct:source": [
-        "prEN 18239 (access rights management, information system security and business confidentiality)",
+        "EN 18239:2026 (access rights management, information system security and business confidentiality)",
         "Regulation (EU) 2023/1542, Article 77(2) and Annex XIII"
       ],
       "hasTopConcept": [

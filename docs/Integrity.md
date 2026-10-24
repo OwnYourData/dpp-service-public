@@ -4,7 +4,7 @@
 commitment is reported, section 10 how the economic operator signs a passport,
 section 11 what is still open.
 
-Reference: EN 18219:2026 (identifiers), prEN 18246 (authenticity and integrity),
+Reference: EN 18219:2026 (identifiers), EN 18246:2026 (authenticity and integrity),
 EN 18221:2026 (storage, archiving, persistence).
 
 ---
@@ -31,7 +31,7 @@ did:oyd:zQmWVzyTPZ19ebpw2Dm9doEDP4qw9rVcs6M4v3iQMo7vpVS
 
 The identifier is therefore **self-certifying**: whoever holds the document can
 verify without a registry and without a blockchain that it belongs to this
-identifier. That is the basis for prEN 18246 without a distributed ledger.
+identifier. That is the basis for EN 18246:2026 without a distributed ledger.
 
 Changes are **not made in the document**, but appended as a signed log entry
 that references its predecessor:
@@ -232,7 +232,7 @@ Two mechanisms that must not be confused:
 |---|---|---|
 | What | signed chain of the DID documents | append-only write log with timestamp and payload hash |
 | Who writes | holder, or service with the document key | the pod |
-| What for | prEN 18246, integrity **against** the custodian | EN 18221:2026, state at a point in time; at the same time activity data under Art. 12(c) DGA |
+| What for | EN 18246:2026, integrity **against** the custodian | EN 18221:2026, state at a point in time; at the same time activity data under Art. 12(c) DGA |
 | What it proves | this content was attested by the holder | this content existed at this point in time |
 
 The pod can keep a history without anyone having to believe it — the
@@ -453,7 +453,7 @@ the `serviceEndpoint`, and the service accepts no signature for it.
 ## 11. Open items
 
 1. The commitment is the `payloadHash` attribute of the `DigitalProductPassport`
-   service entry. prEN 18246 makes no stipulation on the name, so it is fixed in
+   service entry. EN 18246:2026 makes no stipulation on the name, so it is fixed in
    one place in the code (`DidOyd::PAYLOAD_HASH`) rather than spelled out at
    every call site.
 2. Does `payloadHash` have to be carried along on a pure endpoint change?
@@ -466,7 +466,7 @@ the `serviceEndpoint`, and the service accepts no signature for it.
    checks from what it does not establish: that the DID which signed belongs to
    the company it stands for (EN 18219:2026 6.4.2 b) wants a Verifiable
    Credential at the operator DID for that), and that the trust anchor is an
-   accredited one (prEN 18246 4.8.2 / 5.2.2 ask for a trusted list; a
+   accredited one (EN 18246:2026 expects an accredited trust anchor; a
    self-managed DID log is not one). It also
    compares the carrier link with the endpoint the DID document names: different
    hosts are the normal case, because the carrier bears a name the economic

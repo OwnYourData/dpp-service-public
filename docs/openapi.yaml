@@ -2,19 +2,22 @@ openapi: 3.0.3
 info:
   title: Digital Product Passport (DPP) Service API
   description: >-
-    REST/HTTPS API for the Digital Product Passport, derived from the
-    CEN/CENELEC JTC 24 draft standards:
+    REST/HTTPS API for the Digital Product Passport, following the
+    CEN/CENELEC JTC 24 standards in their published 2026 editions:
       * EN 18222:2026 — APIs for the product passport lifecycle management
         (endpoints, HTTP verbs, parameters, status codes — Tables 1–19)
       * EN 18223:2026 — System interoperability (payload / semantic data model)
       * EN 18216:2026 — Data exchange protocols (TLS, JSON/XML/JSON-LD/HTML, error handling)
-      * prEN 18239 — Access rights, information security, business confidentiality
+      * EN 18239:2026 — Access rights, information security, business confidentiality
+      * EN 18246:2026 — Data authentication, reliability and integrity
+        (payload hash and operator signature, docs/Integrity.md)
       * EN 18219:2026 — Unique identifiers (incl. W3C DIDs — the scheme used here is did:oyd)
 
-    NOTE: The source standards are 2025 drafts (Entwurf / CEN Enquiry) and are
-    technology-neutral. This specification is one concrete REST realisation of
-    the abstract methods and MUST be re-validated against the final published
-    standards. semanticId base URI `https://jtc24/...` is a placeholder from the draft.
+    The standards name abstract methods and stay technology-neutral; this
+    specification is one concrete REST realisation of them. Each operation that
+    realises a method of EN 18222:2026 names it in `x-semanticId`; the base URI
+    `https://jtc24/...` of these values is a placeholder, not a resolvable
+    identifier.
 
     IDENTIFIERS IN PATHS: `dpp_id` and `product_id` are URIs/URLs (EN 18219:2026)
     and contain `:`, `/` and `.`. They MUST be percent-encoded into a single
@@ -66,7 +69,7 @@ tags:
       (docs/AccessClasses.md §10). This operation carries no `x-semanticId`.
 
 security:
-  - bearerAuth: []   # Public read data is accessible unauthenticated (prEN 18239 6.2); controlled data requires a token.
+  - bearerAuth: []   # Public read data is accessible unauthenticated (EN 18239:2026 6.1); controlled data requires a token.
 
 paths:
   ###########################################################################
@@ -778,6 +781,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataElementCollection' }
+        '401':
+          description: >-
+            ClientNotAuthorized — read without a bearer token on an element path the
+            passport's access policy does not make public, whether the element
+            exists or not (docs/AccessClasses.md §8). A public path that leads
+            nowhere is 404; a reader with a token gets 404 for an element beyond
+            its access classes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Fine Granular Life Cycle API]
@@ -854,6 +867,16 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DataElement' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: >-
+            ClientNotAuthorized — read without a bearer token on an element path the
+            passport's access policy does not make public, whether the element
+            exists or not (docs/AccessClasses.md §8). A public path that leads
+            nowhere is 404; a reader with a token gets 404 for an element beyond
+            its access classes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [Fine Granular Life Cycle API]
@@ -887,7 +910,7 @@ paths:
 
 components:
   ###########################################################################
-  # Security (prEN 18239 + EN 18216:2026: OAuth 2.0 / OpenID Connect, JWT bearer)
+  # Security (EN 18239:2026 + EN 18216:2026: OAuth 2.0 / OpenID Connect, JWT bearer)
   ###########################################################################
   securitySchemes:
     bearerAuth:
@@ -896,13 +919,13 @@ components:
       bearerFormat: JWT
       description: >-
         Self-issued JWT, signed with the document key of the presenter's DID,
-        with this service as `aud` (prEN 18239). Public data is readable
+        with this service as `aud` (EN 18239:2026). Public data is readable
         without authentication; the controlled part of a passport goes to its
         owner and to readers holding an access grant for it
         (docs/AccessClasses.md §7–§8).
 
   ###########################################################################
-  # Payload commitment (prEN 18246; docs/Integrity.md)
+  # Payload commitment (EN 18246:2026; docs/Integrity.md)
   ###########################################################################
   headers:
     PayloadHash:

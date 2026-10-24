@@ -10,14 +10,15 @@ payloads from **EN 18223:2026** (system interoperability / semantic model).
 > periodically. Pull requests here cannot be merged — please open an issue
 > instead, or contact [OwnYourData](https://www.ownyourdata.eu).
 
-> ⚠️ Six of the eight JTC 24 standards were published as EN …:2026 and are
-> cited in the Official Journal; EN 18239 and EN 18246 are still drafts and are
-> cited as `prEN`. The payload, the method set and the identifier schemes here
-> follow the published editions. Two deviations are deliberate and named where
-> they occur: the element path is a path of element identifiers rather than
-> RFC 9535 JSONPath (EN 18222:2026 8.1), and the two collection operations are
-> an addition beyond the published method set. The `semanticId` base URI
-> `https://jtc24/...` is still a placeholder.
+> ⚠️ All eight JTC 24 standards are published as EN …:2026. Six of them are
+> cited in the Official Journal as harmonised standards; EN 18239 and EN 18246
+> are published but not yet cited. The payload, the method set and the
+> identifier schemes here follow the published editions. The element path of
+> the fine-granular methods is an RFC 9535 JSONPath singular query
+> (EN 18222:2026 8.1); the element identifiers separated by `/` are accepted as
+> well. The two collection operations are an addition beyond the published
+> method set. The `semanticId` base URI `https://jtc24/...` is still a
+> placeholder.
 
 ## Running it
 
@@ -85,6 +86,7 @@ The rest:
 | [docs/AccessClasses.md](docs/AccessClasses.md) | the vocabulary of access classes (public, legitimate interest, authority), the access policy that assigns one class to every attribute of a passport, how a policy is registered and attached to a passport, access grants and revoking them, what each reader gets on the read paths, and the access log |
 | [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
 | [bin/attest_payload](bin/attest_payload) | the holder side of the same coin: hash what the custodian delivers and sign the entry with your own document key: `bundle exec ruby bin/attest_payload <carrier URL> --keys <file>` |
+| [bin/sign_dpp](bin/sign_dpp) | sign a passport as its economic operator, with the key of your own DID, and hand the signature to the service: `bundle exec ruby bin/sign_dpp <dppId> --keys <file>` |
 | [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
 | [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract: an OpenAPI 3.0 description of every endpoint, which the service also serves through a Swagger UI at `/api-docs` |
 
@@ -108,6 +110,7 @@ Beyond the standard's methods:
 | | HTTP | Path |
 |---|---|---|
 | change of custodian | POST | `/dpp/v1/dpps/:dpp_id/custody` |
+| sign a passport as its economic operator | PUT | `/dpp/v1/dpps/:dpp_id/signature` |
 | read the mandate held for a passport | GET | `/dpp/v1/dpps/:dpp_id/delegation` |
 | hand over a fresh mandate | POST | `/dpp/v1/dpps/:dpp_id/delegation` |
 | service discovery (service DID, audience, reader DIDs, authority issuers) | GET | `/.well-known/dpp-service` |
@@ -119,6 +122,8 @@ Beyond the standard's methods:
 | list the access grants one has issued | GET | `/dpp/v1/access-grants` |
 | revoke an access grant one has issued | DELETE | `/dpp/v1/access-grants/:jti` |
 | read the entries of the access log that concern one | GET | `/dpp/v1/access-log` |
+| health check | GET | `/up` |
+| image tag and commit of the running instance | GET | `/version` |
 
 A collection is a subclass of DataElement (EN 18223:2026 4.1.2.4) and is
 reachable through the element path, so EN 18222:2026 Table 18 defines
@@ -142,8 +147,14 @@ DID under which the intermediary registers the service as protected statutory
 reader.
 
 Identifiers used as a single path segment (`:dpp_id`, `:product_id`) must be
-URL-encoded by the client. `*element_path` is a glob holding an absolute
-element path: the elementId of each level, separated by `/`.
+URL-encoded by the client. `*element_path` holds the elementIdPath of
+EN 18222:2026 8.1, an RFC 9535 JSONPath singular query over the element
+identifiers such as `$.EnergyPerformance.LuminousFlux`, percent-encoded; a query
+that is not RFC 9535 syntax or can select more than one element is answered
+with `400`. The element identifiers separated by `/` address the same element.
+Without a bearer token, an element path the passport's access policy does not
+make public is answered with `401`, whether the element exists or not
+([docs/AccessClasses.md](docs/AccessClasses.md) §8).
 
 ## How the standards map to the code
 
@@ -152,10 +163,10 @@ element path: the elementId of each level, separated by `/`.
 | EN 18222:2026 | API methods, status codes, Result object | routes, `app/controllers`, `ApiStatus` |
 | EN 18223:2026 | DPP semantic model (payload) | `app/models/dpp.rb`, `docs/openapi.yaml` |
 | EN 18216:2026 | Transport and formats (TLS, JSON) | `force_ssl`; TLS 1.2 and 1.3 at the ingress; response content types |
-| prEN 18239 | Access rights and security | `TokenAuthenticatable`; rate limit in `ApplicationController`; cross-origin policy in `config/initializers/cors.rb`; access classes and policies in `AccessClass`, `AccessPolicy`, `config/vocab/`; access grants in `AccessGrant`; reading per role in `PassportAccess`; access log in `AccessLog` |
+| EN 18239:2026 | Access rights and security | `TokenAuthenticatable`; rate limit in `ApplicationController`; cross-origin policy in `config/initializers/cors.rb`; access classes and policies in `AccessClass`, `AccessPolicy`, `config/vocab/`; access grants in `AccessGrant`; reading per role in `PassportAccess`; access log in `AccessLog` |
 | EN 18221:2026 | Storage, archiving, versioning | `DppVersion`, `Dpp#archive_current_version!` |
 | EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, [`did:oyd`](https://ownyourdata.github.io/oydid/) and `did:web` |
-| prEN 18246 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, `bin/verify_dpp` |
+| EN 18246:2026 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, the signature of the economic operator in `OperatorSignature`, `bin/verify_dpp`, `bin/sign_dpp` |
 | DIN DKE SPEC 99100 | Battery passport attributes | `db/seeds.rb` example content |
 
 Errors return a **Result** object (`statusCode` plus `message[]`) per EN 18222:2026
@@ -171,7 +182,7 @@ bundle exec rspec
 
 ## Open items before production use
 
-1. **Access log kept inside the database (prEN 18239).** Signature
+1. **Access log kept inside the database (EN 18239:2026).** Signature
    verification, owner binding, access classes, per-attribute access policies,
    access grants, revoking them and reading per role are implemented, and every
    access to the controlled part is logged
@@ -188,15 +199,18 @@ bundle exec rspec
 4. **Data dictionary (EN 18223:2026 §4.3).** The element-path resolver walks the
    document structurally instead of validating against a product-group
    dictionary.
-5. **Data integrity (prEN 18246).** The content is bound to the identifier:
+5. **Data integrity (EN 18246:2026).** The content is bound to the identifier:
    every change appends a signed log entry carrying `payloadHash`, the hash of
    the payload as the custodian delivers it, and `bin/verify_dpp` checks that
    from the public web alone. Where the holder keeps the document key, the
    service can only report the expected hash and leave the passport `pending` —
    it cannot sign in their place. The holder does that themselves, with
    `bin/attest_payload` or the DPP Manager, and the service picks the change up
-   when the passport is next read. What remains open is the trust anchor: it is
-   self-managed, 4.8.2 and 5.2.2 ask for an accredited one, so electronic
+   when the passport is next read. The economic operator signs the public part
+   of a passport the service keeps itself with the key of its own DID
+   ([docs/Integrity.md](docs/Integrity.md) section 10); a passport held by a
+   custodian carries no such signature. What remains open is the trust anchor:
+   it is self-managed, EN 18246:2026 expects an accredited one, so electronic
    attestation of attributes (EAA) is not covered.
 
 ## Citing this

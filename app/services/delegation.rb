@@ -135,7 +135,7 @@ class Delegation
       raise Invalid, "iss is not a DID" unless issuer.start_with?("did:")
 
       # Rule 2. Same resolution and the same cache as the bearer tokens of
-      # prEN 18239 — a DID revoked by its holder stops working here too.
+      # EN 18239:2026 — a DID revoked by its holder stops working here too.
       key = DidTokenVerifier.public_key_for(issuer)
       raise Invalid, "cannot resolve #{issuer}" if key.nil?
       verify_signature!(token, key)

@@ -86,6 +86,15 @@ RSpec.describe ElementIdPath do
     expect(resolve("ProductIdentification/ModelIdentifier")["value"]).to eq("LUM-A60-827-806")
   end
 
+  it "names the element identifiers up to the first index, which an access policy can classify" do
+    expect(described_class.parse("$.ProductIdentification.ModelIdentifier").leading_names)
+      .to eq(%w[ProductIdentification ModelIdentifier])
+    expect(described_class.parse("$['EnergyPerformance'].efficiencyRatings[1].x").leading_names)
+      .to eq(%w[EnergyPerformance efficiencyRatings])
+    expect(described_class.parse("$[0].ModelIdentifier").leading_names).to eq([])
+    expect(described_class.parse("A/B").leading_names).to eq(%w[A B])
+  end
+
   it "locates the container, so that an update can replace the element in place" do
     document = expanded.deep_dup
     container, key = described_class.parse("$.ProductIdentification.ModelIdentifier").locate(document)

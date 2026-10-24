@@ -2,7 +2,7 @@
 
 require "uri"
 
-# Binds the content of a passport to its identifier (prEN 18246; the procedure is
+# Binds the content of a passport to its identifier (EN 18246:2026; the procedure is
 # docs/Integrity.md section 4).
 #
 # What is hashed is not what this service holds but **what the custodian

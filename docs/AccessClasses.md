@@ -5,7 +5,7 @@ attached to a passport, how a passport with a policy is held as a public and a
 controlled part, who may read the controlled part (access grants), what
 each reader gets on the read paths, and how every access is logged.
 
-Reference: prEN 18239 (access rights management, information system security and
+Reference: EN 18239:2026 (access rights management, information system security and
 business confidentiality, logging of access to restricted data, 5.2);
 Regulation (EU) 2022/868 (Data Governance Act), Article 12; Regulation (EU) 2023/1542 (batteries), Article 77(2)
 and Annex XIII; EN 18223:2026 (semantic model).
@@ -14,7 +14,7 @@ and Annex XIII; EN 18223:2026 (semantic model).
 
 ## 1. Why a vocabulary
 
-prEN 18239 asks for access rights at the level of individual properties, defined
+EN 18239:2026 asks for access rights at the level of individual properties, defined
 through controlled vocabularies, because the roles that read a passport change
 over time while the classification of a property should not. The vocabulary
 below names the classes; which role may read which class is decided elsewhere.
@@ -329,8 +329,7 @@ reader's DID. A token that is presented but does not hold is answered with
 The answer is the passport of EN 18223:2026 with more data elements, nothing
 else. The header attributes are those of the public part; `ControlledData`
 stays as the public part has it; `ControlledDataSalt` is never handed out. An
-attribute a reader may not read is absent, and the fine-granular paths answer
-`404` for it, as for one that does not exist. Response headers, never the
+attribute a reader may not read is absent. Response headers, never the
 passport, say what was applied:
 
 ```http
@@ -342,6 +341,24 @@ Vary: Authorization
 `X-DPP-Access-Roles` names the classes beyond `public` that were applied.
 Every answer of a read path varies with `Authorization`; one with access rights
 is not stored by any cache.
+
+**The fine-granular paths** (`ReadDataElement` and the collection path)
+answer by the access policy alone where an element is not part of what the
+reader gets:
+
+| Reader | Element path the policy does not make public | Public element path that leads nowhere |
+|---|---|---|
+| without a bearer token | `401 ClientNotAuthorized`, whether the element exists or not | `404` |
+| with a token | `404`, as for an element that does not exist | `404` |
+
+A path is not public when the deepest rule on it or above it, or the policy's
+default, gives it a class other than `public`, or when a rule below it does:
+a collection may hold a controlled element. The header attributes are always
+public. A request without a token therefore learns that credentials are
+needed, and nothing about which elements the passport holds. An unknown
+passport is `404`, and a passport without an access policy has nothing that
+is not public. Without verified tokens no credentials could open a path, and
+every answer stays `404`.
 
 **When the controlled part cannot be read.** If the custodian does not accept
 this service as reader of the passport's collection — its token endpoint

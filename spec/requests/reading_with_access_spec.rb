@@ -75,7 +75,7 @@ RSpec.describe "Reading with access rights", type: :request do
       expect(response.parsed_body).to eq(7.5)
 
       read("/dpp/v1/dpps/#{enc}/elements/SerialNumber")
-      expect(response).to have_http_status(:not_found)
+      expect(response).to have_http_status(:unauthorized)
     end
 
     it "reads the controlled card under the service's own read grant" do
@@ -183,7 +183,7 @@ RSpec.describe "Reading with access rights", type: :request do
         expect(response.body).not_to include("SN-0921")
 
         read("/dpp/v1/dpps/#{enc}/elements/SerialNumber")
-        expect(response).to have_http_status(:not_found)
+        expect(response).to have_http_status(:unauthorized)
         expect(response.headers["X-DPP-Controlled-Part"]).to be_nil
       end
 

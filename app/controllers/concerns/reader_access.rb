@@ -48,6 +48,28 @@ module ReaderAccess
                         result.reason ? "#{result.controlled};reason=#{result.reason}" : result.controlled)
   end
 
+  # A fine-granular read without a bearer token of a path that is not public
+  # under the passport's access policy (AccessPolicy#public_at?) is refused
+  # with 401, whether or not the element exists (docs/AccessClasses.md §8):
+  # 401 says that credentials are needed, and saying it for an element that
+  # does not exist as well tells nothing about which elements a passport has.
+  # A path that is public and leads nowhere stays 404. Only where tokens are
+  # verified: otherwise no credentials could open the path.
+  #
+  # Called once the element was not found in what the reader gets. Renders
+  # and returns true when the read is refused.
+  def refused_without_token?(dpp, segments)
+    return false unless request.authorization.blank? && DidTokenVerifier.enabled?
+
+    policy = dpp.access_policy
+    return false if policy.nil? || policy.public_at?(segments)
+
+    render_result("ClientNotAuthorized",
+                  text: "This element path is not public: read it with a bearer token that holds the " \
+                        "access rights for it")
+    true
+  end
+
   # The text of a 404 on a fine-granular read path: an element that is not in
   # what could be read may be in the controlled part that could not.
   def missing_text(what, result)

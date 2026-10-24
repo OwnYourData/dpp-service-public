@@ -118,6 +118,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: SuccessCreated — DPP created.
           content:
             application/json:
@@ -198,6 +199,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: Success — updated DPP.
           content:
             application/json:
@@ -635,7 +637,12 @@ paths:
         Table 3 and Table 16). Optional for the economic operator. Each reader
         gets the same classes as for the current passport; every version is
         filtered by the passport's access policy as it is today
-        (docs/AccessClasses.md §9). If the custodian serves no versions of
+        (docs/AccessClasses.md §9); a reader without access rights gets the
+        public part kept with the version as long as that policy is the one the
+        version had. With `Accept: application/jose` and `representation=full`
+        the answer is the signature of the economic operator kept with the
+        version, where its payload is exactly the JSON the same request gets
+        (docs/Integrity.md section 10). If the custodian serves no versions of
         controlled cards, a reader with access rights gets the public part of
         the version with
         `X-DPP-Controlled-Part: unavailable;reason=versionsNotServed`.
@@ -648,10 +655,17 @@ paths:
           headers:
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
             X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
+            X-DPP-Signature-State:
+              description: >-
+                `signed` where a signature of the economic operator kept with the
+                version covers exactly this answer, `none` otherwise.
+              schema: { type: string, enum: [signed, none] }
           description: Success — DPP version for the given date.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DigitalProductPassport' }
+            application/jose:
+              schema: { $ref: '#/components/schemas/OperatorSignature' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -830,6 +844,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: Success — updated DataElementCollection.
           content:
             application/json:
@@ -925,6 +940,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: Success — updated data element.
           content:
             application/json:
@@ -946,7 +962,16 @@ components:
         with this service as `aud` (EN 18239:2026), a `jti`, and an `exp` at
         most 15 minutes ahead. Each token is accepted once: the service records
         issuer and `jti` until the token expires and refuses the same pair
-        after that, so a client mints one per request. Public data is readable
+        after that, so a client mints one per request. The token of every
+        request that changes something carries `rqh`, which binds it to that
+        request: base64url(SHA-256(METHOD LF TARGET LF base64url(SHA-256(BODY)))),
+        without padding, over the method in capitals, the request-target as in
+        the request line (path and query, percent-encoding untouched) and the
+        body bytes as sent. A token whose `rqh` names another request is refused
+        with 401; one without `rqh` is accepted until the day set in
+        `DPP_REQUEST_BINDING_FROM`, with `X-DPP-Request-Binding`, and refused
+        from then on. The service keeps the token of every write in its write
+        log (docs/Integrity.md section 11). Public data is readable
         without authentication; the controlled part of a passport goes to its
         owner and to readers holding an access grant for it
         (docs/AccessClasses.md §7–§8).
@@ -955,6 +980,12 @@ components:
   # Payload commitment (EN 18246:2026; docs/Integrity.md)
   ###########################################################################
   headers:
+    RequestBinding:
+      description: >-
+        Sent with a write whose token carries no `rqh`, while such writes are
+        still accepted: `missing;until="<date>"`, the day from which they are
+        refused (docs/Integrity.md section 11).
+      schema: { type: string, example: 'missing;until="2026-12-01"' }
     WWWAuthenticate:
       description: >-
         The authentication scheme, sent with every 401 (RFC 9110 15.5.2): `Bearer`

@@ -64,7 +64,7 @@ All settings come from environment variables.
 | `DPP_SERVICE_ENDPOINT_BASE` | `https://dpp-service.ownyourdata.eu` | public base URL of this instance; written into the `serviceEndpoint` of the DID document |
 | `OYDID_LOCATION` | `https://oydid.ownyourdata.eu` | registrar/VDR for `did:oyd` |
 | `DPP_CORS_ORIGINS` | — (none) | origins, comma-separated, from which a browser may write. Reading is open to every origin |
-| `DPP_RATE_LIMIT_READ` | `600` | reads per client address and minute; over it the answer is `429` with `Retry-After`. Counted in the database, so the limit holds across all replicas |
+| `DPP_RATE_LIMIT_READ` | `600` | reads per client address and minute; over it the answer is `429` with `Retry-After`. Counted in the database, so the limit holds across all replicas. When the count cannot be kept, the request goes through and the service logs a warning: the limit protects the service, and a struggling database is no reason to withhold public data |
 | `DPP_RATE_LIMIT_WRITE` | `60` | writes per client address and minute, counted the same way |
 | `DPP_MAX_PRODUCT_IDS` | `1000` | product identifiers one `ReadDPPIdsByProductIds` may name; more are answered with `400` |
 | `RAILS_MAX_THREADS` | `5` | |
@@ -77,6 +77,8 @@ All settings come from environment variables.
 | `DPP_SIGNATURE_RECHECK_INTERVAL` | `300` | seconds after which the key behind the signature of the economic operator is checked again on a read (docs/Integrity.md section 10) |
 | `DPP_SIGNATURE_MAX_BYTES` | `5242880` | largest signature of the economic operator accepted, in bytes |
 | `DPP_ACCESS_LOG_RETENTION_DAYS` | `1826` | days entries of the access log are kept; `bin/rails dpp:access:prune` removes older ones |
+| `DPP_REQUEST_BINDING_FROM` | `2026-12-01` | in `did` mode, the first day on which a write is refused unless its token carries `rqh`. Before that day such a write is made, answered with `X-DPP-Request-Binding: missing;until="…"` and recorded as unbound (docs/Integrity.md section 11) |
+| `DPP_WRITE_LOG_RETENTION_DAYS` | `3653` | days entries of the write log are kept at least; `bin/rails dpp:writes:prune` removes older ones, but none of a passport that exists or has a version kept |
 | `DPP_AVAILABLE_SERVICES_URL` | — (none) | https URL of the JSON list of available DPP services shown on the start page; fetched at most once an hour; a list without `notice` is not taken, and when fetching fails the last good list stays. Without it the start page shows the list shipped in `config/available_services.json` |
 
 **Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
@@ -95,11 +97,20 @@ EdDSA-signed with the document key of the issuer's `did:oyd`, carrying
 (`DPP_AUTH_AUDIENCE`), `iat`, an `exp` at most 900 s after `iat` and after
 now, and `jti`. Each token is accepted once: the service records issuer and
 `jti` in the database until the token expires and refuses the same pair after
-that, on every replica. A client therefore mints a token per request. A refused
+that, on every replica. A client therefore mints a token per request. The token
+of a write also carries `rqh`, the hash over its method, request-target and body
+(docs/Integrity.md section 11), so it holds for that one request only. A refused
 token is answered with `401` and `WWW-Authenticate: Bearer error="invalid_token"`.
+Before a write is made, the service keeps its token, together with what the
+token binds, in the write log; `bin/rails dpp:writes:export DPP=<dppId>` gives
+the entries of one passport, and `bin/verify_writes` checks them against the
+public keys of the DIDs that signed them.
 On top of that, only the DID that created a passport may update or delete it;
 another DID is refused with `403` and `statusCode` `ClientForbidden`. Reading
-is public in both modes and needs no token. A central identity provider is not
+the public part of a passport needs no token in either mode; in `did` mode the
+controlled part goes only to its owner and to readers holding an access grant,
+who present a token ([AccessClasses.md](AccessClasses.md) §8). A central
+identity provider is not
 needed for this — the service resolves the DID and checks against the public
 key from the DID document.
 
@@ -302,7 +313,7 @@ curl -sS "$BASE/dpps/$EDID/collections/EnergyPerformance" | jq -c '{ElementId, N
 curl -sS "$BASE/dpps/$EDID/elements/EnergyPerformance/LuminousFlux" | jq -c '{Value, UnitOfMeasure}'
 ```
 
-Reading needs no token.
+Reading the public part needs no token.
 
 ### Updating
 

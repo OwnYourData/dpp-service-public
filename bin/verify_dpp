@@ -5,8 +5,9 @@
 #
 #   bundle exec ruby bin/verify_dpp https://dpp.oydapp.eu/01/09520123456788/21/000001
 #
-# It executes the six steps of docs/Integrity.md section 4 and checks the
-# signature of the economic operator (section 10). It needs nothing but the
+# It executes the six steps of docs/Integrity.md section 4, checks the
+# signature of the economic operator (section 10), and reads the versions the
+# DID log records with their signatures. It needs nothing but the
 # public web: no token, no access to this service, no knowledge of who the
 # custodian is. That is the point -- a verification that needed the service to
 # cooperate would prove nothing about the service.
@@ -21,8 +22,10 @@
 # delivered but does not hold makes it a mismatch; one that is not delivered
 # changes nothing, and the verdict says whether the passport is signed.
 
+require "cgi"
 require "json"
 require "httpx"
+require "time"
 require "uri"
 
 # oydid reads data with CSV, which aborts when the default external encoding is
@@ -102,7 +105,7 @@ end
 def bare(identifier) = identifier.to_s.sub(/\Adid:oyd:/, "").split("@").first.to_s
 
 # Steps 3 to 6: the commitment in the DID document of the passport identifier.
-# Returns [verdict, serviceEndpoint or nil].
+# Returns [verdict, serviceEndpoint or nil, resolved DID or nil].
 def check_commitment(carrier, bytes, document)
   # --- 3  the passport names its own identifier -------------------------------
   endpoint = nil
@@ -112,7 +115,7 @@ def check_commitment(carrier, bytes, document)
   ok(did)
   unless did.start_with?("did:oyd:")
     open_("not a did:oyd -- there is no log to check, so integrity cannot be established this way")
-    return [EXIT_NO_COMMITMENT, nil]
+    return [EXIT_NO_COMMITMENT, nil, nil]
   end
 
   # --- 4  resolve it ----------------------------------------------------------
@@ -130,7 +133,7 @@ def check_commitment(carrier, bytes, document)
   entry = Array(content["service"]).find { |e| e.is_a?(Hash) && e["type"].to_s == SERVICE_TYPE }
   if entry.nil?
     no("the DID document carries no #{SERVICE_TYPE} service entry")
-    return [EXIT_INCOMPLETE, endpoint]
+    return [EXIT_INCOMPLETE, endpoint, info]
   end
   ok("serviceEndpoint: #{entry['serviceEndpoint']}")
 
@@ -166,7 +169,7 @@ def check_commitment(carrier, bytes, document)
   step("5    compare the delivered bytes with the commitment in the DID document")
   if authoritative.nil?
     no("nothing to compare: the custodian named by the DID document did not answer")
-    return [EXIT_INCOMPLETE, endpoint]
+    return [EXIT_INCOMPLETE, endpoint, info]
   end
   computed, hash_msg = Oydid.multi_hash(authoritative, DIGEST_OPTIONS)
   abort("  [FAIL] cannot hash the payload: #{hash_msg}") if computed.to_s.empty?
@@ -208,7 +211,7 @@ def check_commitment(carrier, bytes, document)
     end
   end
 
-  [verdict, endpoint]
+  [verdict, endpoint, info]
 end
 
 # The Ed25519 key of a verification method, as its DID publishes it: the
@@ -289,13 +292,73 @@ def check_signature(carrier, endpoint, operator)
   [:none, nil]
 end
 
-verdict, endpoint = check_commitment(carrier, bytes, document)
+# Step 8: the changes the DID log records (docs/Integrity.md section 10). Each
+# create and update entry of the log marks a version; it is read with
+# ReadDPPVersionByIdAndDate at the time of the entry, at the API the endpoint
+# belongs to, and its signature of the economic operator, where one is
+# delivered, is checked against exactly that version. The log keeps whole
+# seconds, and the change it records may lie later within that second than
+# the truncated time, so the version is asked for at the end of it.
+def check_changes(did, endpoint, info, operator)
+  step("8    check the changes the DID log records")
+  counts = { versions: 0, signed: 0, invalid: 0 }
+  base = endpoint.to_s[%r{\A(.*)/dppsByProductId/}, 1]
+  entries = Array(info && info["log"]).select { |e| e.is_a?(Hash) && [2, 3].include?(e["op"].to_i) && e["ts"] }
+  if base.nil? || entries.empty?
+    open_("no versions to read: the endpoint names no EN 18222 read path, or the log records no change")
+    return counts
+  end
+
+  seen = {}
+  entries.each do |entry|
+    date = Time.at(entry["ts"].to_i + 1).utc.iso8601
+    url = "#{base}/dppsByIdAndDate/#{CGI.escape(did)}?date=#{CGI.escape(date)}&representation=full"
+    code, body = fetch(url)
+    next unless code == 200
+
+    version = JSON.parse(body) rescue next
+    label = version["lastUpdated"] || date
+    next if seen[label]
+
+    seen[label] = true
+    counts[:versions] += 1
+    j_code, text = fetch(url, accept: "application/jose")
+    unless j_code == 200 && text.lstrip.start_with?("eyJ")
+      open_("version of #{label}: no signature of the economic operator")
+      next
+    end
+
+    jws = CompactJws.parse(text) rescue nil
+    key = jws && verify_key_for(jws.kid)
+    if jws && key && CompactJws.valid?(jws, key) && jws.payload == version
+      counts[:signed] += 1
+      ok("version of #{label}: signed by #{jws.signer}#{jws.signer == operator ? '' : ' (not the economicOperatorId)'}")
+    else
+      counts[:invalid] += 1
+      no("version of #{label}: the signature delivered does not hold for this version")
+    end
+  end
+
+  if counts[:versions].zero?
+    open_("no version could be read at #{base} for the times the DID log records")
+  else
+    say("  #{counts[:versions]} version(s), #{counts[:signed]} signed by the economic operator")
+  end
+  counts
+end
+
+verdict, endpoint, info = check_commitment(carrier, bytes, document)
 operator = document["economicOperatorId"].to_s
 signature, signer = check_signature(carrier, endpoint, operator)
 verdict = EXIT_MISMATCH if signature == :invalid
+changes = check_changes(document["digitalProductPassportId"].to_s, endpoint, info, operator)
+verdict = EXIT_MISMATCH if changes[:invalid].positive?
 
 # --- what this does not establish -------------------------------------------
 step("what this does NOT establish")
+open_("who asked for each change: the write log that binds every change to the")
+open_("token of its author is kept by the service and checked with bin/verify_writes")
+open_("from the export its operator hands the owner (docs/Integrity.md section 11)")
 if signature == :valid && signer == operator
   open_("that #{signer} is the company it stands for -- EN 18219:2026 wants a")
   open_("Verifiable Credential at the operator DID for that, and none is checked here")
@@ -319,4 +382,7 @@ say(case signature
     when :invalid then "         its signature does NOT hold"
     else               "         not signed by its economic operator"
     end)
+if changes[:versions].positive?
+  say("         #{changes[:signed]} of #{changes[:versions]} recorded version(s) signed by its economic operator")
+end
 exit verdict

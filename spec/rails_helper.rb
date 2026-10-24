@@ -27,6 +27,11 @@ RSpec.configure do |config|
   # process for a while (ReaderAdmission); each example asks its own custodian.
   config.before { ReaderAdmission.reset! }
 
+  # From DPP_REQUEST_BINDING_FROM on, a write without an rqh claim is refused
+  # (RequestBinding). Most examples send tokens without one, as their subject
+  # is something else; the binding has examples of its own, which set the day.
+  config.before { allow(RequestBinding).to receive(:required_from).and_return(Date.new(2999, 1, 1)) }
+
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!

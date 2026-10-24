@@ -202,6 +202,60 @@ RSpec.describe "Signature of the economic operator", type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
+    describe "earlier versions" do
+      def version_path(time, full: true)
+        "/dpp/v1/dppsByIdAndDate/#{enc}?date=#{CGI.escape(time.utc.iso8601)}#{full ? '&representation=full' : ''}"
+      end
+
+      it "keep the signature they were signed with, and hand it out for exactly that version" do
+        compact = jws_for(public_full)
+        submit(compact)
+        signed_at = Time.now.utc
+        travel 2.seconds
+        update_passport(brand: "Lumina Pro")
+
+        get version_path(signed_at), headers: jose
+        expect(response.media_type).to eq("application/jose")
+        expect(response.body).to eq(compact)
+        expect(state).to eq("signed")
+
+        get version_path(signed_at)
+        expect(response.media_type).to eq("application/json")
+        expect(state).to eq("signed")
+
+        get version_path(signed_at, full: false), headers: jose
+        expect(response.media_type).to eq("application/json")
+        expect(state).to eq("none")
+      end
+
+      it "keep no signature where the version was not signed, nor for the current one that waits for one" do
+        update_passport(brand: "Lumina Pro")
+        travel 2.seconds
+
+        get version_path(1.second.ago), headers: jose
+        expect(response.media_type).to eq("application/json")
+        expect(state).to eq("none")
+
+        sign!
+        get version_path(Time.now.utc + 60), headers: jose
+        expect(response.media_type).to eq("application/jose")
+      end
+
+      it "keep it after the passport is deleted, with its final version" do
+        compact = jws_for(public_full)
+        submit(compact)
+        signed_at = Time.now.utc
+        travel 2.seconds
+        update_passport(brand: "Lumina Pro")
+        travel 2.seconds
+        delete "/dpp/v1/dpps/#{enc}", headers: json_headers(owner)
+        expect(response).to have_http_status(:no_content)
+
+        get version_path(signed_at), headers: jose
+        expect(response.body).to eq(compact)
+      end
+    end
+
     describe "after a write" do
       it "discards the signature, and the passport waits for a new one" do
         sign!
@@ -324,6 +378,29 @@ RSpec.describe "Signature of the economic operator", type: :request do
       ids = payload["elements"].map { |element| element["elementId"] }
       expect(ids).to contain_exactly("BrandName", "ControlledData")
       expect(JSON.generate(payload)).not_to include("SN-0921", "OnModePower", "ControlledDataSalt")
+    end
+
+    it "hands no archived signature out when the public part of the version reads differently today" do
+      compact = jws_for(public_full)
+      submit(compact)
+      signed_at = Time.now.utc
+      travel 2.seconds
+      update_passport(brand: "Lumina Pro")
+      version_path = "/dpp/v1/dppsByIdAndDate/#{enc}?date=#{CGI.escape(signed_at.iso8601)}&representation=full"
+
+      get version_path, headers: jose
+      expect(response.body).to eq(compact)
+
+      looser = policy_doc.merge("id" => "https://dpp.example.org/access-policies/cap-020/2",
+                                "rules" => [{ "path" => "OnModePower", "accessClass" => "authority" }])
+      put "/dpp/v1/access-policies", params: looser.to_json, headers: json_headers(owner)
+      expect(response).to have_http_status(:created)
+      update_passport({ "X-DPP-Access-Policy" => looser["id"] }, brand: "Lumina Pro")
+
+      get version_path, headers: jose
+      expect(response.media_type).to eq("application/json")
+      expect(element_ids(response.parsed_body)).to include("SerialNumber")
+      expect(state).to eq("none")
     end
 
     it "hands no signature to a reader with access rights, whose passport has more than was signed" do

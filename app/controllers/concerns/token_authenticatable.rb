@@ -19,11 +19,42 @@
 module TokenAuthenticatable
   extend ActiveSupport::Concern
 
-  # Call from a before_action to require an authenticated actor.
-  def authenticate_actor!
-    return if current_actor.present?
+  def process_action(*)
+    super
+  ensure
+    record_write_outcome
+  end
 
-    render_result("ClientNotAuthorized", text: "Missing or invalid bearer token")
+  # The operations that change something, by controller and action, as the
+  # write log names them (EN 18222:2026 names where the standard has one).
+  WRITE_OPERATIONS = {
+    "api/v1/dpps#create" => "CreateDPP",
+    "api/v1/dpps#update" => "UpdateDPPById",
+    "api/v1/dpps#destroy" => "DeleteDPPById",
+    "api/v1/dpps#move_custody" => "changeCustodian",
+    "api/v1/dpps#renew_delegation" => "renewDelegation",
+    "api/v1/data_elements#update" => "UpdateDataElement",
+    "api/v1/data_element_collections#update" => "UpdateDataElementCollection",
+    "api/v1/registry#create" => "RegisterProductDPP",
+    "api/v1/signatures#update" => "submitSignature",
+    "api/v1/access_policies#update" => "registerAccessPolicy",
+    "api/v1/access_grants#update" => "registerAccessGrant",
+    "api/v1/access_grants#destroy" => "revokeAccessGrant"
+  }.freeze
+
+  # Call from a before_action to require an authenticated actor. On a write
+  # with verified tokens the token also has to be bound to this request
+  # (RequestBinding), and the write log gets its entry before anything changes
+  # (WriteLog): a write whose evidence cannot be kept is not made.
+  def authenticate_actor!
+    if current_actor.blank?
+      render_result("ClientNotAuthorized", text: "Missing or invalid bearer token")
+      return
+    end
+    return if read_request? || !DidTokenVerifier.enabled?
+    return unless request_bound?
+
+    record_write_request!
   end
 
   # Returns the decoded token claims, or nil when unauthenticated.
@@ -61,6 +92,68 @@ module TokenAuthenticatable
   end
 
   private
+
+  # Whether the token names this request in its rqh claim. Without the claim a
+  # write is accepted until RequestBinding.required_from, with a header saying
+  # so; after that, and with a claim that names another request, it is refused
+  # like a token that does not hold. Renders and returns false when refused.
+  def request_bound?
+    claimed = current_actor[RequestBinding::CLAIM]
+    if claimed.present?
+      expected = RequestBinding.digest(request.request_method, request.original_fullpath, request.raw_post)
+      return true if claimed.is_a?(String) && ActiveSupport::SecurityUtils.secure_compare(claimed, expected)
+
+      refuse_unbound("The request hash (rqh) of this token does not match method, target and body of this " \
+                     "request")
+      return false
+    end
+
+    if RequestBinding.required?
+      refuse_unbound("This write needs a bearer token bound to the request: an rqh claim over method, " \
+                     "target and body (docs/Integrity.md section 11)")
+      return false
+    end
+
+    @write_unbound = true
+    response.set_header(RequestBinding::HEADER, %(missing;until="#{RequestBinding.required_from.iso8601}"))
+    true
+  end
+
+  def refuse_unbound(text)
+    response.set_header("WWW-Authenticate", 'Bearer error="invalid_token"')
+    render_result("ClientNotAuthorized", text: text)
+  end
+
+  def write_operation = WRITE_OPERATIONS.fetch("#{controller_path}##{action_name}", "#{controller_path}##{action_name}")
+
+  def record_write_request!
+    WriteLog.request!(request_id: request.request_id, operation: write_operation, dpp_id: request.path_parameters[:dpp_id].presence,
+                      issuer: actor_did, jti: current_actor["jti"], token: request.authorization.to_s.split(" ", 2).last,
+                      request_hash: current_actor[RequestBinding::CLAIM], bound: !@write_unbound,
+                      http_method: request.request_method, target: request.original_fullpath,
+                      body_digest: RequestBinding.body_digest(request.raw_post))
+    @write_logged = true
+  rescue StandardError => e
+    Rails.logger.error("[write-log] the request #{request.request_id} could not be recorded: #{e.class}: #{e.message}")
+    render_result("ServerInternalError", text: "The write could not be recorded, so it was not made")
+  end
+
+  # When the request ends: the outcome entry of a write that has a request
+  # entry. A failure here is logged; the change and its request entry stand.
+  def record_write_outcome
+    return unless @write_logged
+
+    WriteLog.outcome!(request_id: request.request_id, operation: write_operation, dpp: written_dpp,
+                      dpp_id: request.path_parameters[:dpp_id].presence, status: response.status)
+  rescue StandardError => e
+    Rails.logger.error("[write-log] the outcome of #{request.request_id} could not be recorded: #{e.class}: #{e.message}")
+  end
+
+  # The passport a write concerned, where there is one.
+  def written_dpp
+    dpp = instance_variable_defined?(:@dpp) ? @dpp : nil
+    dpp.is_a?(Dpp) ? dpp : nil
+  end
 
   def decode_bearer_token
     header = request.authorization

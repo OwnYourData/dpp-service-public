@@ -417,7 +417,12 @@ public.
   does not accept this service as reader is answered as in §8.
 - **In the service's own database**, every version holds the whole passport,
   together with its policy and owner, so it stays readable per role after the
-  passport has been deleted.
+  passport has been deleted. It also keeps its public part as readers without
+  access rights got it then, and the signature of the economic operator over
+  that public part if one was accepted (Integrity.md section 10). A reader
+  without access rights gets that kept public part as long as the passport's
+  policy is the one the version had; under another policy the version is
+  filtered by today's, as above.
 
 The custodian's own public path for earlier versions is not filtered by the
 service: versions of a public card written before an attribute became
@@ -425,8 +430,11 @@ controlled keep its value there.
 
 ## 10. Access log
 
-The service logs who read what of the controlled part of a passport. One
-entry per event:
+The service logs who read what of the controlled part of a passport. Writes --
+registering a policy, registering or revoking a grant, and every change of a
+passport -- are not in this log but in the write log, which keeps the token of
+each write bound to its request (Integrity.md section 11). One entry per
+event:
 
 | Event | When |
 |---|---|

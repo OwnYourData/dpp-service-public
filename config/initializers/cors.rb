@@ -13,7 +13,7 @@
 # needs.
 write_origins = ENV.fetch("DPP_CORS_ORIGINS", "").split(",").map(&:strip).reject(&:empty?)
 exposed = %w[Link X-Next-Cursor X-DPP-Payload-Hash X-DPP-Commit-State X-DPP-Retain-Until Retry-After
-             WWW-Authenticate]
+             WWW-Authenticate X-DPP-Access-Roles X-DPP-Controlled-Part X-DPP-Signature-State]
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   if write_origins.any?

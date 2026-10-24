@@ -117,10 +117,12 @@ RSpec.describe "Protection around the API", type: :request do
       expect(response.headers["WWW-Authenticate"]).to eq("Bearer")
     end
 
-    it "is readable from a browser" do
+    it "is readable from a browser, as are the headers that say what a read applied" do
       get "/dpp/v1/dpps/#{CGI.escape('urn:unknown')}", headers: { "Origin" => "https://viewer.example" }
 
-      expect(response.headers["Access-Control-Expose-Headers"]).to include("WWW-Authenticate")
+      exposed = response.headers["Access-Control-Expose-Headers"].split(/,\s*/)
+      expect(exposed).to include("WWW-Authenticate", "X-DPP-Access-Roles", "X-DPP-Controlled-Part",
+                                 "X-DPP-Signature-State")
     end
 
     it "is not sent with answers other than 401" do

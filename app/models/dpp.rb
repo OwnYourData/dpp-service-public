@@ -498,7 +498,11 @@ class Dpp < ApplicationRecord
   end
 
   # EN 18222:2026 4.7: every change shall be archived (EN 18221:2026 4.2).
-  # The snapshot holds the state *before* the change.
+  # The snapshot holds the state *before* the change: the whole passport, its
+  # public part as readers without access rights got it, and the signature of
+  # the economic operator over that public part where one is accepted and
+  # holds (docs/Integrity.md section 10). A change discards the signature from
+  # the passport; the version keeps it.
   #
   # For a pod-backed DPP this is a no-op: the pod archives on its own — a
   # changed payload becomes a new object (the old one stays retrievable under
@@ -516,7 +520,9 @@ class Dpp < ApplicationRecord
       content:        to_document,
       archived_at:    Time.now.utc,
       owner_did:      owner_did,
-      access_policy_id: access_policy_id
+      access_policy_id: access_policy_id,
+      published_content: published_document,
+      signature_jws:  (signature_jws if signature_state == OperatorSignature::SIGNED)
     )
   end
 

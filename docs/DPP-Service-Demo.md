@@ -98,8 +98,9 @@ echo "$TOKEN" | cut -d. -f2 | ruby -rbase64 -e 's = STDIN.read.strip; print Base
 
 Expected: `iss` and `sub` are the economic operator's DID, `aud` is the service.
 
-> Tokens are short-lived and accepted once — which is why this line appears
-> again before every write.
+> Tokens are short-lived and accepted once, and the token of a write names that
+> one request: its method, its address and its body. That is why a token is
+> minted again for every write, from exactly what is then sent.
 
 > **Worth remembering:** this is the economic operator's *identity key*. The
 > *passport key* is something else, and we do not have one yet.
@@ -113,7 +114,7 @@ location.
 
 ```bash
 PID1="https://dpp.oydapp.eu/01/09520123456788/21/000901"
-curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d @- <<JSON | jq .
+BODY=$(cat <<JSON
 {
   "uniqueProductIdentifier": "$PID1",
   "granularity": "item",
@@ -129,6 +130,9 @@ curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorizat
   ]
 }
 JSON
+)
+TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb POST "$BASE/dpps" "$BODY" 2>/dev/null)"
+curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" --data-binary "$BODY" | jq .
 ```
 
 Expected: `201`, and the answer carries a **freshly minted**
@@ -260,8 +264,7 @@ echo "DID2 = $DID2"
 Now create the passport with it — the service mints nothing any more:
 
 ```bash
-TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
-curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d @- <<JSON | jq -c 'if .digitalProductPassportId then {digitalProductPassportId, uniqueProductIdentifier, dppStatus} else . end'
+BODY=$(cat <<JSON
 {
   "digitalProductPassportId": "$DID2",
   "uniqueProductIdentifier": "$PID2",
@@ -277,6 +280,9 @@ curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorizat
   ]
 }
 JSON
+)
+TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb POST "$BASE/dpps" "$BODY" 2>/dev/null)"
+curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" --data-binary "$BODY" | jq -c 'if .digitalProductPassportId then {digitalProductPassportId, uniqueProductIdentifier, dppStatus} else . end'
 ```
 
 Expected: `201`, and the **supplied identifier comes back unchanged**.
@@ -293,9 +299,10 @@ PIDX="https://dpp.oydapp.eu/01/09520123456788/21/000999"
 ENCX=$(printf %s "$PIDX" | jq -sRr @uri)
 DIDX=$(curl -sS -X POST https://oydid.ownyourdata.eu/1.0/create -H "Content-Type: application/json" \
   -d "{\"didDocument\":{\"service\":[{\"type\":\"DigitalProductPassport\",\"serviceEndpoint\":\"https://dpp.data-vault.eu/dpp/v1/dppsByProductId/$ENCX\"}]},\"options\":{\"key_type\":\"ed25519\"}}" | jq -r '.didState.did')
-TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
+BODY="{\"digitalProductPassportId\":\"$DIDX\",\"uniqueProductIdentifier\":\"$PIDX\",\"granularity\":\"item\",\"dppSchemaVersion\":\"EN 18223:2026\",\"economicOperatorId\":\"$EO\"}"
+TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb POST "$BASE/dpps" "$BODY" 2>/dev/null)"
 curl -sS -w '\nHTTP %{http_code}\n' -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-  -d "{\"digitalProductPassportId\":\"$DIDX\",\"uniqueProductIdentifier\":\"$PIDX\",\"granularity\":\"item\",\"dppSchemaVersion\":\"EN 18223:2026\",\"economicOperatorId\":\"$EO\"}"
+  --data-binary "$BODY"
 ```
 
 Expected: **`HTTP 400`**, and the message names **both** hostnames in plain text:
@@ -379,8 +386,7 @@ echo "DID3 = $DID3"
 ```
 
 ```bash
-TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
-curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -H "X-DPP-Storage: $STORAGE" -d @- <<JSON | jq -c 'if .digitalProductPassportId then {digitalProductPassportId, uniqueProductIdentifier, granularity, dppStatus} else . end'
+BODY=$(cat <<JSON
 {
   "digitalProductPassportId": "$DID3",
   "uniqueProductIdentifier": "$PID3",
@@ -406,6 +412,9 @@ curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorizat
   ]
 }
 JSON
+)
+TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb POST "$BASE/dpps" "$BODY" 2>/dev/null)"
+curl -sS -X POST "$BASE/dpps" -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -H "X-DPP-Storage: $STORAGE" --data-binary "$BODY" | jq -c 'if .digitalProductPassportId then {digitalProductPassportId, uniqueProductIdentifier, granularity, dppStatus} else . end'
 ```
 
 ### The moment the whole demo builds up to
@@ -547,7 +556,7 @@ E3=$(printf %s "$DID3" | jq -sRr @uri)
 N=0
 for E in "$E1" "$E2" "$E3"; do
   N=$((N + 1))
-  TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb 2>/dev/null)"
+  TOKEN="$(bundle exec ruby tmp/mint_reo_token.rb DELETE "$BASE/dpps/$E" 2>/dev/null)"
   curl -sS -o /dev/null -w "Delete passport $N: %{http_code}\n" -X DELETE "$BASE/dpps/$E" -H "Authorization: Bearer $TOKEN"
 done
 echo "--- and what about the identifiers? ---"

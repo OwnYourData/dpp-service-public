@@ -133,8 +133,18 @@ class OperatorSignature
     def deliverable(dpp, document)
       return nil unless dpp.signature_state == SIGNED && dpp.signature_jws.present?
 
-      jws = stored(dpp)
-      jws && same_content?(jws.payload, document) ? jws.compact : nil
+      deliverable_compact(dpp.signature_jws, document)
+    end
+
+    # The same for a signature kept apart from the passport, such as that of
+    # an archived version: +compact+ if its payload is exactly +document+.
+    def deliverable_compact(compact, document)
+      return nil if compact.blank?
+
+      jws = parse(compact)
+      same_content?(jws.payload, document) ? jws.compact : nil
+    rescue Refused
+      nil
     end
 
     # On a read. A signature whose payload no longer is the public part -- the

@@ -6,16 +6,17 @@
 #   bundle exec ruby bin/sign_dpp <dppId | carrier URL> --keys operator.json
 #
 # The DPP Service holds no key of the economic operator and never signs on its
-# behalf (docs/Integrity.md section 10). The DPP Manager signs with the identity
-# it keeps; this is the same step for an economic operator that keeps its keys
-# elsewhere. After every write the signature is discarded, so this is run
-# again after every change.
+# behalf (docs/Integrity.md section 10). The DPP Manager signs after every
+# write with the identity it keeps; this is the same step for an economic
+# operator that keeps its keys elsewhere. After every write the signature is
+# discarded, so this is run again after every change.
 #
 # What is signed is what a reader without access rights receives: the public
 # part of the passport in the full representation, fetched from the service
 # without a token, as it comes. The signature is a JWS in the compact
 # serialization with the document key of the operator's DID; the bearer token
-# that submits it is signed with the same key.
+# that submits it is signed with the same key and bound to exactly that request
+# (rqh, docs/Integrity.md section 11).
 #
 # The key never travels as an argument: a document key in ARGV lands in the
 # shell history and in the process list. It comes from a JSON file (--keys) or
@@ -40,6 +41,7 @@ rescue LoadError
   abort("sign_dpp needs the oydid and jwt gems: run it as `bundle exec ruby bin/sign_dpp ...`")
 end
 require_relative "../app/lib/compact_jws"
+require_relative "../app/lib/request_binding"
 
 DEFAULT_SERVICE = ENV.fetch("DPP_SERVICE_URL", "https://dpp-service.ownyourdata.eu")
 JOSE            = "application/jose"
@@ -208,11 +210,13 @@ step("4    sign it and submit the signature")
 kid     = "#{did}#key-doc"
 compact = CompactJws.sign(payload, signing_key, kid: kid)
 now     = Time.now.to_i
+target  = "#{URI(service).path}/dpp/v1/dpps/#{CGI.escape(dpp_id)}/signature"
 token   = JWT.encode({ "iss" => did, "sub" => did, "aud" => service, "iat" => now,
-                       "exp" => now + TOKEN_LIFETIME, "jti" => SecureRandom.hex(8) },
+                       "exp" => now + TOKEN_LIFETIME, "jti" => SecureRandom.hex(8),
+                       RequestBinding::CLAIM => RequestBinding.digest("PUT", target, compact) },
                      signing_key, "EdDSA", { "kid" => kid })
 
-answer = request("PUT", "#{service}/dpp/v1/dpps/#{CGI.escape(dpp_id)}/signature",
+answer = request("PUT", "#{service}#{target}",
                  headers: { "content-type" => JOSE, "authorization" => "Bearer #{token}" },
                  body: compact)
 messages = begin

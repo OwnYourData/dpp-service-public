@@ -77,35 +77,58 @@ oydid create
 (`gem install oydid`; the method itself is specified in
 [the OYD DID Method](https://ownyourdata.github.io/oydid/));
 `doc_key` is the `documentKey` from step 1 (or the content of the
-`_private_key.enc` file):
+`_private_key.enc` file). For a write, the method, the URL and the body of the
+request follow on the command line, as in
+`ruby mint_token.rb PATCH "$BASE/dpps/$ENC" "$BODY"`; for a read, nothing:
 
 ```ruby
 require "oydid"
 require "jwt"
 require "jwt/eddsa"
 require "securerandom"
+require "digest"
+require "base64"
+require "uri"
 
 did     = "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
 doc_key = "z1S5Vc8QZXjHQvAZ…"
+http_method, url, body = ARGV
 
 _code, _len, digest = Oydid.multi_decode(doc_key).first.unpack("SCa*")
 signing_key = Ed25519::SigningKey.new(digest)
 
 now = Time.now.to_i
-puts JWT.encode({ "iss" => did, "sub" => did,
-                  "aud" => "https://dpp-service.ownyourdata.eu",
-                  "iat" => now, "exp" => now + 600,
-                  "jti" => SecureRandom.hex(8) },
-                signing_key, "EdDSA", { "kid" => "#{did}#key-doc" })
+claims = { "iss" => did, "sub" => did,
+           "aud" => "https://dpp-service.ownyourdata.eu",
+           "iat" => now, "exp" => now + 600,
+           "jti" => SecureRandom.hex(8) }
+
+# The request this token is for: method, request-target, body bytes.
+if http_method
+  b64 = ->(bytes) { Base64.urlsafe_encode64(bytes, padding: false) }
+  target = URI(url).request_uri
+  claims["rqh"] = b64.(Digest::SHA256.digest(
+    [http_method.upcase, target, b64.(Digest::SHA256.digest(body.to_s))].join("\n")))
+end
+
+puts JWT.encode(claims, signing_key, "EdDSA", { "kid" => "#{did}#key-doc" })
 ```
 
 `require "jwt/eddsa"` is not optional — without this line the `jwt` gem does not
 know the EdDSA algorithm and aborts with "Unsupported signing method".
 
-**Step 3 — use it.** The result goes onto a write call as
+**Step 3 — use it.** The result goes onto the call as
 `Authorization: Bearer …`, nothing else changes. Each token is accepted once:
 the service records its `jti` until it expires and refuses it after that, so
 mint a fresh one for every call. Its `exp` may lie at most 15 minutes ahead.
+
+The token of a write names the one request it is for. Its `rqh` claim is the
+hash over the method, the request-target (path and query, exactly as sent) and
+the bytes of the body (docs/Integrity.md section 11); a token minted for another
+body, path or method is refused with `401`. That makes every change a signed
+statement of the operator, which the service keeps in its write log. Send the
+body exactly as it was hashed: `--data-binary` passes it unchanged, whereas
+`-d @file` drops the line breaks.
 
 ## Setup
 
@@ -113,7 +136,8 @@ mint a fresh one for every call. Its `exp` may lie at most 15 minutes ahead.
 BASE="https://dpp-service.ownyourdata.eu/dpp/v1"
 
 # A token is accepted once: auth mints a fresh one for every call.
-auth() { printf 'Authorization: Bearer %s' "$(ruby mint_token.rb)"; }
+# For a write it takes method, URL and body: auth PATCH "$BASE/dpps/$ENC" "$BODY"
+auth() { printf 'Authorization: Bearer %s' "$(ruby mint_token.rb "$@")"; }
 # permissive instances only — an unsigned token, built on the spot:
 # b64() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 # auth() { printf 'Authorization: Bearer %s.%s.' "$(printf '{"alg":"none"}' | b64)" "$(printf '{"sub":"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS","scope":"dpp:write"}' | b64)"; }
@@ -188,7 +212,9 @@ Save the request body as `create-dpp.json`:
 Create the DPP and capture the minted DID:
 
 ```bash
-RESP=$(curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth)" -d @create-dpp.json)
+BODY=$(cat create-dpp.json)
+RESP=$(curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth POST "$BASE/dpps" "$BODY")" \
+  --data-binary "$BODY")
 echo "$RESP" | jq .
 
 DID=$(echo "$RESP" | jq -r '.digitalProductPassportId')
@@ -252,13 +278,15 @@ echo "DIDB = $DIDB"
 Then create the passport with it; nothing else changes:
 
 ```bash
-curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth)" -d "{
+BODY="{
   \"digitalProductPassportId\": \"$DIDB\",
   \"uniqueProductIdentifier\": \"$PIDB\",
   \"granularity\": \"model\",
   \"dppSchemaVersion\": \"EN 18223:2026\",
   \"economicOperatorId\": \"did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS\"
-}" | jq -c '{digitalProductPassportId, uniqueProductIdentifier, dppStatus}'
+}"
+curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth POST "$BASE/dpps" "$BODY")" \
+  --data-binary "$BODY" | jq -c '{digitalProductPassportId, uniqueProductIdentifier, dppStatus}'
 ```
 
 Expected (`201 Created`) — the identifier comes back exactly as supplied:
@@ -291,13 +319,15 @@ as-is, mints nothing, and resolves nothing: the check in 2b applies to
 `did:oyd`, which the service can resolve, not to identifiers in general.
 
 ```bash
-curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth)" -d '{
+BODY='{
   "digitalProductPassportId": "https://dpp-service.ownyourdata.eu/01/09520123456788/0001",
   "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
   "granularity": "model",
   "dppSchemaVersion": "EN 18223:2026",
   "economicOperatorId": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
-}' | jq '.digitalProductPassportId'
+}'
+curl -sS -X POST "$BASE/dpps" "${JSON[@]}" -H "$(auth POST "$BASE/dpps" "$BODY")" \
+  --data-binary "$BODY" | jq '.digitalProductPassportId'
 ```
 
 Whatever you supply here is what readers will use. It is not the string on the
@@ -416,10 +446,10 @@ RFC 7396 semantics: only the supplied fields change, `null` removes a field.
 The previous version is archived automatically (EN 18221:2026 4.2).
 
 ```bash
+BODY='{ "facilityId": "https://id.lumina.example/414/0952012345016" }'
 curl -sS -X PATCH "$BASE/dpps/$ENC" \
-  -H "Content-Type: application/merge-patch+json" -H "$(auth)" \
-  -d '{ "facilityId": "https://id.lumina.example/414/0952012345016" }' \
-  | jq '{ facilityId, lastUpdated }'
+  -H "Content-Type: application/merge-patch+json" -H "$(auth PATCH "$BASE/dpps/$ENC" "$BODY")" \
+  --data-binary "$BODY" | jq '{ facilityId, lastUpdated }'
 ```
 
 ### Attaching an access policy
@@ -430,15 +460,16 @@ authority) each attribute of a passport belongs to
 and named by its `id`; nothing of it goes into the passport.
 
 ```bash
-# Expect 201, and 200 when the same policy is registered again.
-curl -sS -o /dev/null -w "register: %{http_code}\n" \
-  -X PUT "$BASE/access-policies" "${JSON[@]}" -H "$(auth)" \
-  -d '{ "id": "https://dpp.example.org/access-policies/lumina-lamp/1",
+BODY='{ "id": "https://dpp.example.org/access-policies/lumina-lamp/1",
         "scheme": "https://w3id.org/soya/dpp-access/v1",
         "rules": [
           { "path": "EnergyPerformance", "accessClass": "public" },
           { "path": "EnergyPerformance/LuminousFlux", "accessClass": "legitimateInterest" },
           { "path": "SubstancesOfConcern", "accessClass": "public" } ] }'
+# Expect 201, and 200 when the same policy is registered again.
+curl -sS -o /dev/null -w "register: %{http_code}\n" \
+  -X PUT "$BASE/access-policies" "${JSON[@]}" -H "$(auth PUT "$BASE/access-policies" "$BODY")" \
+  --data-binary "$BODY"
 ```
 
 A different policy under the same `id` is refused with `409`: a new version of
@@ -448,9 +479,9 @@ the header `X-DPP-Access-Policy`; for the passport that exists already,
 
 ```bash
 curl -sS -D - -o /dev/null -X PATCH "$BASE/dpps/$ENC" \
-  -H "Content-Type: application/merge-patch+json" -H "$(auth)" \
+  -H "Content-Type: application/merge-patch+json" -H "$(auth PATCH "$BASE/dpps/$ENC" '{}')" \
   -H "X-DPP-Access-Policy: https://dpp.example.org/access-policies/lumina-lamp/1" \
-  -d '{}' | grep -i '^x-dpp-access-policy'
+  --data-binary '{}' | grep -i '^x-dpp-access-policy'
 ```
 
 ```http
@@ -520,10 +551,11 @@ curl -sS "$BASE/dpps/$ENC/elements/EnergyPerformance/LuminousFlux?representation
 Merge patch on one element — e.g. reclassify the energy efficiency class.
 
 ```bash
-curl -sS -X PATCH \
-  "$BASE/dpps/$ENC/elements/EnergyPerformance/EnergyEfficiencyClass" \
-  -H "Content-Type: application/merge-patch+json" -H "$(auth)" \
-  -d '{ "value": "D" }'
+URL="$BASE/dpps/$ENC/elements/EnergyPerformance/EnergyEfficiencyClass"
+BODY='{ "value": "D" }'
+curl -sS -X PATCH "$URL" \
+  -H "Content-Type: application/merge-patch+json" -H "$(auth PATCH "$URL" "$BODY")" \
+  --data-binary "$BODY"
 ```
 
 The answer is the element after the patch, compressed: `"D"`.
@@ -548,12 +580,14 @@ connected to the EU DPP Registry: it checks the entry and then answers `502`.
 Nothing is registered and no registration identifier is returned.
 
 ```bash
-curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" -H "$(auth)" -d '{
+BODY='{
   "dppRegistryEntry": {
     "uniqueProductIdentifier": "https://id.lumina.example/01/09520123456788",
     "uniqueEconomicOperatorIdentifier": "did:oyd:zQmPPwHJK1NHBz3BS89StWsfrH4pzkyqwJiK94zVj25wXUS"
   }
-}' | jq .
+}'
+curl -sS -X POST "$BASE/registerDPP" "${JSON[@]}" -H "$(auth POST "$BASE/registerDPP" "$BODY")" \
+  --data-binary "$BODY" | jq .
 ```
 
 Expected (`502`):
@@ -586,7 +620,8 @@ you minted yourself (2b) the service holds no key and revokes nothing.
 
 ```bash
 # Delete (expect 204)
-curl -sS -o /dev/null -w "delete:      %{http_code}\n" -X DELETE "$BASE/dpps/$ENC" -H "$(auth)"
+curl -sS -o /dev/null -w "delete:      %{http_code}\n" -X DELETE "$BASE/dpps/$ENC" \
+  -H "$(auth DELETE "$BASE/dpps/$ENC")"
 
 # The active DPP is gone (expect 404)
 curl -sS -o /dev/null -w "read active: %{http_code}\n" "$BASE/dpps/$ENC"
@@ -611,7 +646,7 @@ STORAGE_NEW='{"base_url":"https://dpp.go-data.at","collection_id":"4","delegatio
 
 # Expect 204 — no body, the passport is untouched.
 curl -sS -o /dev/null -w "renew: %{http_code}\n" \
-  -X POST "$BASE/dpps/$ENC/delegation" -H "$(auth)" \
+  -X POST "$BASE/dpps/$ENC/delegation" -H "$(auth POST "$BASE/dpps/$ENC/delegation")" \
   -H "X-DPP-Storage: $STORAGE_NEW"
 ```
 

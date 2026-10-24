@@ -20,7 +20,7 @@ class DidOyd
 
   # Attribute of that service entry holding the commitment to the delivered
   # payload. EN 18246:2026 makes no stipulation on the name (docs/Integrity.md
-  # section 11, open item 1), so it is fixed here in one place.
+  # section 12, open item 1), so it is fixed here in one place.
   PAYLOAD_HASH = "payloadHash"
 
   # Resolving goes over the network. A client-supplied identifier is checked

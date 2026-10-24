@@ -35,7 +35,10 @@ class PassportAccess
   # +classes+: the access classes beyond public that were applied (notations);
   # +controlled+: "unavailable" when access rights reached further than what
   # could be read; +reason+: why (READER_NOT_ENTERED, VERSIONS_NOT_SERVED).
-  Result = Struct.new(:document, :classes, :controlled, :reason, keyword_init: true)
+  # +signature+: on ReadDPPVersionByIdAndDate, the signature of the economic
+  # operator kept for the version read, a candidate the caller hands out only
+  # where its payload is exactly the answer (docs/Integrity.md section 10).
+  Result = Struct.new(:document, :classes, :controlled, :reason, :signature, keyword_init: true)
 
   UNAVAILABLE = "unavailable"
 
@@ -112,9 +115,12 @@ class PassportAccess
       next pod_version(pod_dpp, time) if pod_dpp
 
       version = DppVersion.where(dpp_id: dpp_id).where(archived_at: time..).order(:archived_at).first
-      next local_version(version) if version
+      next local_version(version).tap { |result| result.signature = version.signature_jws } if version
 
-      current(Dpp.active.find(dpp_id))
+      dpp = Dpp.active.find(dpp_id)
+      current(dpp).tap do |result|
+        result.signature = dpp.signature_jws if dpp.signature_state == OperatorSignature::SIGNED
+      end
     end
   end
 
@@ -195,7 +201,9 @@ class PassportAccess
   end
 
   # An archived version of a local passport. It holds the whole passport; the
-  # policy is the passport's today, or the last one it had if it is deleted.
+  # policy is the passport's today, or the last one it had if it is deleted. A
+  # reader without access rights gets the public part kept with the version
+  # while that policy is unchanged (published_then).
   def local_version(version)
     dpp = Dpp.find_by(dpp_id: version.dpp_id)
     policy = dpp ? dpp.access_policy : last_policy(version.dpp_id)
@@ -204,8 +212,9 @@ class PassportAccess
     owner = dpp ? dpp.owner_did : version.owner_did
     access = access_for(version.dpp_id, owner)
     if access.roles.empty?
-      public_view = result(version.dpp_id, policy, [], version.content, version.content)
-      return refused(version.dpp_id, owner, public_view.document)
+      public_view = published_then(version, dpp) ||
+                    result(version.dpp_id, policy, [], version.content, version.content).document
+      return refused(version.dpp_id, owner, public_view)
     end
 
     logged(version.dpp_id, owner, access) do
@@ -273,6 +282,18 @@ class PassportAccess
     answer.controlled = UNAVAILABLE
     answer.reason = VERSIONS_NOT_SERVED
     answer
+  end
+
+  # The public part of a version as readers without access rights got it
+  # then, kept with the version -- as long as the passport's access policy is
+  # still the one the version had. Under another policy the version is
+  # filtered by today's, since an attribute public then may be controlled now.
+  def published_then(version, dpp)
+    return nil if version.published_content.blank?
+
+    current = dpp ? dpp.access_policy_id : DppVersion.where(dpp_id: version.dpp_id).where.not(access_policy_id: nil)
+                                                     .order(archived_at: :desc).pick(:access_policy_id)
+    version.access_policy_id == current ? version.published_content : nil
   end
 
   def last_policy(dpp_id)

@@ -44,6 +44,20 @@ module OperatorSignatureDelivery
     render plain: compact, content_type: OperatorSignature::MEDIA_TYPE
   end
 
+  # The answer of ReadDPPVersionByIdAndDate: the signature kept for the
+  # version read, where its payload is exactly the JSON the same request gets,
+  # and that JSON otherwise. The state says whether such a signature exists:
+  # signed or none.
+  def render_version_or_signature(result)
+    vary_on_accept!
+    document = DppRepresentation.passport(result.document, representation)
+    compact = OperatorSignature.deliverable_compact(result.signature, document)
+    response.set_header(SIGNATURE_STATE_HEADER, compact ? OperatorSignature::SIGNED : OperatorSignature::NONE)
+    return render_dpp(document) unless compact && jose_preferred?
+
+    render plain: compact, content_type: OperatorSignature::MEDIA_TYPE
+  end
+
   private
 
   def vary_on_accept!

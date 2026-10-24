@@ -2,7 +2,8 @@
 
 **Status:** describes what the service does. Section 6 says how the state of a
 commitment is reported, section 10 how the economic operator signs a passport,
-section 11 what is still open.
+section 11 how every change is bound to the one who asked for it, section 12
+what is still open.
 
 Reference: EN 18219:2026 (identifiers), EN 18246:2026 (authenticity and integrity),
 EN 18221:2026 (storage, archiving, persistence).
@@ -348,8 +349,10 @@ the full representation.
   hand every class to a reader that may read one.
 - **Not the compressed representation.** It is derived from the full one and
   leaves out what a data dictionary holds; it is not signed.
-- **Not earlier versions.** Only the current version carries a signature;
-  `ReadDPPVersionByIdAndDate` delivers none.
+- **Earlier versions keep theirs.** When a write archives a version whose
+  signature is `signed`, the version keeps the signature, together with the
+  public part it covers. `ReadDPPVersionByIdAndDate` delivers it (see
+  *Delivery*).
 
 The signature does not need the commitment: it works for a passport identified
 by an `https` URL as well, which has no DID log. Where both exist, they cover the
@@ -400,7 +403,8 @@ then there is no owner to compare with.
 
 The state travels in a header, like that of the commitment (section 6), on the
 answers of `ReadDPPById` and `ReadDPPByProductId`, of every write, and of the
-signature itself:
+signature itself. `ReadDPPVersionByIdAndDate` says `signed` where a signature
+covers exactly its answer and `none` otherwise:
 
 ```
 X-DPP-Signature-State: signed
@@ -446,11 +450,122 @@ Otherwise the answer is the JSON one, as without the `Accept` header, with
 answer to the same request therefore never finds a mismatch, whoever asks and
 in which representation. Every answer of these paths varies with `Accept`.
 
+`ReadDPPVersionByIdAndDate` answers the same way with the signature kept for
+the version it reads: with `application/jose` and `representation=full`, the
+JWS if its payload is exactly the JSON the same request gets, and that JSON
+otherwise. A reader without access rights gets the public part kept with the
+version as long as the passport's access policy is the one the version had
+(AccessClasses.md §9); under another policy the version is filtered by
+today's, its public part can read differently from what was signed, and no
+signature is delivered for it. Which key signed is not checked again for an
+earlier version: a later change of the key does not undo a signature that held
+when it was given. `bin/verify_dpp` reads every version the DID log records
+and checks its signature.
+
 Only passports this service keeps in its own database carry a signature here.
 A passport held by a custodian is read at the custodian, over the carrier and
 the `serviceEndpoint`, and the service accepts no signature for it.
 
-## 11. Open items
+## 11. Every change bound to its author
+
+The commitment shows that the content is the attested one, the signature of
+section 10 who stands behind the public part of a version. Neither shows who
+asked for a change: the service makes it, and in variant A it also writes the
+log entry. EN 18246:2026 expects every change to be bound to the identity that
+made it, in a form that identity cannot later deny. Two things do that here,
+for every request that changes something: the writes of a passport
+(`CreateDPP`, `UpdateDPPById`, the fine-granular writes, `DeleteDPPById`, the
+change of custodian, the renewal of the mandate, the signature), and the
+registration of access policies and of access grants and their revocation.
+
+### The token names its request
+
+The self-issued bearer token of a write carries the claim `rqh`:
+
+```
+rqh = base64url( SHA-256( METHOD "\n" TARGET "\n" base64url( SHA-256( BODY ) ) ) )
+```
+
+- `METHOD` is the request method in capitals.
+- `TARGET` is the request-target exactly as in the request line: the path with
+  the query where there is one, percent-encoding untouched (RFC 9112 3.2.1).
+  Scheme and host are not part of it; `aud` already names the service.
+- `BODY` is the bytes of the request body as sent, with no canonicalisation;
+  an empty body is the empty octet string.
+- base64url is without padding, as `ath` is in DPoP (RFC 9449).
+
+The token is signed with the document key of the issuer's DID, names this
+service as `aud`, lives at most 15 minutes and is accepted once (`jti`). With
+`rqh` it is the issuer's signed statement that it asked for exactly this
+request. The service compares the claim with the request before anything
+happens. A claim that names another method, target or body is refused with
+`401` and `WWW-Authenticate: Bearer error="invalid_token"`.
+
+A write whose token has no `rqh` is accepted until the day set in
+`DPP_REQUEST_BINDING_FROM`, with the header
+
+```
+X-DPP-Request-Binding: missing;until="2026-12-01"
+```
+
+and is refused like a token that does not hold from that day on. Reads need no
+`rqh`. Without verified tokens (`DPP_AUTH_MODE` other than `did`) nothing is
+bound.
+
+### The write log
+
+Every write has two entries in the write log, which entries are only ever
+added to (in PostgreSQL a trigger refuses to change or delete them):
+
+| Entry | When | What |
+|---|---|---|
+| `request` | after the token is verified and bound, **before** anything changes | time, request id, operation, the passport the path names, issuer, `jti`, the token, `rqh`, whether it was bound, method, request-target, digest of the body |
+| `outcome` | when the request ends | request id, HTTP status, the passport (for `CreateDPP` known only now), the version the write produced; for `DeleteDPPById` the archived final version |
+
+If the `request` entry cannot be written, the write is refused with `500` and
+nothing changes: there is no change without its evidence. The token is kept as
+it was presented; with its first use it is spent, and it is valid at no other
+service. Nothing of the body or of the passport is kept: the body is bound by
+its digest, the content of each version is the archived version.
+
+The log is not handed out over the API. The operator exports the entries of a
+passport for its owner, and the owner checks them with nothing but the file
+and the public web:
+
+```
+bin/rails dpp:writes:export DPP=<passport identifier> > writes.jsonl
+bundle exec ruby bin/verify_writes writes.jsonl
+```
+
+`bin/verify_writes` checks for every write that the token verifies with the
+key of its issuer, that it names the issuer, `jti` and `rqh` the entry records,
+that `rqh` is the hash of the method, target and body digest recorded, and
+that the write lies within the lifetime of its token. Across the writes it
+checks that no `jti` comes twice, that every write has an outcome, and that no
+version is without a write. Unbound writes are listed as such. Whoever keeps
+the bodies they sent can compare their digests as well.
+
+Entries are kept for `DPP_WRITE_LOG_RETENTION_DAYS` (ten years by default),
+and those of a passport for as long as the passport or one of its archived
+versions exists. `bin/rails dpp:writes:prune` removes only older entries that
+name no passport, or a passport of which nothing is left.
+
+### What this establishes
+
+A bound entry shows that the holder of the issuer's key asked for this
+request, with this body, at this time. With the archived version the request
+produced and the signature of the economic operator over its public part
+(section 10), every change of a passport this service keeps is bound to the
+one who asked for it, and every signed version to the one who stands behind
+it. Writes on passports held by a custodian are bound and logged the same way;
+their versions are kept by the custodian.
+
+The log is kept by the service. A removed entry shows as a version without a
+write, a log rewritten as a whole cannot be told apart from inside it; the DID
+log and the signatures of the economic operator are the records outside the
+service's database.
+
+## 12. Open items
 
 1. The commitment is the `payloadHash` attribute of the `DigitalProductPassport`
    service entry. EN 18246:2026 makes no stipulation on the name, so it is fixed in
@@ -460,8 +575,9 @@ the `serviceEndpoint`, and the service accepts no signature for it.
    (Yes — otherwise an entry without a payload reference can arise.)
 3. Collision behaviour on concurrent updates: the service knows the expected
    predecessor hash and could lock optimistically (`If-Match`).
-4. `bin/verify_dpp <carrier URL>` executes steps 1–6 for a consumer and checks
-   the signature of the economic operator (section 10). It needs nothing but the
+4. `bin/verify_dpp <carrier URL>` executes steps 1–6 for a consumer, checks
+   the signature of the economic operator (section 10), and reads every
+   version the DID log records with its signature. It needs nothing but the
    public web — no token, no access to this service — and it separates what it
    checks from what it does not establish: that the DID which signed belongs to
    the company it stands for (EN 18219:2026 6.4.2 b) wants a Verifiable

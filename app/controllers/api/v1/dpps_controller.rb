@@ -143,6 +143,7 @@ module Api
 
         begin
           dpp.save!
+          @dpp = dpp
         rescue ActiveRecord::RecordNotUnique
           # Lost the race: a concurrent create for the same product passed the
           # check above as well, and the index let only that one through.
@@ -473,7 +474,7 @@ module Api
         date   = Time.iso8601(params.require(:date)).utc
         result = PassportAccess.version_at(params[:dpp_id], date, reader: reader_did)
         report_access(result)
-        render_passport(result.document)
+        render_version_or_signature(result)
       rescue ArgumentError
         render_result("ClientErrorBadRequest", text: "Invalid 'date' (expected ISO 8601 UTC)")
       end
@@ -481,11 +482,11 @@ module Api
       # POST /dpp/v1/dppsByProductIds  — ReadDPPIdsByProductIds (§4.5, Table 4)
       #
       # Every passport whose product identifier is one of those supplied: the
-      # union, not the intersection. EN 18222:2026 4.5 returns the identifiers
-      # "that match a set of product identifiers", and Table 17 maps a set of
-      # product IDs to a set of DPP IDs. A passport carries exactly one product
-      # identifier, so an intersection over two or more could never match
-      # anything.
+      # union, not the intersection. EN 18222:2026 4.5 has the method return the
+      # passport identifiers that belong to a given set of product identifiers,
+      # and Table 17 maps a set of product IDs to a set of DPP IDs. A passport
+      # carries exactly one product identifier, so an intersection over two or
+      # more could never match anything.
       #
       # Cursor pagination. limit is at least 1: a page of none would hand back a
       # cursor past a passport that was never shown.

@@ -51,8 +51,11 @@ stand-alone path, which is fully functional on its own.
 The hosted instance runs with `DPP_AUTH_MODE=did`: writing requires a bearer
 token that is a self-issued JWT, signed with the document key of the issuer's
 `did:oyd`, and only the DID that created a passport may change it. Each token is
-accepted once, so a client mints one per request. Reading is public and needs
-no token. A stand-alone instance starts in `permissive` mode,
+accepted once, so a client mints one per request. Reading the public part of
+a passport needs no token; the controlled part goes only to its owner and to
+readers holding an access grant, who present a token
+([docs/AccessClasses.md](docs/AccessClasses.md) §8). A stand-alone instance
+starts in `permissive` mode,
 where the signature is not checked — see [docs/Standalone.md](docs/Standalone.md).
 
 `did:oyd` is one of the DID methods EN 18219:2026 admits, specified in
@@ -88,6 +91,7 @@ The rest:
 | [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
 | [bin/attest_payload](bin/attest_payload) | the holder side of the same coin: hash what the custodian delivers and sign the entry with your own document key: `bundle exec ruby bin/attest_payload <carrier URL> --keys <file>` |
 | [bin/sign_dpp](bin/sign_dpp) | sign a passport as its economic operator, with the key of your own DID, and hand the signature to the service: `bundle exec ruby bin/sign_dpp <dppId> --keys <file>` |
+| [bin/verify_writes](bin/verify_writes) | check the write log of a passport with nothing but the public keys of the DIDs that signed its writes: `bundle exec ruby bin/verify_writes <export file>` |
 | [docs/verification/](docs/verification/) | the record of the run that moved a live passport between two custodians without touching the printed carrier |
 | [docs/openapi.yaml](docs/openapi.yaml) | the machine-readable contract: an OpenAPI 3.0 description of every endpoint, which the service also serves through a Swagger UI at `/api-docs` |
 
@@ -169,7 +173,7 @@ whether the element exists or not
 | EN 18239:2026 | Access rights and security | `TokenAuthenticatable`; tokens accepted once in `TokenUse`; rate limit in `ApplicationController`, counted across replicas in `RateCounter`; cross-origin policy in `config/initializers/cors.rb`; access classes and policies in `AccessClass`, `AccessPolicy`, `config/vocab/`; access grants in `AccessGrant`; reading per role in `PassportAccess`; access log in `AccessLog` |
 | EN 18221:2026 | Storage, archiving, versioning | `DppVersion`, `Dpp#archive_current_version!` |
 | EN 18219:2026 | Unique identifiers, W3C DID | `DidOyd`, [`did:oyd`](https://ownyourdata.github.io/oydid/) and `did:web` |
-| EN 18246:2026 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, the signature of the economic operator in `OperatorSignature`, `bin/verify_dpp`, `bin/sign_dpp` |
+| EN 18246:2026 | Authenticity and integrity | DID document as anchor, `PayloadCommitment`, `PayloadIntegrity`, the signature of the economic operator in `OperatorSignature`, kept per version in `DppVersion`; every write bound to its author in `RequestBinding`, with its evidence in `WriteLog`; `bin/verify_dpp`, `bin/sign_dpp`, `bin/verify_writes` |
 | DIN DKE SPEC 99100 | Battery passport attributes | `db/seeds.rb` example content |
 
 Errors return a **Result** object (`statusCode` plus `message[]`) per EN 18222:2026
@@ -211,8 +215,11 @@ bundle exec rspec
    `bin/attest_payload` or the DPP Manager, and the service picks the change up
    when the passport is next read. The economic operator signs the public part
    of a passport the service keeps itself with the key of its own DID
-   ([docs/Integrity.md](docs/Integrity.md) section 10); a passport held by a
-   custodian carries no such signature. What remains open is the trust anchor:
+   ([docs/Integrity.md](docs/Integrity.md) section 10), and every earlier
+   version keeps the signature it had. Every write is bound to its author: the
+   token names the one request it is for, and the service keeps it in a write
+   log before the change is made (section 11). A passport held by a custodian
+   carries no signature of the economic operator. What remains open is the trust anchor:
    it is self-managed, EN 18246:2026 expects an accredited one, so electronic
    attestation of attributes (EAA) is not covered.
 

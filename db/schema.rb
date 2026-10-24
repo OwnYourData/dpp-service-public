@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_10_24_000021) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_25_000023) do
   create_table "access_event_parties", force: :cascade do |t|
     t.bigint "access_event_id", null: false
     t.string "did", null: false
@@ -85,6 +85,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_24_000021) do
     t.datetime "updated_at", null: false
     t.bigint "access_policy_id"
     t.string "owner_did"
+    t.text "signature_jws"
+    t.json "published_content"
     t.index ["archived_at"], name: "index_dpp_versions_on_archived_at"
     t.index ["dpp_id", "version_number"], name: "index_dpp_versions_on_dpp_id_and_version_number", unique: true
     t.index ["product_id", "archived_at"], name: "index_dpp_versions_on_product_id_and_archived_at"
@@ -150,6 +152,27 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_24_000021) do
     t.bigint "expires_at", null: false
     t.index ["expires_at"], name: "index_token_uses_on_expires_at"
     t.index ["issuer", "jti"], name: "index_token_uses_on_issuer_and_jti", unique: true
+  end
+
+  create_table "write_events", force: :cascade do |t|
+    t.datetime "occurred_at", null: false
+    t.string "phase", null: false
+    t.string "request_id", null: false
+    t.string "operation"
+    t.string "dpp_id"
+    t.string "issuer"
+    t.string "jti"
+    t.text "token"
+    t.string "request_hash"
+    t.boolean "bound"
+    t.string "http_method"
+    t.text "target"
+    t.string "body_digest"
+    t.integer "status"
+    t.integer "version_number"
+    t.index ["dpp_id", "occurred_at"], name: "index_write_events_on_dpp_id_and_occurred_at"
+    t.index ["occurred_at"], name: "index_write_events_on_occurred_at"
+    t.index ["request_id", "phase"], name: "index_write_events_on_request_id_and_phase", unique: true
   end
 
   add_foreign_key "access_event_parties", "access_events"

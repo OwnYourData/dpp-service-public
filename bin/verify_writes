@@ -1,0 +1,72 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# verify_writes -- check the write log of a passport the way its owner can.
+#
+#   bin/rails dpp:writes:export DPP=<passport identifier> > writes.jsonl   (operator)
+#   bundle exec ruby bin/verify_writes writes.jsonl                         (owner)
+#
+# The operator of the service exports the write log of a passport
+# (docs/Integrity.md section 11); this tool checks it with nothing but the
+# file and the public web, where it resolves the DIDs that signed the tokens.
+# For every write: the token verifies with the key of its issuer, it names
+# what the entry records, its request hash is that of the method,
+# request-target and body digest recorded, and the write lies within the
+# lifetime of the token. Across the writes: no jti twice, an outcome for
+# every write, and no version without a write.
+#
+# Exit code 0 when every write holds, 1 when one does not. Writes the service
+# took without a request hash, before binding was required, are listed as
+# unbound.
+
+require "json"
+Encoding.default_external = Encoding::UTF_8
+
+begin
+  require "oydid"
+rescue LoadError
+  abort("verify_writes needs the oydid gem: run it as `bundle exec ruby bin/verify_writes <file>`")
+end
+require_relative "../app/lib/write_evidence"
+
+path = ARGV.first
+abort("usage: bin/verify_writes <export of dpp:writes:export>") if path.nil? || !File.file?(path)
+
+# The document key of a did:oyd, as it resolves now. A key changed since a
+# token was signed makes that token fail here; the tool says which key it used.
+KEYS = {}
+resolve = lambda do |kid|
+  KEYS.fetch(kid) do
+    did, fragment = kid.to_s.split("#", 2)
+    KEYS[kid] = begin
+      next nil unless did.to_s.start_with?("did:oyd:") && fragment == "key-doc"
+
+      info, = Oydid.read(did, {})
+      next nil if info.nil? || info["error"].to_i != 0
+
+      raw = Oydid.multi_decode(info.dig("doc", "key").to_s.split(":").first.to_s).first
+      raw && raw.bytesize >= 32 ? Ed25519::VerifyKey.new(raw[-32..]) : nil
+    rescue StandardError
+      nil
+    end
+  end
+end
+
+entries = WriteEvidence.parse_lines(File.read(path))
+evidence = WriteEvidence.new(entries, resolve: resolve).check
+
+evidence.writes.each do |write|
+  entry = write[:entry]
+  outcome = write[:outcome]
+  status = outcome ? outcome["status"] : "-"
+  version = outcome && outcome["version"] ? " version #{outcome['version']}" : ""
+  mark = { bound: "[ ok ]", unbound: "[open]", fail: "[FAIL]" }.fetch(write[:level])
+  puts "#{mark} #{entry['at']}  #{entry['operation']}  #{status}#{version}  by #{entry['issuer']}"
+end
+evidence.findings.each { |f| puts "       #{f.at}  #{f.operation}: #{f.text}" }
+
+puts
+puts "#{evidence.writes.size} writes: #{evidence.count(:bound)} bound to their request and verified, " \
+     "#{evidence.count(:unbound)} unbound, #{evidence.count(:fail)} failed"
+puts "keys used: #{KEYS.keys.join(', ')}" unless KEYS.empty?
+exit(evidence.failed? ? 1 : 0)

@@ -189,7 +189,7 @@ X-DPP-Commit-State: committed
 |---|---|
 | `committed` | the DID document commits to the payload as it is delivered now |
 | `pending` | the hash is known, the log entry is not written. In variant B that is the normal state until the holder signs, and a read re-checks it; in variant A it means the VDR could not be reached |
-| `stale` | the commitment refers to an earlier payload |
+| `stale` | the commitment refers to an earlier payload; a read re-checks it, so it turns `committed` once the holder attests the payload delivered now |
 
 **In headers, not in the document.** A reader of the DPP document has to find
 exactly the attributes of EN 18223:2026 Table 1 there; a proprietary field would
@@ -199,11 +199,17 @@ a commitment carries neither header — nothing is asserted about it.
 
 **A passport waiting for the holder is re-checked when it is read.** In variant B
 the service holds no document key, so no write of its own could ever turn
-`pending` into `committed` — the holder signs the entry, and the service only
-gets to look. It does that on its own read paths: resolve the DID, compare the
-`payloadHash` in the document with the payload last delivered, and record
-`committed` or `stale`. Nothing is written to the VDR, and a check that fails
-leaves the state untouched.
+`pending` or `stale` into `committed` — the holder signs the entry, and the
+service only gets to look. It does that on its own read paths: resolve the DID,
+compare the `payloadHash` in the document with the payload last delivered, and
+record `committed` or `stale`. Nothing is written to the VDR, and a check that
+fails leaves the state untouched.
+
+The answer to a write is not checked that way. It reports the state the write
+left — in variant B `pending` with the new hash, which is what tells the holder
+to attest. Checked at that moment, the document would still name the previous
+payload, and the answer would say `stale` to the one client about to put that
+right.
 
 Resolving a DID costs a second or two, so a passport is re-checked at most once
 per `DPP_COMMIT_RECHECK_INTERVAL` (60 seconds by default), and the timestamp is

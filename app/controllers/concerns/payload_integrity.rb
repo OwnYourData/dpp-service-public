@@ -24,24 +24,31 @@ module PayloadIntegrity
   # After a write the custodian has already accepted. Deliberately after the
   # write and not inside it: the commitment reads the payload back from the
   # custodian, and a commitment that fails must leave the write standing.
+  #
+  # The answer reports the state the write left, without checking the DID
+  # document again. In variant B that is `pending` with the new hash, which is
+  # what tells the holder to attest it; checked at this moment the document
+  # still names the previous payload, and the answer would say `stale` to the
+  # one client that is about to put that right.
   def commit_payload(dpp)
     PayloadCommitment.call(dpp)
-    report_commitment(dpp)
+    report_commitment(dpp, recheck: false)
   end
 
   # On a read: say which state the passport is in.
   #
-  # A passport waiting for the holder to sign is re-checked here, because in
-  # variant B nothing else would ever move it: the service holds no document key,
-  # so no write of its own can turn `pending` into `committed`. The check resolves
-  # the DID, which costs a second or two, and is therefore throttled per passport
-  # (PayloadCommitment::RECHECK_INTERVAL) — a crawler on a pending passport must
-  # not decide how much work the service does. Every other state is reported as
-  # it stands, and a failed check changes nothing.
-  def report_commitment(dpp)
+  # A passport that is `pending` or `stale` is re-checked here, because in
+  # variant B nothing else would ever move it: the service holds no document
+  # key, so no write of its own can turn either into `committed`; the holder
+  # attests, and the service looks. The check resolves the DID, which costs a
+  # second or two, and is therefore throttled per passport
+  # (PayloadCommitment::RECHECK_INTERVAL) — a crawler on such a passport must
+  # not decide how much work the service does. `committed` is reported as it
+  # stands, and a failed check changes nothing.
+  def report_commitment(dpp, recheck: true)
     return if dpp.nil?
 
-    PayloadCommitment.refresh(dpp) if dpp.did_commit_state == PayloadCommitment::PENDING
+    PayloadCommitment.refresh(dpp) if recheck && PayloadCommitment::RECHECKED.include?(dpp.did_commit_state)
 
     response.set_header(HASH_HEADER, dpp.payload_hash) if dpp.payload_hash.present?
     response.set_header(STATE_HEADER, dpp.did_commit_state) if dpp.did_commit_state.present?

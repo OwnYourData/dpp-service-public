@@ -128,6 +128,28 @@ RSpec.describe "Payload commitment", type: :request do
     end
   end
 
+  # The answer to a write is what the holder acts on: `pending` with the new
+  # hash tells it to attest. Checked at that moment, the DID document still
+  # names the previous payload, and the answer would say `stale` instead.
+  describe "the answer to a write" do
+    before do
+      create_dpp!
+      allow(PayloadCommitment).to receive(:call) do |dpp|
+        dpp.update_columns(payload_hash: "zNEW", did_commit_state: PayloadCommitment::PENDING,
+                           payload_checked_at: nil)
+      end
+    end
+
+    it "reports the state the write left, without checking the DID document again" do
+      patch "/dpp/v1/dpps/#{enc_dpp}", params: { "dppStatus" => "Active" }.to_json, headers: patch_headers
+
+      expect(response).to have_http_status(:ok)
+      expect(response.headers["X-DPP-Payload-Hash"]).to eq("zNEW")
+      expect(response.headers["X-DPP-Commit-State"]).to eq(PayloadCommitment::PENDING)
+      expect(PayloadCommitment).not_to have_received(:refresh)
+    end
+  end
+
   # Variant B: the service holds no document key, so no write of its own can ever
   # turn `pending` into `committed`. The read path is where the state moves.
   describe "a passport waiting for the holder to sign" do
@@ -151,6 +173,15 @@ RSpec.describe "Payload commitment", type: :request do
 
       expect(response.headers["X-DPP-Payload-Hash"]).to eq("zPAY")
       expect(response.headers["X-DPP-Commit-State"]).to eq(PayloadCommitment::PENDING)
+    end
+
+    # The holder can still attest the payload delivered now.
+    it "is re-checked on a read when it is stale" do
+      Dpp.find(dpp_id).update_column(:did_commit_state, PayloadCommitment::STALE)
+
+      get "/dpp/v1/dpps/#{enc_dpp}"
+
+      expect(PayloadCommitment).to have_received(:refresh).with(having_attributes(dpp_id: dpp_id))
     end
 
     # A committed passport is not worth a DID resolution on every read.

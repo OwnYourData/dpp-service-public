@@ -29,6 +29,9 @@ class PayloadCommitment
   PENDING   = "pending"
   STALE     = "stale"
 
+  # The states a read checks again: the holder may have attested since.
+  RECHECKED = [PENDING, STALE].freeze
+
   # Same digest and encoding the pod forms its DRI with, so pod and DID document
   # carry the same value (section 4). These are oydid's own defaults; they are
   # named here because the agreement is what matters, not the default.
@@ -49,15 +52,16 @@ class PayloadCommitment
   # Variante B only ever reaches "pending" through a write — the service holds no
   # document key and cannot sign. What it can do is look: resolve the DID and see
   # whether the document now commits to the payload the service last delivered.
-  # Nothing is written to the VDR here, and nothing raises; a passport whose state
-  # cannot be determined keeps the one it has.
+  # A "stale" passport is looked at the same way, because the holder can still
+  # attest the payload delivered now and so make it "committed". Nothing is
+  # written to the VDR here, and nothing raises; a passport whose state cannot
+  # be determined keeps the one it has.
   def self.refresh(dpp)
-    return dpp&.did_commit_state unless dpp&.did_commit_state == PENDING
-    return PENDING unless dpp.dpp_id.to_s.start_with?("did:oyd:")
-    return PENDING if dpp.payload_hash.blank?
-    if dpp.payload_checked_at.present? && dpp.payload_checked_at > RECHECK_INTERVAL.seconds.ago
-      return PENDING
-    end
+    state = dpp&.did_commit_state
+    return state unless RECHECKED.include?(state)
+    return state unless dpp.dpp_id.to_s.start_with?("did:oyd:")
+    return state if dpp.payload_hash.blank?
+    return state if dpp.payload_checked_at.present? && dpp.payload_checked_at > RECHECK_INTERVAL.seconds.ago
 
     new(dpp).refresh
   end
@@ -109,7 +113,7 @@ class PayloadCommitment
     record(dpp.payload_hash, state, checked: true)
   rescue DidOyd::DidError, Error => e
     log("cannot re-check the commitment: #{e.message}")
-    record(dpp.payload_hash, PENDING, checked: true)
+    record(dpp.payload_hash, dpp.did_commit_state, checked: true)
   end
 
   private

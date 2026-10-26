@@ -177,6 +177,14 @@ PostgreSQL to answer, not merely to listen — against a database that is up but
 not ready, the migration fails and the container restarts in a loop that
 explains nothing.
 
+**The logs stay append-only on a fresh database too.** `bin/rails db:prepare`
+loads `db/schema.rb` into an empty database instead of running the migrations,
+and that file records tables but no triggers. Right after it, and after every
+`bin/rails db:schema:load`, the service installs the PostgreSQL triggers that
+refuse changes to the entries of the access log and the write log;
+`bin/rails dpp:append_only:install` does the same by hand. On a database that
+has them already, it only replaces them.
+
 **Before the first passport**, set `DPP_SERVICE_ENDPOINT_BASE` in `.env` to the
 address this instance will really be reachable at. It is written into the DID
 document of every passport the service mints, and a DID's endpoint cannot be

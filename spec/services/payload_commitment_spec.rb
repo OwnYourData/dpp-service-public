@@ -283,7 +283,27 @@ RSpec.describe PayloadCommitment do
       expect(described_class.refresh(dpp)).to eq(PayloadCommitment::COMMITTED)
     end
 
-    it "leaves a state that is not pending alone" do
+    # Stale after a write the holder had not attested yet; the attestation that
+    # follows has to be able to make it committed.
+    it "re-checks a stale passport and makes it committed once the document attests the payload" do
+      document_with("zPAY")
+      dpp = pending_dpp
+      dpp.update_columns(did_commit_state: PayloadCommitment::STALE)
+
+      expect(described_class.refresh(dpp.reload)).to eq(PayloadCommitment::COMMITTED)
+      expect(dpp.reload.did_commit_state).to eq(PayloadCommitment::COMMITTED)
+    end
+
+    it "keeps a stale passport stale when the re-check fails" do
+      allow(DidOyd).to receive(:document_content).and_raise(DidOyd::DidError, "does not resolve")
+      dpp = pending_dpp
+      dpp.update_columns(did_commit_state: PayloadCommitment::STALE)
+
+      expect(described_class.refresh(dpp.reload)).to eq(PayloadCommitment::STALE)
+      expect(dpp.reload.payload_checked_at).to be_within(5).of(Time.now.utc)
+    end
+
+    it "leaves a committed passport alone" do
       allow(DidOyd).to receive(:document_content)
       dpp = build_dpp
       dpp.update_columns(did_commit_state: PayloadCommitment::COMMITTED, payload_hash: "zPAY")

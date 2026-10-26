@@ -32,12 +32,13 @@ it.
 
 ```bash
 bundle install
-bin/rails db:create db:migrate db:seed
+bin/rails db:create db:migrate
 bin/rails server
 ```
 
 The service listens on `http://localhost:3000`, the Swagger UI is at
-`http://localhost:3000/api-docs`.
+`http://localhost:3000/api-docs`. The database starts without passports;
+`DPP_SEED_DEMO=1 bin/rails db:seed` adds an example one, a battery cell.
 
 The test suite needs a test database built once — there is no checked-in
 `db/schema.rb`:
@@ -80,6 +81,7 @@ All settings come from environment variables.
 | `DPP_REQUEST_BINDING_FROM` | `2026-12-01` | in `did` mode, the first day on which a write is refused unless its token carries `rqh`. Before that day such a write is made, answered with `X-DPP-Request-Binding: missing;until="…"` and recorded as unbound (docs/Integrity.md section 11) |
 | `DPP_WRITE_LOG_RETENTION_DAYS` | `3653` | days entries of the write log are kept at least; `bin/rails dpp:writes:prune` removes older ones, but none of a passport that exists or has a version kept |
 | `DPP_AVAILABLE_SERVICES_URL` | — (none) | https URL of the JSON list of available DPP services shown on the start page; fetched at most once an hour; a list without `notice` is not taken, and when fetching fails the last good list stays. Without it the start page shows the list shipped in `config/available_services.json` |
+| `DPP_SEED_DEMO` | — (off) | `1` or `true`: `bin/rails db:seed`, and `bin/rails db:prepare` on an empty database, add an example passport. Without it they add none, in every environment |
 
 **Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
 DID is created.** Without the variable the service derives the key from
@@ -184,6 +186,11 @@ and that file records tables but no triggers. Right after it, and after every
 refuse changes to the entries of the access log and the write log;
 `bin/rails dpp:append_only:install` does the same by hand. On a database that
 has them already, it only replaces them.
+
+**A new installation starts without passports.** On an empty database
+`bin/rails db:prepare` also runs `db/seeds.rb`, which adds an example passport
+only when `.env` sets `DPP_SEED_DEMO=1`. Without it the database holds no
+passport that nobody created, and the migration container says so in its log.
 
 **Before the first passport**, set `DPP_SERVICE_ENDPOINT_BASE` in `.env` to the
 address this instance will really be reachable at. It is written into the DID

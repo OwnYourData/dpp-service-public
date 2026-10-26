@@ -28,11 +28,12 @@ without any external infrastructure beyond a PostgreSQL server.
 
 ```bash
 bundle install
-bin/rails db:create db:migrate db:seed
+bin/rails db:create db:migrate
 bin/rails server
 ```
 
-Swagger UI at `http://localhost:3000/api-docs`, rendered from the OpenAPI 3.0
+The database starts without passports; `DPP_SEED_DEMO=1 bin/rails db:seed`
+adds an example one. Swagger UI at `http://localhost:3000/api-docs`, rendered from the OpenAPI 3.0
 description in [`docs/openapi.yaml`](docs/openapi.yaml).
 
 ## Hosted instance

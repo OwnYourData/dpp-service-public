@@ -165,6 +165,7 @@ module Api
         commit_payload(dpp)
         report_signature(dpp)
         report_access_policy(dpp)
+        report_carrier(dpp)
         response.headers["X-DPP-Retain-Until"] = dpp.retain_until.iso8601 if dpp.retain_until
         render_passport(dpp.to_document, status_code: "SuccessCreated")
       end
@@ -670,6 +671,18 @@ module Api
 
       # The active passport that already holds this product identifier (same
       # path, same lower-cased host), if any.
+      # X-DPP-Carrier: served | unserved, after creating a passport this
+      # service keeps itself, while carrier hosts are configured. "unserved"
+      # says that the identifier names a host this service does not answer
+      # on, so the printed identifier will not lead here; it is no refusal,
+      # because the operator's host may well point at another deployment. A
+      # passport at a custodian is answered by the custodian, and gets no header.
+      def report_carrier(dpp)
+        return unless dpp.storage_backend == "local" && CarrierHosts.list.any?
+
+        response.set_header("X-DPP-Carrier", CarrierHosts.serves?(dpp.product_host) ? "served" : "unserved")
+      end
+
       def active_passport_for(product_key, product_host)
         return if product_key.nil?
 

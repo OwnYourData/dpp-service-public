@@ -82,6 +82,7 @@ All settings come from environment variables.
 | `DPP_WRITE_LOG_RETENTION_DAYS` | `3653` | days entries of the write log are kept at least; `bin/rails dpp:writes:prune` removes older ones, but none of a passport that exists or has a version kept |
 | `DPP_AVAILABLE_SERVICES_URL` | — (none) | https URL of the JSON list of available DPP services shown on the start page; fetched at most once an hour; a list without `notice` is not taken, and when fetching fails the last good list stays. Without it the start page shows the list shipped in `config/available_services.json` |
 | `DPP_SEED_DEMO` | — (off) | `1` or `true`: `bin/rails db:seed`, and `bin/rails db:prepare` on an empty database, add an example passport. Without it they add none, in every environment |
+| `DPP_CARRIER_HOSTS` | — (none) | hosts, comma-separated, on which this instance answers the product identifiers printed on products, for the passports it keeps (see below). The API is not served there |
 
 **Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
 DID is created.** Without the variable the service derives the key from
@@ -136,9 +137,15 @@ carrier can bear is the economic operator's decision. Its host should belong to
 the economic operator, not to whoever stores the passport; that is what lets
 the passport move without a reprint.
 
-This service does not serve the carrier path itself; `ReadDPPByProductId` is the
-read path. Pointing the operator's host at a deployment that does serve it is
-what makes the printed string resolvable.
+The printed string resolves where its host points. For the hosts listed in
+`DPP_CARRIER_HOSTS`, that is this service: there it answers every path as a
+product identifier, with the passport as JSON, as a page for a browser that asks
+for `text/html`, or as the signature of the economic operator for
+`application/jose`, and nothing else ([Identifiers.md](Identifiers.md) §3). Each
+host needs a DNS record pointing at the instance and a certificate at the proxy.
+After a passport is created, `X-DPP-Carrier: served` or `unserved` says whether
+its identifier names one of these hosts; `/.well-known/dpp-service` lists them
+as `carrierHosts`.
 
 ---
 

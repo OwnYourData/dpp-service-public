@@ -89,6 +89,24 @@ is also the path the `serviceEndpoint` takes. The path segment
 Neither replaces the three mandatory methods of EN 18222 cl. 4.1 — the carrier
 path is an additional entry point, not an API.
 
+**When this service keeps the passport itself.** Without a custodian, the
+passport lives in this service's database, and the service answers the carrier
+path on the hosts listed in `DPP_CARRIER_HOSTS` (docs/Standalone.md §3). The
+hosted instance does so under `id.ownyourdata.eu`, for operators without a
+domain of their own; an operator with one points it at the service by DNS, as it
+would at a custodian. There, every path is looked up as a product identifier,
+with the same rules as `ReadDPPByProductId`:
+
+| Accept | Answer |
+|---|---|
+| none, `*/*`, `application/json` | the passport as JSON, in the full representation (`?representation=compressed` for the other) |
+| `text/html` ahead of JSON | the same passport as a page for people, without script or cookie |
+| `application/jose` ahead of JSON | the signature of the economic operator, where it covers that JSON ([Integrity.md](Integrity.md) §10) |
+
+The public part is what anyone gets; a reader with access rights presents a
+token, as on the read paths. Every answer varies on `Accept`. A carrier host
+serves nothing else: the API stays on its own host.
+
 ## 4. Why the `serviceEndpoint` goes through the product identifier
 
 The passport identifier is the hash over the DID document. The `serviceEndpoint`
@@ -197,7 +215,9 @@ document does.
 the *economic operator*. The custodian's host appears only in the
 `serviceEndpoint` — deliberately, because that is the signed statement about who
 holds the passport. The carrier moves by DNS; custody moves only by a signed log
-entry.
+entry. A carrier host of this service is no exception: it is a name for the
+carrier path only, separate from the host of the API, so that it can be pointed
+elsewhere without touching either.
 
 **Identifier versus integrity proof.** A payload hash names nothing; it binds a
 version of the content. It is computed, not assigned, and is therefore not an

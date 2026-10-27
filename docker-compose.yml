@@ -34,6 +34,8 @@ x-service-env: &service-env
   # Off unless .env says otherwise: with 1, the first start adds an example
   # passport to the empty database.
   DPP_SEED_DEMO: ${DPP_SEED_DEMO:-}
+  # Hosts on which the printed product identifiers are answered; none by default.
+  DPP_CARRIER_HOSTS: ${DPP_CARRIER_HOSTS:-}
   RAILS_LOG_TO_STDOUT: "1"
 
 services:

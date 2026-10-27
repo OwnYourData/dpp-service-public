@@ -21,6 +21,12 @@
 # relies on the controlled part being kept from everyone else can see whose
 # word it rests on. Without configured issuers the member is left out.
 #
+# The hosts on which this service answers product identifiers for the
+# passports it keeps (CarrierHosts) are listed under "carrierHosts", so that a
+# client can offer one as the start of a new identifier and can tell whether
+# an identifier will resolve here. Without configured hosts the member is left
+# out.
+#
 # Public and unauthenticated, like the read paths.
 class DiscoveryController < ApplicationController
   def dpp_service
@@ -34,6 +40,8 @@ class DiscoveryController < ApplicationController
     document = document.merge("readers" => readers) if readers
     issuers  = AuthorityIssuers.all
     document = document.merge("authorityIssuers" => issuers) if issuers.any?
+    carriers = CarrierHosts.list
+    document = document.merge("carrierHosts" => carriers) if carriers.any?
 
     render json: document, status: :ok
   end

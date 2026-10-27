@@ -16,6 +16,19 @@
 # The fine-granular element path stays a glob because an absolute ElementId
 # path legitimately contains "/".
 Rails.application.routes.draw do
+  # A carrier host (DPP_CARRIER_HOSTS) answers the product identifiers printed
+  # on products and nothing else: every path there is looked up as one
+  # (CarrierController, docs/Identifiers.md section 3). Drawn first, so that no
+  # route below is reachable under such a host.
+  constraints(CarrierHosts) do
+    # GET routes answer HEAD as well. Naming HEAD here would make the router
+    # prefer these routes for every HEAD request and leave the API without one.
+    get "/", to: "carrier#index", as: :carrier_root
+    get "*identifier", to: "carrier#show", format: false, as: :carrier
+    match "/", to: "carrier#refuse", via: :all
+    match "*identifier", to: "carrier#refuse", via: :all, format: false
+  end
+
   # A percent-encoded identifier: any character except an unencoded "/".
   id = %r{[^/]+}
 

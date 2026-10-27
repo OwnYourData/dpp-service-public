@@ -39,13 +39,15 @@ description in [`docs/openapi.yaml`](docs/openapi.yaml).
 ## Hosted instance
 
 OwnYourData operates a public instance at
-**https://dpp-service.ownyourdata.eu**. That deployment does not keep passport
-documents in its own database: it stores them in a hosting pod operated by the
-data intermediary **[DID FlexCo](https://intermediary.at)**, which then also
-serves them publicly. The service keeps only an index and the storage
-configuration.
+**https://dpp-service.ownyourdata.eu**. That deployment mostly does not keep
+passport documents in its own database: it stores them in a hosting pod operated
+by the data intermediary **[DID FlexCo](https://intermediary.at)**, which then
+also serves them publicly. The service keeps only an index and the storage
+configuration. A passport of an economic operator without a custodian stays in
+the service's database, and its product identifier can be served under
+**https://id.ownyourdata.eu**.
 
-That mode is out of scope for this snapshot — it needs a pod provisioned by the
+The custodian mode is out of scope for this snapshot — it needs a pod provisioned by the
 intermediary and credentials issued by them. Everything documented here is the
 stand-alone path, which is fully functional on its own.
 

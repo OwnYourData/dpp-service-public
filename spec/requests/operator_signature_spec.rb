@@ -86,6 +86,25 @@ RSpec.describe "Signature of the economic operator", type: :request do
       end
     end
 
+    # The carrier path answers in the full form by default, so the signature
+    # a phone or a verifier gets from the printed identifier is the same one.
+    it "hands out the same JWS on the carrier path, and the JSON it covers" do
+      compact = jws_for(public_full)
+      submit(compact)
+      allow(CarrierHosts).to receive(:list).and_return(["dpp.oydapp.eu"])
+      host! "dpp.oydapp.eu"
+
+      get URI(product_id).path, headers: jose
+      expect(response.media_type).to eq("application/jose")
+      expect(response.body).to eq(compact)
+
+      get URI(product_id).path, headers: { "Accept" => "application/json" }
+      expect(response.body).to eq(b64u_decode(compact.split(".")[1]))
+
+      get URI(product_id).path, params: { representation: "compressed" }, headers: jose
+      expect(response.media_type).to eq("application/json")
+    end
+
     it "answers with the JSON the same request gets without a signature that covers it" do
       sign!
 

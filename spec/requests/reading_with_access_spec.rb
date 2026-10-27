@@ -350,6 +350,21 @@ RSpec.describe "Reading with access rights", type: :request do
       end
     end
 
+    # The carrier path reads like ReadDPPByProductId: what a phone gets from
+    # the printed identifier is the public part, and a token opens no more
+    # there than on the read paths.
+    expected_attributes.each do |role, attributes|
+      it "gives #{role || 'a reader without a token'} exactly #{attributes.join(', ')} on the carrier path" do
+        allow(CarrierHosts).to receive(:list).and_return(["dpp.oydapp.eu"])
+        host! "dpp.oydapp.eu"
+        get URI(product_id).path, headers: { "Accept" => "application/json" }
+                                             .merge(who(role) ? { "Authorization" => bearer(who(role)) } : {})
+
+        expect(response).to have_http_status(:ok)
+        expect(element_ids(response.parsed_body)).to contain_exactly(*attributes)
+      end
+    end
+
     it "commits to the public part, which is what a reader without access rights gets" do
       read(passport_paths.first)
 

@@ -122,7 +122,7 @@ RSpec.describe "Protection around the API", type: :request do
 
       exposed = response.headers["Access-Control-Expose-Headers"].split(/,\s*/)
       expect(exposed).to include("WWW-Authenticate", "X-DPP-Access-Roles", "X-DPP-Controlled-Part",
-                                 "X-DPP-Signature-State", "X-DPP-Request-Binding")
+                                 "X-DPP-Signature-State", "X-DPP-Request-Binding", "X-DPP-Carrier")
     end
 
     it "is not sent with answers other than 401" do

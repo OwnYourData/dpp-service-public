@@ -140,4 +140,28 @@ RSpec.describe "GET /.well-known/dpp-service", type: :request do
       expect(response.parsed_body).not_to have_key("authorityIssuers")
     end
   end
+
+  describe "the carrier hosts" do
+    before do
+      allow(ServiceDid).to receive(:configured?).and_return(true)
+      allow(ServiceDid).to receive(:discovery_document).and_return("did" => "did:oyd:zQmService")
+      allow(ReaderDid).to receive(:discovery_entries).and_return(nil)
+    end
+
+    it "lists the hosts on which this service answers product identifiers" do
+      allow(CarrierHosts).to receive(:list).and_return(["id.example.org"])
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body["carrierHosts"]).to eq(["id.example.org"])
+    end
+
+    it "leaves the member out without them" do
+      allow(CarrierHosts).to receive(:list).and_return([])
+
+      get "/.well-known/dpp-service"
+
+      expect(response.parsed_body).not_to have_key("carrierHosts")
+    end
+  end
 end

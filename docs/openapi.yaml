@@ -118,6 +118,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Warning: { $ref: '#/components/headers/Warning' }
             X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: SuccessCreated — DPP created.
           content:
@@ -199,6 +200,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Warning: { $ref: '#/components/headers/Warning' }
             X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: Success — updated DPP.
           content:
@@ -844,6 +846,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Warning: { $ref: '#/components/headers/Warning' }
             X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: Success — updated DataElementCollection.
           content:
@@ -940,6 +943,7 @@ paths:
             X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Policy: { $ref: '#/components/headers/AccessPolicy' }
+            X-DPP-Warning: { $ref: '#/components/headers/Warning' }
             X-DPP-Request-Binding: { $ref: '#/components/headers/RequestBinding' }
           description: Success — updated data element.
           content:
@@ -1037,6 +1041,17 @@ components:
       schema:
         type: string
         example: '"https://dpp.example.org/access-policies/led-lamp/1";unclassified=1;unused-rules=1'
+    Warning:
+      description: >-
+        On a write of the owner: what the passport as it now stands should
+        carry and does not, as an RFC 8941 list with one item per finding. The
+        write itself is not refused. `missingContentType` names a
+        RelatedResource without `contentType` by its elementIdPath. At most 20
+        items; the last one carries `more` with the number left out. Absent
+        without findings; read paths never carry this header.
+      schema:
+        type: string
+        example: 'missingContentType;element="$.DeclarationOfConformity"'
     AccessRoles:
       description: >-
         On a read with access rights: the access classes beyond `public` that

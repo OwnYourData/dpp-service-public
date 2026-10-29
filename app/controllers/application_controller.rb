@@ -8,6 +8,7 @@ class ApplicationController < ActionController::API
   include OperatorSignatureDelivery
   include RepresentationParam
   include AccessPolicyHeader
+  include WriteWarnings
   include ReaderAccess
   include AccessLogging
 

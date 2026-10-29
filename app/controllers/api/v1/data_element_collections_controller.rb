@@ -50,6 +50,7 @@ module Api
         commit_payload(@dpp)
         report_signature(@dpp)
         report_access_policy(@dpp)
+        report_write_warnings(@dpp)
         render_element(collections[idx], document: @dpp.to_document)
       end
 

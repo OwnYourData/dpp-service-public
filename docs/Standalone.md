@@ -152,8 +152,11 @@ as `carrierHosts`.
 ## 4. With Docker
 
 The image is published, so nothing has to be built: **`oydeu/dpp-service`**, for
-`linux/amd64` and `linux/arm64`. Together with the `docker-compose.yml` in this
-repository it brings its own PostgreSQL, runs the migrations once and starts.
+`linux/amd64` and `linux/arm64`. It is built from this repository with every
+release commit (`.github/workflows/image.yml`): `latest` and a tag with the date
+of the commit, for example `261028`. Together with the `docker-compose.yml` in
+this repository it brings its own PostgreSQL, runs the migrations once and
+starts.
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/OwnYourData/dpp-service-public/main/docker-compose.yml

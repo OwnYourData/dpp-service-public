@@ -62,6 +62,7 @@ module Api
         commit_payload(@dpp)
         report_signature(@dpp)
         report_access_policy(@dpp)
+        report_write_warnings(@dpp)
         document = @dpp.to_document
         render_element(@element_path.resolve(document), document: document)
       end

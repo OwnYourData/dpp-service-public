@@ -1,0 +1,69 @@
+# Publishes the image oydeu/dpp-service from this repository, so that running
+# the DPP Service with Docker is a pull and not a build (docs/Standalone.md).
+#
+# Every snapshot arrives here as one release commit on main; that push builds
+# the image from exactly the files of the snapshot. The image therefore holds
+# what this repository holds, and GET /version names the commit of this
+# repository it was built from.
+#
+# Two architectures: amd64 for servers, arm64 for Apple silicon. The arm64 half
+# is built under emulation and takes a while.
+name: Image
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish as, next to :latest (default: date of the commit, e.g. 261028)"
+        required: false
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Sign in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # :latest and one tag of its own, so an installation can pin an image.
+      - name: Work out the tags
+        id: tags
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          tag="$INPUT_TAG"
+          if [ -z "$tag" ]; then tag="$(TZ=UTC git log -1 --format=%cd --date=format-local:%y%m%d)"; fi
+          case "$tag" in
+            *[!A-Za-z0-9._-]*|'') echo "unusable tag: $tag" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "tags=oydeu/dpp-service:latest,oydeu/dpp-service:$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            DPP_IMAGE_TAG=${{ steps.tags.outputs.tag }}
+            DPP_COMMIT=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

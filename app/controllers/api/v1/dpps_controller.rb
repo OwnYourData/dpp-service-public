@@ -165,6 +165,7 @@ module Api
         commit_payload(dpp)
         report_signature(dpp)
         report_access_policy(dpp)
+        report_write_warnings(dpp)
         report_carrier(dpp)
         response.headers["X-DPP-Retain-Until"] = dpp.retain_until.iso8601 if dpp.retain_until
         render_passport(dpp.to_document, status_code: "SuccessCreated")
@@ -197,6 +198,7 @@ module Api
         commit_payload(@dpp)
         report_signature(@dpp)
         report_access_policy(@dpp)
+        report_write_warnings(@dpp)
         render_passport(@dpp.to_document)
       end
 

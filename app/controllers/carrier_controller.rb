@@ -27,6 +27,9 @@
 # the owner and for a reader with access rights who presents one, with the
 # same headers and the same entries in the access log.
 #
+# An identifier this service has no passport for is answered with 404: JSON,
+# or a short page for a browser, with Vary: Accept either way.
+#
 # A carrier host serves nothing else. What is recognisably an address of the
 # API rather than an identifier is answered with 404 and says where the API is,
 # so that a client looking for the API here does not conclude that a passport
@@ -95,8 +98,16 @@ class CarrierController < ApplicationController
                   text: "This host answers product identifiers only; the API is at #{api_base}")
   end
 
+  # A person who scanned a carrier whose identifier this service does not know
+  # gets a short page, not a JSON error; every other client keeps the JSON.
   def not_found
-    render_result("ClientErrorResourceNotFound", text: "No passport for this product identifier")
+    vary_on_accept!
+    unless html_preferred?
+      return render_result("ClientErrorResourceNotFound", text: "No passport for this product identifier")
+    end
+
+    identifier = "https://#{request.host.downcase}#{request.path}"
+    send_html(PassportHtml.not_found_page(identifier: identifier, api_base: api_base), status: :not_found)
   end
 
   # HTML only with a real lead over JSON and over the signature: a client
@@ -109,9 +120,9 @@ class CarrierController < ApplicationController
     html.positive? && html > quality(ranges, JSON_TYPE) && html > quality(ranges, OperatorSignature::MEDIA_TYPE)
   end
 
-  def send_html(html)
+  def send_html(html, status: :ok)
     response.set_header("Content-Security-Policy", PassportHtml::SECURITY_POLICY)
-    render body: html, content_type: "text/html; charset=utf-8"
+    render body: html, content_type: "text/html; charset=utf-8", status: status
   end
 
   def api_base = DidOyd.endpoint_base.delete_suffix("/")

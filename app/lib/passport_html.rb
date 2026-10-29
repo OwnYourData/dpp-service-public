@@ -105,6 +105,30 @@ module PassportHtml
     HTML
   end
 
+  # The page a browser gets on a carrier host for an identifier without a
+  # passport here (404).
+  def not_found_page(identifier:, api_base:)
+    <<~HTML
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta name="robots" content="noindex">
+      <title>No passport for this product identifier</title>
+      <style>#{STYLE}</style>
+      </head>
+      <body>
+      <main>
+      <h1>No passport found</h1>
+      <p class="id">#{h(identifier)}</p>
+      <p>The DPP Service at <a href="#{h(api_base)}">#{h(api_base)}</a> keeps no passport for this product identifier. Check that the address matches the one on the product or its data carrier.</p>
+      </main>
+      </body>
+      </html>
+    HTML
+  end
+
   def header(document)
     rows = HEADER.filter_map do |key, label|
       value = document[key]

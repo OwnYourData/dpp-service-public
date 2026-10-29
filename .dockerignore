@@ -1,35 +1,72 @@
-.git
-.gitignore
-.DS_Store
+# What goes into an image is what the public snapshot contains (.publish-exclude)
+# and nothing more, wherever the image is built: from this repository or from
+# the public one. spec/lib/dockerignore_spec.rb holds the two files together.
+# rsync matches a pattern without "/" at any depth, Docker only at the root;
+# such patterns are therefore also written with "**/" here.
 
-# Never let host-local (mac) gems or bundler config leak into the image
-.bundle
-vendor/bundle
-/vendor/bundle
-README.md
+# Version control, CI and the mirror's own files
+.git
+**/.git
+.github
+**/.github
+.publish-exclude
+**/.publish-exclude
+.publish-overlay
+**/.publish-overlay
+
+# Licensed standards: never in an image
 docs/*.pdf
 docs/*.PDF
+**/*.pdf
+**/*.PDF
 
-# Local databases / storage
-storage/*
-!storage/.keep
-*.sqlite3
-*.sqlite3-*
+# Internal working documents
+docs/operations
+docs/HackMD_260812.md
+docs/Prompts_Datenintermediaer_260812.md
+docs/pod-dpp_Vorschlag.md
+docs/Walkthrough_Pod_VarianteB.md
+docs/Guide.md
+docs/Walkthrough_DID_Intermediaer.md
+docs/Walkthrough-Delegation.md
+docs/CarrierRedesign.md
 
-# Dev/test artefacts
-spec
-tmp
-log
-.rspec
-
-# Kubernetes / deploy (not needed inside the image)
+# Cluster and operations: internal hosts, secret names, measurement scripts
 k8s
+**/k8s
+script
+**/script
+docs/CarrierMigrationRunbook.md
+docs/verification/PACE-Kommandos.md
+docs/verification/PROTOKOLL.md
+
+# Host-local gems and bundler config never leak into the image
+.bundle
+**/.bundle
+vendor/bundle
+
+# Runtime, local data, dev and test artefacts
+log
+**/log
+tmp
+**/tmp
+storage
+**/storage
+**/*.log
+**/*.sqlite3
+**/*.sqlite3-*
+spec
+.rspec
+README.md
 Dockerfile
 .dockerignore
+**/.DS_Store
 
-# Secrets — never bake these into an image
-.env
-.env.*
+# Secrets: never baked into an image
+**/*.enc
+**/*_revocation.json
+**/*.env
+**/.env
+**/.env.*
 config/master.key
 config/credentials/*.key
-docs/operations

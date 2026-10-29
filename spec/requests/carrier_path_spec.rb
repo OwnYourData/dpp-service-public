@@ -140,6 +140,36 @@ RSpec.describe "Carrier path", type: :request do
 
       expect(response).to have_http_status(:not_found)
       expect(json["statusCode"]).to eq("ClientErrorResourceNotFound")
+      expect(response.headers["Vary"]).to include("Accept")
+    end
+
+    it "shows a browser a short page for an identifier nobody has, still with 404" do
+      get "/01/09520123456788/21/%3COTHER%3E", headers: { "Accept" => "text/html,application/xhtml+xml,*/*;q=0.8" }
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.media_type).to eq("text/html")
+      expect(response.headers["Vary"]).to include("Accept")
+      expect(response.headers["Content-Security-Policy"]).to include("default-src 'none'")
+      expect(response.body).to include("No passport found")
+      expect(response.body).not_to include("<OTHER>")
+      expect(response.body).not_to include("<script")
+      expect(response.cookies).to be_empty
+    end
+
+    it "keeps JSON for an unknown identifier when HTML has no lead" do
+      ["*/*", "", "application/json, text/html"].each do |accept|
+        get "/01/09520123456788/21/OTHER", headers: { "Accept" => accept }
+
+        expect(response).to have_http_status(:not_found), accept
+        expect(response.media_type).to eq("application/json"), accept
+      end
+    end
+
+    it "answers HEAD for an unknown identifier with 404 and no body" do
+      head "/01/09520123456788/21/OTHER", headers: { "Accept" => "text/html" }
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.body).to be_empty
     end
 
     it "does not answer for a passport whose identifier names another host" do

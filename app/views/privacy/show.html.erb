@@ -6,9 +6,11 @@
 <link rel="icon" href="/oyd-mark.svg" type="image/svg+xml">
 <title>Privacy policy · DPP Service · OwnYourData</title>
 <meta name="description" content="How OwnYourData processes personal data on the DPP Service, its Knowledge Base and the DPP Linter.">
+<%= render "shared/theme_head" %>
 <%= render "shared/consent_head" %>
 <style>
   :root {
+    color-scheme: light;
     --bg: #f7f7f5;
     --surface: #ffffff;
     --text: #1d2327;
@@ -16,8 +18,10 @@
     --line: #e2e5e8;
     --accent: #0b6e4f;
   }
+  /* dark: follows the system unless the reader picked a theme (data-theme on <html>, theme.js) */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #121517;
       --surface: #1b1f22;
       --text: #e8ebed;
@@ -25,6 +29,15 @@
       --line: #2c3236;
       --accent: #4cc293;
     }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121517;
+    --surface: #1b1f22;
+    --text: #e8ebed;
+    --muted: #9aa5ad;
+    --line: #2c3236;
+    --accent: #4cc293;
   }
   * { box-sizing: border-box; }
   body {
@@ -36,6 +49,19 @@
   a { color: var(--accent); }
   .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
   header { padding: 20px 0; border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .theme-toggle {
+    background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--muted);
+    width: 34px; height: 34px; padding: 0; margin-left: 18px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  }
+  .theme-toggle[hidden] { display: none; }
+  .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-toggle svg { width: 18px; height: 18px; }
+  .theme-toggle .icon-sun { display: none; }
+  .theme-toggle[data-mode="dark"] .icon-sun { display: block; }
+  .theme-toggle[data-mode="dark"] .icon-moon { display: none; }
   .brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; color: inherit; text-decoration: none; }
   .brand .mark { width: 15px; height: auto; display: block; }
   .brand span { color: var(--muted); font-weight: 400; margin-left: -5px; }
@@ -60,6 +86,9 @@
 <header>
   <div class="wrap">
     <a class="brand" href="/"><img class="mark" src="/oyd-mark.svg" alt="" width="15" height="28">DPP Service <span>· OwnYourData</span></a>
+    <nav>
+<%= render "shared/theme_toggle" %>
+    </nav>
   </div>
 </header>
 

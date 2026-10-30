@@ -278,7 +278,8 @@ RSpec.describe "Landing page", type: :request do
     expect(cells.uniq).to eq(["Service", "Licence", "Example passports · DPP Linter", "Service checks · Validator"])
     expect(cells.size).to eq(7 * 4)
     expect(page_text).to include("@media (max-width: 639px)")
-    expect(page_text).not_to include("<script")
+    # The only script is the light/dark switch; the table needs none.
+    expect(Nokogiri::HTML(page_text).css("script").map { |s| s["src"] }).to eq(["/theme.js"])
   end
 
   it "keeps showing the shipped list when the configured source fails" do

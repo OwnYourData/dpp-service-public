@@ -6,9 +6,11 @@
 <link rel="icon" href="/oyd-mark.svg" type="image/svg+xml">
 <title>DPP Service · OwnYourData</title>
 <meta name="description" content="Public instance of the DPP Service, an open-source implementation of the EN 18222:2026 lifecycle API for Digital Product Passports, operated by OwnYourData.">
+<%= render "shared/theme_head" %>
 <%= render "shared/consent_head" %>
 <style>
   :root {
+    color-scheme: light;
     --bg: #f7f7f5;
     --surface: #ffffff;
     --text: #1d2327;
@@ -21,8 +23,10 @@
     --bad: #b42318;
     --radius: 12px;
   }
+  /* dark: follows the system unless the reader picked a theme (data-theme on <html>, theme.js) */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #121517;
       --surface: #1b1f22;
       --text: #e8ebed;
@@ -34,6 +38,19 @@
       --wip-soft: #33291a;
       --bad: #f28b82;
     }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121517;
+    --surface: #1b1f22;
+    --text: #e8ebed;
+    --muted: #9aa5ad;
+    --line: #2c3236;
+    --accent: #4cc293;
+    --accent-soft: #173229;
+    --wip: #e6b85c;
+    --wip-soft: #33291a;
+    --bad: #f28b82;
   }
   * { box-sizing: border-box; }
   body {
@@ -51,6 +68,18 @@
   .brand span { color: var(--muted); font-weight: 400; margin-left: -5px; }
   header nav a { color: var(--muted); text-decoration: none; margin-left: 18px; font-size: 15px; }
   header nav a:hover { color: var(--text); }
+  .theme-toggle {
+    background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--muted);
+    width: 34px; height: 34px; padding: 0; margin-left: 18px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  }
+  .theme-toggle[hidden] { display: none; }
+  .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-toggle svg { width: 18px; height: 18px; }
+  .theme-toggle .icon-sun { display: none; }
+  .theme-toggle[data-mode="dark"] .icon-sun { display: block; }
+  .theme-toggle[data-mode="dark"] .icon-moon { display: none; }
   .hero { padding: 56px 0 36px; }
   h1 { font-size: clamp(28px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.01em; }
   .lead { font-size: 18px; color: var(--muted); max-width: 680px; margin: 0 0 12px; }
@@ -141,6 +170,7 @@
   footer .funding { flex-basis: 100%; font-size: 13px; }
   @media (max-width: 560px) {
     header nav a { margin: 0 14px 0 0; }
+    .theme-toggle { margin-left: 0; }
     .hero { padding-top: 36px; }
     .grid.two { grid-template-columns: 1fr; }
   }
@@ -155,6 +185,7 @@
       <a href="/kb/">Knowledge Base</a>
       <a href="/api-docs/index.html">API</a>
       <a href="https://github.com/OwnYourData/dpp-service-public">GitHub</a>
+<%= render "shared/theme_toggle" %>
     </nav>
   </div>
 </header>

@@ -90,7 +90,7 @@ RSpec.describe "Consent and conversion measurement", type: :request do
 
         doc = page
         expect(doc.css('script[src="/consent.js"]').size).to eq(1), path
-        expect(doc.css("script[src]").map { |n| n["src"] }).to eq(["/consent.js"]), path
+        expect(doc.css("script[src]").map { |n| n["src"] }).to eq(["/theme.js", "/consent.js"]), path
         expect(doc.css("script:not([src])")).to be_empty, path
         expect(response.body).not_to match(/googletagmanager|googleadservices|doubleclick|gtag\(/), path
       end

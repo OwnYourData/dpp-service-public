@@ -6,6 +6,7 @@
 <link rel="icon" href="/oyd-mark.svg" type="image/svg+xml">
 <title>DPP Service · OwnYourData</title>
 <meta name="description" content="Public instance of the DPP Service, an open-source implementation of the EN 18222:2026 lifecycle API for Digital Product Passports, operated by OwnYourData.">
+<%= render "shared/consent_head" %>
 <style>
   :root {
     --bg: #f7f7f5;
@@ -52,7 +53,8 @@
   header nav a:hover { color: var(--text); }
   .hero { padding: 56px 0 36px; }
   h1 { font-size: clamp(28px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.01em; }
-  .lead { font-size: 18px; color: var(--muted); max-width: 680px; margin: 0 0 26px; }
+  .lead { font-size: 18px; color: var(--muted); max-width: 680px; margin: 0 0 12px; }
+  .nonprofit { color: var(--muted); max-width: 680px; margin: 0 0 26px; font-size: 15px; }
   .actions { display: flex; gap: 12px; flex-wrap: wrap; }
   .btn {
     display: inline-block; padding: 10px 18px; border-radius: 8px; text-decoration: none;
@@ -166,6 +168,7 @@
       implementation of the EN&nbsp;18222:2026 lifecycle API with passport content
       following EN&nbsp;18223:2026. Reading passports is public and needs no account.
     </p>
+    <p class="nonprofit">OwnYourData is a non-profit association: all tools on this page are free of charge and open source.</p>
     <div class="actions">
       <a class="btn primary" href="/api-docs/index.html">Explore the API</a>
       <a class="btn secondary" href="https://dpp.oydapp.eu/01/09520123456788/21/000001">Example passport (JSON)</a>
@@ -187,11 +190,12 @@
 
     <article class="card">
       <span class="badge live">Available</span>
-      <h3><a href="https://hub.docker.com/r/oydeu/dpp-manager">DPP Manager<span class="go" aria-hidden="true">→</span></a></h3>
+      <h3><a href="/kb/getting-started/">DPP Manager<span class="go" aria-hidden="true">→</span></a></h3>
       <p>Application for economic operators that runs on their own computer: describe products, create passports and publish them through a DPP service.</p>
       <div class="links">
         <a href="/kb/dpp-manager/">Explained</a>
         <a href="https://github.com/OwnYourData/dpp-service-public/blob/main/docs/DPP-Manager-Demo.md">Walkthrough</a>
+        <a href="https://hub.docker.com/r/oydeu/dpp-manager">Docker Hub</a>
         <a href="https://github.com/OwnYourData/dpp-manager-public">Source</a>
       </div>
     </article>
@@ -258,10 +262,7 @@
 <footer>
   <div class="wrap">
     <div>Operated by <a href="https://www.ownyourdata.eu/en/">OwnYourData</a></div>
-    <div class="legal">
-      <a href="https://www.ownyourdata.eu/en/imprint/">Imprint</a>
-      <a href="https://www.ownyourdata.eu/en/privacy-policy/">Privacy</a>
-    </div>
+<%= render "shared/legal_links" %>
     <div class="funding"><!-- funding:begin -->The DPP Service is part of <a href="https://dpp-austria.at/">PACE-DPP</a>. This Lighthouse Project has been made possible by financial contributions from the Austrian Federal Ministry of Innovation, Mobility and Infrastructure (<a href="https://www.bmimi.gv.at/en.html">BMIMI</a>, formerly BMK), supported by the Austrian Research Promotion Agency (FFG) under grant number <a href="https://projekte.ffg.at/projekt/5128301">917177</a>, as well as from the German Federal Ministry of Research, Technology and Space (BMFTR, formerly BMWK), supported by the German Research Promotion Agency (DLR-PT).<!-- funding:end --></div>
   </div>
 </footer>

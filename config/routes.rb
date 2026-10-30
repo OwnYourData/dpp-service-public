@@ -114,6 +114,13 @@ Rails.application.routes.draw do
   # of available DPP services on it comes from dpp-validator.
   root "landing#show"
 
+  # The privacy policy of the start page, the API and the pages around them.
+  get "privacy", to: "privacy#show", format: false
+
+  # The consent banner and the conversion tag (docs/Consent.md); an empty
+  # script while no conversion ID is configured.
+  get "consent.js", to: "consent#show", format: false
+
   # Health check
   get "up", to: proc { [200, { "Content-Type" => "application/json" }, ['{"status":"ok"}']] }
   get "version", to: proc { [200, { "Content-Type" => "application/json" }, [BuildInfo.to_json]] }

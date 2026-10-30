@@ -60,13 +60,37 @@ RSpec.describe "Landing page", type: :request do
     tools = page.xpath("//h2[text()='Tools']/following-sibling::div[1]//article")
     titles = tools.css("h3 a").map { |a| [a.text.delete("→").strip, a["href"]] }
     expect(titles).to eq([["DPP Knowledge Base", "/kb/"],
-                          ["DPP Manager", "https://hub.docker.com/r/oydeu/dpp-manager"],
+                          ["DPP Manager", "/kb/getting-started/"],
                           ["DPP Linter", "https://dpplint.ownyourdata.eu/"],
                           ["DPP Service Validator", "https://ownyourdata.github.io/dpp-validator/"]])
     expect(tools.css("h3 a .go").map { |s| s["aria-hidden"] }).to all(eq("true"))
     expect(tools.css(".links a").map { |a| a.text.strip })
-      .to eq(["All articles", "Laws and standards", "Roadmap", "Explained", "Walkthrough", "Source",
+      .to eq(["All articles", "Laws and standards", "Roadmap", "Explained", "Walkthrough", "Docker Hub", "Source",
               "Explained", "dpplint.ownyourdata.eu", "Source", "Explained", "Results", "Criteria", "Source"])
+  end
+
+  it "says that OwnYourData is a non-profit association and the tools are free and open source" do
+    get "/"
+
+    expect(page_text).to include('<p class="nonprofit">OwnYourData is a non-profit association: ' \
+                                 "all tools on this page are free of charge and open source.</p>")
+  end
+
+  # The DPP Manager card leads to "Getting started" first; the image on
+  # Docker Hub stays one link further.
+  it "leads from the DPP Manager card to Getting started, with Docker Hub among its links" do
+    get "/"
+
+    card = Nokogiri::HTML(page_text).xpath("//article[.//h3[contains(., 'DPP Manager')]]").first
+    expect(card.at_css("h3 a")["href"]).to eq("/kb/getting-started/")
+    expect(card.css(".links a").map { |a| a["href"] }).to include("https://hub.docker.com/r/oydeu/dpp-manager")
+  end
+
+  it "links the privacy policy of this service and the imprint of OwnYourData from the footer" do
+    get "/"
+
+    legal = Nokogiri::HTML(page_text).css("footer .legal a").map { |a| [a.text, a["href"]] }
+    expect(legal).to eq([["Imprint", "https://www.ownyourdata.eu/en/imprint/"], ["Privacy", "/privacy"]])
   end
 
   it "lets operators add or correct their service" do

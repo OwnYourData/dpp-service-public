@@ -168,7 +168,7 @@ function showBanner(focus) {
       '<div class="oc-box">' +
       '<h2 id="oyd-consent-title">Measuring our ads</h2>' +
       "<p>OwnYourData advertises these free tools with Google Ads. With your consent, Google’s conversion tag tells us " +
-      "when a visit from one of our ads leads to “Getting started” or to one of our GitHub repositories. " +
+      "when a visit from one of our ads leads to “Getting started”, one of our GitHub repositories or a newsletter sign-up. " +
       "Google then sets cookies and receives your IP address and browser details, possibly in the USA. " +
       "No analytics, no remarketing. Without your consent nothing is loaded from Google. " +
       "You can change your choice at any time under “Cookie settings” at the bottom of the page. " +

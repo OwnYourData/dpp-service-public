@@ -1,0 +1,80 @@
+<%
+  texts = {
+    check_inbox: ["Please check your inbox",
+                  ["If the address can receive notifications, we have sent you an email with a link to confirm the subscription. The link is valid for 7 days.",
+                   "If no email arrives, check your spam folder. Without confirmation, the request is deleted after 7 days."]],
+    invalid: ["That did not work",
+              ["Please enter a valid email address and choose a language."]],
+    too_many: ["Please try again later",
+               ["There were too many sign-ups from your network in the last hour."]],
+    mail_failed: ["The email could not be sent",
+                  ["We could not send the confirmation email just now. Nothing has been stored. Please try again later."]],
+    confirm_form: ["Confirm your subscription",
+                   ["Press the button to receive notifications about new Delegated Acts for Digital Product Passports."]],
+    confirmed: ["Subscription confirmed",
+                ["Thank you. You will receive an email when new Delegated Acts for Digital Product Passports are published. Every email contains a link to unsubscribe."]],
+    link_invalid: ["This link is no longer valid",
+                   ["Confirmation links are valid for 7 days. Please subscribe again on the start page."]],
+    unsubscribe_form: ["Unsubscribe",
+                       ["Press the button to stop the notifications about new Delegated Acts. Your address is deleted at once."]],
+    unsubscribed: ["You are unsubscribed",
+                   ["Your address has been deleted. You will receive no further notifications."]]
+  }
+  title, paragraphs = texts.fetch(@state)
+-%>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/oyd-mark.svg" type="image/svg+xml">
+<title><%= title %> · DPP Service · OwnYourData</title>
+<% if @conversion -%>
+<meta name="oyd-conversion" content="newsletter">
+<% end -%>
+<%= render "shared/theme_head" %>
+<%= render "shared/consent_head" %>
+<%= render "shared/page_style" %>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="/"><img class="mark" src="/oyd-mark.svg" alt="" width="15" height="28">DPP Service <span>· OwnYourData</span></a>
+    <nav>
+<%= render "shared/theme_toggle" %>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1><%= title %></h1>
+<% paragraphs.each do |paragraph| -%>
+  <p><%= paragraph %></p>
+<% end -%>
+<% case @state -%>
+<% when :confirm_form -%>
+  <form method="post" action="/newsletter/confirm">
+    <input type="hidden" name="token" value="<%= @token %>">
+    <button type="submit" class="btn">Confirm</button>
+  </form>
+<% when :unsubscribe_form -%>
+  <form method="post" action="/newsletter/unsubscribe">
+    <input type="hidden" name="token" value="<%= @token %>">
+    <button type="submit" class="btn">Unsubscribe</button>
+  </form>
+<% else -%>
+  <p><a href="/">Back to the start page</a> · <a href="/privacy#newsletter">Privacy policy</a></p>
+<% end -%>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>Operated by <a href="https://www.ownyourdata.eu/en/">OwnYourData</a></div>
+<%= render "shared/legal_links" %>
+  </div>
+</footer>
+
+</body>
+</html>

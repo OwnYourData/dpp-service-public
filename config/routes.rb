@@ -121,6 +121,14 @@ Rails.application.routes.draw do
   # script while no conversion ID is configured.
   get "consent.js", to: "consent#show", format: false
 
+  # Notifications about new Delegated Acts (docs/Newsletter.md); 404 while
+  # mail is not configured.
+  post "newsletter", to: "newsletter#create", format: false
+  get "newsletter/confirm", to: "newsletter#confirm_form", format: false
+  post "newsletter/confirm", to: "newsletter#confirm", format: false
+  get "newsletter/unsubscribe", to: "newsletter#unsubscribe_form", format: false
+  post "newsletter/unsubscribe", to: "newsletter#unsubscribe", format: false
+
   # Health check
   get "up", to: proc { [200, { "Content-Type" => "application/json" }, ['{"status":"ok"}']] }
   get "version", to: proc { [200, { "Content-Type" => "application/json" }, [BuildInfo.to_json]] }

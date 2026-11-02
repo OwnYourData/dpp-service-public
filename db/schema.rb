@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_10_25_000023) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_31_000024) do
   create_table "access_event_parties", force: :cascade do |t|
     t.bigint "access_event_id", null: false
     t.string "did", null: false
@@ -136,6 +136,15 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_25_000023) do
     t.index ["product_key", "product_host"], name: "index_dpps_on_active_product", unique: true, where: "dpp_status = 'Active'"
     t.index ["product_key"], name: "index_dpps_on_product_key"
     t.index ["storage_backend"], name: "index_dpps_on_storage_backend"
+  end
+
+  create_table "newsletter_subscriptions", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "locale", null: false
+    t.datetime "requested_at", null: false
+    t.datetime "confirmed_at"
+    t.index ["email"], name: "index_newsletter_subscriptions_on_email", unique: true
+    t.index ["requested_at"], name: "index_newsletter_subscriptions_on_requested_at"
   end
 
   create_table "rate_counters", force: :cascade do |t|

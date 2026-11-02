@@ -8,78 +8,7 @@
 <meta name="description" content="How OwnYourData processes personal data on the DPP Service, its Knowledge Base and the DPP Linter.">
 <%= render "shared/theme_head" %>
 <%= render "shared/consent_head" %>
-<style>
-  :root {
-    color-scheme: light;
-    --bg: #f7f7f5;
-    --surface: #ffffff;
-    --text: #1d2327;
-    --muted: #5b6770;
-    --line: #e2e5e8;
-    --accent: #0b6e4f;
-  }
-  /* dark: follows the system unless the reader picked a theme (data-theme on <html>, theme.js) */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --bg: #121517;
-      --surface: #1b1f22;
-      --text: #e8ebed;
-      --muted: #9aa5ad;
-      --line: #2c3236;
-      --accent: #4cc293;
-    }
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --bg: #121517;
-    --surface: #1b1f22;
-    --text: #e8ebed;
-    --muted: #9aa5ad;
-    --line: #2c3236;
-    --accent: #4cc293;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  }
-  a { color: var(--accent); }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
-  header { padding: 20px 0; border-bottom: 1px solid var(--line); }
-  header .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .theme-toggle {
-    background: none; border: 1px solid var(--line); border-radius: 8px; color: var(--muted);
-    width: 34px; height: 34px; padding: 0; margin-left: 18px; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
-  }
-  .theme-toggle[hidden] { display: none; }
-  .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
-  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .theme-toggle svg { width: 18px; height: 18px; }
-  .theme-toggle .icon-sun { display: none; }
-  .theme-toggle[data-mode="dark"] .icon-sun { display: block; }
-  .theme-toggle[data-mode="dark"] .icon-moon { display: none; }
-  .brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; color: inherit; text-decoration: none; }
-  .brand .mark { width: 15px; height: auto; display: block; }
-  .brand span { color: var(--muted); font-weight: 400; margin-left: -5px; }
-  h1 { font-size: clamp(26px, 4vw, 34px); line-height: 1.2; margin: 40px 0 8px; }
-  .updated { color: var(--muted); margin: 0 0 28px; font-size: 15px; }
-  h2 { font-size: 20px; margin: 36px 0 10px; }
-  h3 { font-size: 17px; margin: 22px 0 6px; }
-  p, li { margin: 0 0 10px; }
-  ul { padding-left: 22px; margin: 0 0 10px; }
-  nav.toc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 20px; }
-  nav.toc ol { margin: 0; padding-left: 20px; }
-  nav.toc li { margin: 2px 0; }
-  address { font-style: normal; }
-  footer { margin-top: 56px; padding: 24px 0 40px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
-  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  footer a { color: var(--muted); }
-  footer .legal a { margin-right: 16px; }
-</style>
+<%= render "shared/page_style" %>
 </head>
 <body>
 
@@ -94,7 +23,7 @@
 
 <main class="wrap">
   <h1>Privacy policy</h1>
-  <p class="updated">DPP Service, DPP Knowledge Base and DPP Linter · last updated 30 October 2026</p>
+  <p class="updated">DPP Service, DPP Knowledge Base and DPP Linter · last updated 31 October 2026</p>
 
   <nav class="toc" aria-label="Contents">
     <ol>
@@ -104,6 +33,7 @@
       <li><a href="#api">DPP Service API</a></li>
       <li><a href="#linter">DPP Linter</a></li>
       <li><a href="#knowledge-base">Knowledge Base and API documentation</a></li>
+      <li><a href="#newsletter">Newsletter</a></li>
       <li><a href="#conversion-tracking">Conversion tracking with Google Ads</a></li>
       <li><a href="#rights">Your rights</a></li>
     </ol>
@@ -176,15 +106,21 @@
   <h2 id="knowledge-base">6. Knowledge Base and API documentation</h2>
   <p>The Knowledge Base consists of static pages. Its search runs entirely in your browser: the search index is loaded from our server, and what you type is neither sent to us nor to anyone else. The Knowledge Base and the API documentation load all their files from our own server, including fonts.</p>
 
-  <h2 id="conversion-tracking">7. Conversion tracking with Google Ads</h2>
-  <p>As a non-profit association, OwnYourData advertises these free tools with Google Ads. To know which ads are useful, we would like to measure whether a visit that started with one of our ads leads to one of these actions: opening “Getting started” or the DPP Manager on Docker Hub, or opening one of our repositories on GitHub.</p>
+  <h2 id="newsletter">7. Newsletter</h2>
+  <p>If you subscribe to “Get notified about new Delegated Acts” on the start page, we store your email address and the language you choose. Subscription works in two steps (double opt-in): we send you an email with a link, and only after you have confirmed on the page it leads to will you receive notifications. A subscription that has not been confirmed is deleted after 7 days. To be able to show that you subscribed, we record when you requested and when you confirmed the subscription. We store no IP address and no other data with your subscription; to protect the form from abuse, it counts sign-ups per IP address and hour, and the counter is deleted shortly afterwards.</p>
+  <p>The legal basis is your consent (Art.&nbsp;6(1)(a) GDPR). Every email contains a link to unsubscribe; you can also write to us. When you unsubscribe, your address is deleted immediately. Our emails are plain text and contain no tracking.</p>
+  <p>The emails are sent through Microsoft 365. Microsoft Ireland Operations Limited, One Microsoft Place, South County Business Park, Leopardstown, Dublin 18, Ireland, processes your address on our behalf under a data processing agreement (Art.&nbsp;28 GDPR) and keeps delivery logs for up to 90 days. Data may be transferred to Microsoft Corporation in the USA, which is certified under the EU-U.S. Data Privacy Framework (Art.&nbsp;45 GDPR).</p>
+
+  <h2 id="conversion-tracking">8. Conversion tracking with Google Ads</h2>
+  <p>As a non-profit association, OwnYourData advertises these free tools with Google Ads. To know which ads are useful, we would like to measure whether a visit that started with one of our ads leads to one of these actions: on this site, opening “Getting started” or the DPP Manager on Docker Hub, opening one of our repositories on GitHub, or confirming a newsletter subscription; in the DPP Linter (dpplint.ownyourdata.eu), completing a check of a product identifier.</p>
   <p><strong>Only with your consent.</strong> On your first visit, a banner asks whether you agree. Until you accept, nothing is loaded from Google and no request is sent to a Google domain. If you accept, your browser loads the Google Ads tag (gtag.js) from Google, which receives your IP address and browser details. We use the tag only for conversion measurement: no Google Analytics, no remarketing, no personalised advertising, and no reports of the pages you view.</p>
   <p><strong>What is processed.</strong> Only when one of the actions above takes place does your browser send a conversion to Google: your IP address, information about your browser and device, the address and title of the page you are on, including the ad click identifier if the address contains one, the time, and which action took place. With the first conversion, Google stores a cookie on our domain, <code>_gcl_au</code>, typically for 90 days, and may read or set cookies on its own domains. In our Google Ads account we see only aggregated figures, not individual visitors.</p>
+  <p><strong>In the DPP Linter.</strong> The DPP Linter at dpplint.ownyourdata.eu asks for your consent with its own banner, and your choice there applies to the DPP Linter only. With your consent, a conversion is sent each time a check you started has finished. It contains the address of the DPP Linter’s start page, including the ad click identifier if the address contains one, but not the product identifier you entered, and of the page you came from only its domain. The result of the check is not sent. Without your consent, the DPP Linter loads nothing from Google; its API documentation loads no fonts or other resources from Google either. You can change your choice under “Cookie settings” at the bottom of the DPP Linter’s page.</p>
   <p><strong>Legal basis.</strong> Your consent (Art.&nbsp;6(1)(a) GDPR; for storing and reading information on your device, §&nbsp;165(3) of the Austrian Telecommunications Act 2021, TKG&nbsp;2021).</p>
   <p><strong>Recipient and transfer to the USA.</strong> The recipient is Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Ireland. Data may be transferred to Google LLC in the USA. Google LLC is certified under the EU-U.S. Data Privacy Framework, for which the European Commission has adopted an adequacy decision (Art.&nbsp;45 GDPR). More in <a href="https://policies.google.com/privacy">Google’s privacy policy</a> and at <a href="https://business.safety.google/privacy/">business.safety.google</a>.</p>
   <p><strong>Your choice and how to change it.</strong> Your choice is stored in your browser (local storage) for twelve months, so that the banner does not appear on every page; this entry is not sent to us or to Google. You can withdraw your consent at any time, with effect for the future, under “Cookie settings” at the bottom of each page. When you decline, the <code>_gcl_</code> cookies on our domain are deleted and the tag is no longer loaded.</p>
 
-  <h2 id="rights">8. Your rights</h2>
+  <h2 id="rights">9. Your rights</h2>
   <p>You have the right of access to your personal data (Art.&nbsp;15 GDPR), to rectification (Art.&nbsp;16), erasure (Art.&nbsp;17), restriction of processing (Art.&nbsp;18), where applicable to data portability (Art.&nbsp;20), and to object to processing based on legitimate interests (Art.&nbsp;21). You can withdraw a consent at any time, without affecting the lawfulness of processing before the withdrawal (Art.&nbsp;7(3)). Write to <a href="mailto:office@ownyourdata.eu">office@ownyourdata.eu</a>.</p>
   <p>We do not use automated decision-making, including profiling, within the meaning of Art.&nbsp;22 GDPR. Whether a reader may see restricted passport data follows from the access rights the economic operator has granted, not from an assessment of the person.</p>
   <p>If you believe that the processing of your data violates data protection law, you can lodge a complaint with the supervisory authority. In Austria this is the Österreichische Datenschutzbehörde (Austrian Data Protection Authority), Barichgasse 40–42, 1030 Vienna, <a href="https://www.dsb.gv.at/">www.dsb.gv.at</a>.</p>

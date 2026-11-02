@@ -31,13 +31,13 @@ RSpec.describe "Privacy policy", type: :request do
     get "/privacy"
 
     ids = Nokogiri::HTML(response.body).css("h2[id]").map { |h| h["id"] }
-    expect(ids).to eq(%w[controller scope hosting api linter knowledge-base conversion-tracking rights])
+    expect(ids).to eq(%w[controller scope hosting api linter knowledge-base newsletter conversion-tracking rights])
   end
 
   it "states legal basis, recipient, transfer and withdrawal of the conversion tracking" do
     get "/privacy"
 
-    section = text[/7\. Conversion tracking with Google Ads.*?8\. Your rights/]
+    section = text[/8\. Conversion tracking with Google Ads.*?9\. Your rights/]
     expect(section).to include("Art. 6(1)(a) GDPR")
     expect(section).to include("§ 165(3) of the Austrian Telecommunications Act 2021")
     expect(section).to include("Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Ireland")
@@ -94,12 +94,37 @@ RSpec.describe "Privacy policy", type: :request do
     expect(text).to include("where applicable to data portability (Art. 20)")
   end
 
-  # The newsletter comes with its own release; until then the policy does not
-  # describe it.
-  it "does not describe a newsletter that does not exist yet" do
+  it "describes the newsletter: data, double opt-in, deletion, unsubscribing and the mail provider" do
     get "/privacy"
 
-    expect(text).not_to match(/newsletter/i)
+    section = text[/7\. Newsletter.*?8\. Conversion tracking/]
+    expect(section).to include("we store your email address and the language you choose")
+    expect(section).to include("double opt-in")
+    expect(section).to include("A subscription that has not been confirmed is deleted after 7 days.")
+    expect(section).to include("When you unsubscribe, your address is deleted immediately.")
+    expect(section).to include("Microsoft Ireland Operations Limited")
+    expect(section).to include("(Art. 6(1)(a) GDPR)")
+  end
+
+  # The DPP Linter has its own banner and conversion; the policy names both
+  # (the wording agreed for dpplint).
+  it "names the conversion in the DPP Linter and what it carries" do
+    get "/privacy"
+
+    section = text[/8\. Conversion tracking with Google Ads.*?9\. Your rights/]
+    expect(section).to include("leads to one of these actions: on this site, opening “Getting started” or the DPP Manager on Docker Hub, " \
+                               "opening one of our repositories on GitHub, or confirming a newsletter subscription; " \
+                               "in the DPP Linter (dpplint.ownyourdata.eu), completing a check of a product identifier.")
+    expect(section).to include("In the DPP Linter. The DPP Linter at dpplint.ownyourdata.eu asks for your consent with its own banner, " \
+                               "and your choice there applies to the DPP Linter only. With your consent, a conversion is sent each " \
+                               "time a check you started has finished. It contains the address of the DPP Linter’s start page, " \
+                               "including the ad click identifier if the address contains one, but not the product identifier you " \
+                               "entered, and of the page you came from only its domain. The result of the check is not sent. " \
+                               "Without your consent, the DPP Linter loads nothing from Google; its API documentation loads no fonts " \
+                               "or other resources from Google either. You can change your choice under “Cookie settings” at the " \
+                               "bottom of the DPP Linter’s page.")
+    expect(section.index("What is processed.")).to be < section.index("In the DPP Linter.")
+    expect(section.index("In the DPP Linter.")).to be < section.index("Legal basis.")
   end
 
   it "says that the Knowledge Base search runs in the browser" do

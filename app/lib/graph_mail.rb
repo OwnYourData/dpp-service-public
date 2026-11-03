@@ -1,12 +1,19 @@
 # frozen_string_literal: true
 
+require "base64"
 require "json"
+require "mail"
 require "uri"
 
 # Sends plain-text mail through Microsoft Graph (sendMail) as the newsletter
 # mailbox, with an app-only token (OAuth 2.0 client credentials). The app may
 # send as that one mailbox only; Exchange Online enforces this (RBAC for
 # Applications), see docs/Newsletter.md.
+#
+# A message without extra headers goes as JSON, without a copy in Sent Items.
+# A message with headers of its own (List-Unsubscribe on the notifications)
+# goes as MIME: Graph takes only X- headers in JSON. Graph keeps a copy of a
+# MIME message in Sent Items; there is no switch for that.
 #
 #   MS_GRAPH_TENANT_ID      directory (tenant) ID
 #   MS_GRAPH_CLIENT_ID      application (client) ID
@@ -37,28 +44,42 @@ module GraphMail
 
   # Sends one message to one recipient. Raises GraphMail::Error when Graph does
   # not accept it; the message never contains the token or the secret.
-  def deliver(to:, subject:, body:)
+  def deliver(to:, subject:, body:, headers: {})
     raise Error, "mail is not configured" unless configured?
 
-    payload = {
-      message: {
-        subject: subject,
-        body: { contentType: "Text", content: body },
-        toRecipients: [{ emailAddress: { address: to } }]
-      },
-      saveToSentItems: false
-    }
+    content_type, payload = if headers.empty?
+                              ["application/json", json_message(to: to, subject: subject, body: body)]
+                            else
+                              ["text/plain", Base64.strict_encode64(mime_message(to: to, subject: subject, body: body, headers: headers))]
+                            end
     response = OutboundHttp.request(:post, format(SEND_URL, from: URI.encode_www_form_component(from)),
-                                    headers: { "Authorization" => "Bearer #{token}",
-                                               "Content-Type" => "application/json" },
-                                    body: JSON.generate(payload),
-                                    open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT)
+                                    headers: { "Authorization" => "Bearer #{token}", "Content-Type" => content_type },
+                                    body: payload, open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT)
     return true if response.code == "202"
 
     forget_token if response.code == "401"
     raise Error, "Graph sendMail answered #{response.code}#{graph_error(response.body)}"
   rescue OutboundHttp::TimeoutError, OutboundHttp::ConnectionError => e
     raise Error, "Graph could not be reached: #{e.class.name.demodulize}"
+  end
+
+  def json_message(to:, subject:, body:)
+    JSON.generate(message: { subject: subject, body: { contentType: "Text", content: body },
+                             toRecipients: [{ emailAddress: { address: to } }] },
+                  saveToSentItems: false)
+  end
+
+  # The message as RFC 5322 text: plain text in UTF-8; the mail library picks
+  # the transfer encoding (quoted-printable for this text).
+  def mime_message(to:, subject:, body:, headers:)
+    mail = Mail.new
+    mail.from = from
+    mail.to = to
+    mail.subject = subject
+    mail.charset = "UTF-8"
+    mail.body = body
+    headers.each { |name, value| mail[name] = value }
+    mail.to_s
   end
 
   # An app-only token, kept until shortly before it expires.

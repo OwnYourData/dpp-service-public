@@ -18,6 +18,10 @@
 //     configured conversions.
 //  5. Declining again reloads the page without the tag and deletes the _gcl_
 //     cookies.
+//  6. The Knowledge Base, if this host serves it, shares the choice: no
+//     banner after a choice on the start page, "Cookie settings" in its
+//     footer, and after Accept a click on "Getting started" and on the
+//     source repository sends the conversions.
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -28,6 +32,7 @@ const live = process.argv.includes("--live");
 const GOOGLE = /(^|\.)(google(-analytics|adservices|apis|syndication|tagmanager|usercontent)?|gstatic|doubleclick)\.[a-z.]+$/i;
 
 let failures = 0;
+let kbServed = true;
 function check(ok, what) {
   console.log(`${ok ? "PASS" : "FAIL"}  ${what}`);
   if (!ok) failures += 1;
@@ -52,6 +57,7 @@ for (const path of ["/", "/privacy", "/api-docs/index.html", "/kb/"]) {
   const response = await page.goto(base + path, { waitUntil: "networkidle" });
   if (path === "/kb/" && response && response.status() === 404) {
     console.log("SKIP  /kb/ is not served by this instance");
+    kbServed = false;
     continue;
   }
   check(google.length === 0, `no request to Google before a choice on ${path}`);
@@ -118,6 +124,29 @@ await Promise.all([page.waitForEvent("load"), page.click('.oyd-consent button[da
 await page.waitForLoadState("networkidle");
 check(google.length === before, "after withdrawing, the reloaded page sends no request to Google");
 check(!(await page.evaluate(() => document.cookie)).includes("_gcl_"), "after withdrawing, the _gcl_ cookies are gone");
+
+// 6. The Knowledge Base: same host, same choice (declined since step 5).
+if (kbServed) {
+  await page.goto(base + "/kb/what-is-a-digital-product-passport/", { waitUntil: "networkidle" });
+  const atKb = google.length;
+  check(!(await banner.isVisible()), "the Knowledge Base shows no banner after a choice on the start page");
+  check(await page.locator("footer [data-consent-settings]").isVisible(), "the Knowledge Base footer offers the cookie settings");
+  check(await page.locator('footer a[href="/privacy"]').count() === 1, "the Knowledge Base footer links the privacy policy of this host");
+  await page.click("footer [data-consent-settings]");
+  check(await banner.isVisible(), "Cookie settings opens the banner in the Knowledge Base");
+  await page.click('.oyd-consent button[data-choice="accept"]');
+  await page.waitForTimeout(1000);
+  check(google.length > atKb, "the tag is requested in the Knowledge Base after Accept");
+  await page.evaluate(() => document.addEventListener("click", (e) => e.preventDefault()));
+  await page.click('.next-steps a[href="/kb/getting-started/"]');
+  await page.click('footer a[href^="https://github.com/OwnYourData/"]');
+  const kbConversions = (await dataLayer()).filter((e) => e[0] === "event" && e[1] === "conversion").map((e) => e[2].send_to);
+  console.log(`      conversions sent: ${kbConversions.join(", ") || "none"}`);
+  check(kbConversions.length === 2 && kbConversions[0] !== kbConversions[1],
+    "in the Knowledge Base, Getting started and the source repository each send their conversion");
+  await page.click("footer [data-consent-settings]");
+  await Promise.all([page.waitForEvent("load"), page.click('.oyd-consent button[data-choice="decline"]')]);
+}
 
 await browser.close();
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);

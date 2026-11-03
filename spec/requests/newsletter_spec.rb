@@ -195,6 +195,30 @@ RSpec.describe "Newsletter", type: :request do
       expect(response.body).to include("You are unsubscribed")
     end
 
+    it "unsubscribes with one click from the mail program, at the address in List-Unsubscribe (RFC 8058)" do
+      subscription = NewsletterSubscription.create!(email: "a@example.org", locale: "en", requested_at: Time.current,
+                                                    confirmed_at: Time.current)
+      mail = NewsletterMail.notification(subscription, subject: "New act", text: "Text", base: "https://dpp.example.org")
+      address = mail[:headers]["List-Unsubscribe"][/\A<(.+)>\z/, 1]
+      expect(mail[:headers]["List-Unsubscribe-Post"]).to eq("List-Unsubscribe=One-Click")
+      expect(address).to eq(link_from(mail[:body], "/newsletter/unsubscribe"))
+
+      uri = URI.parse(address)
+      get "#{uri.path}?#{uri.query}"
+      expect(NewsletterSubscription.count).to eq(1)
+
+      post "#{uri.path}?#{uri.query}", params: "List-Unsubscribe=One-Click",
+                                        headers: { "Content-Type" => "application/x-www-form-urlencoded" }
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/plain")
+      expect(response.body).to eq("Unsubscribed.\n")
+      expect(NewsletterSubscription.count).to eq(0)
+
+      post "#{uri.path}?#{uri.query}", params: "List-Unsubscribe=One-Click",
+                                        headers: { "Content-Type" => "application/x-www-form-urlencoded" }
+      expect(response).to have_http_status(:ok)
+    end
+
     it "keeps the address out of the log" do
       io = StringIO.new
       logger = ActiveSupport::Logger.new(io)
@@ -266,6 +290,29 @@ RSpec.describe GraphMail do
     expect(payload["saveToSentItems"]).to be(false)
     expect(payload.dig("message", "body", "contentType")).to eq("Text")
     expect(payload.dig("message", "toRecipients", 0, "emailAddress", "address")).to eq("a@example.org")
+  end
+
+  it "sends a message with headers of its own as MIME, with the headers and the text intact" do
+    calls = []
+    allow(OutboundHttp).to receive(:request) do |method, url, **opts|
+      calls << [method, url, opts]
+      url.include?("/oauth2/") ? response("200", '{"access_token":"tok","expires_in":3599}') : response("202", "")
+    end
+    headers = { "List-Unsubscribe" => "<https://dpp.example.org/newsletter/unsubscribe?token=a%3D%3D--b>",
+                "List-Unsubscribe-Post" => "List-Unsubscribe=One-Click" }
+
+    described_class.deliver(to: "a@example.org", subject: "Neue Rechtsakte über Batterien",
+                            body: "Grüße\n\n-- \nAbmelden: https://dpp.example.org/x\n", headers: headers)
+
+    send_call = calls.find { |_, url, _| url.end_with?("/sendMail") }
+    expect(send_call[2][:headers]["Content-Type"]).to eq("text/plain")
+    mime = Mail.new(Base64.strict_decode64(send_call[2][:body]))
+    expect(mime.from).to eq(["newsletter@example.org"])
+    expect(mime.to).to eq(["a@example.org"])
+    expect(mime.subject).to eq("Neue Rechtsakte über Batterien")
+    expect(mime["List-Unsubscribe"].value.delete("\r\n ")).to eq(headers["List-Unsubscribe"])
+    expect(mime["List-Unsubscribe-Post"].value).to eq("List-Unsubscribe=One-Click")
+    expect(mime.body.decoded.force_encoding("UTF-8").gsub("\r\n", "\n")).to eq("Grüße\n\n-- \nAbmelden: https://dpp.example.org/x\n")
   end
 
   it "reports a refusal by its code only, and never the secret" do

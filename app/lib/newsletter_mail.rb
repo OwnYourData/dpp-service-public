@@ -72,9 +72,13 @@ module NewsletterMail
     [subject, lines.join.strip]
   end
 
+  # A notification with the link to unsubscribe in the footer and in the
+  # headers for unsubscribing with one click (RFC 2369, RFC 8058): the mail
+  # program sends a POST to the same address, which unsubscribes at once.
   def notification(subscription, subject:, text:, base:)
     link = "#{base}/newsletter/unsubscribe?token=#{CGI.escape(subscription.unsubscribe_token)}"
     footer = format(FOOTER.fetch(subscription.locale), site: URI.parse(base).host, link: link)
-    { subject: subject, body: "#{text.strip}\n\n-- \n#{footer}\n\n#{SENDER}\n" }
+    { subject: subject, body: "#{text.strip}\n\n-- \n#{footer}\n\n#{SENDER}\n",
+      headers: { "List-Unsubscribe" => "<#{link}>", "List-Unsubscribe-Post" => "List-Unsubscribe=One-Click" } }
   end
 end

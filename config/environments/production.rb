@@ -8,12 +8,14 @@ Rails.application.configure do
 
   # Without a logger of its own Rails writes to log/production.log. In a
   # container that file is out of reach of `kubectl logs` and grows until the
-  # pod restarts. The image sets RAILS_LOG_TO_STDOUT, which sends the log to
-  # stdout instead.
+  # pod restarts. The image sets RAILS_LOG_TO_STDOUT, which sends the log of the
+  # server to stdout instead, and the log of a rake task or `rails runner` to
+  # stderr, so that what the task prints stays clean (lib/log_stream.rb).
   if ENV["RAILS_LOG_TO_STDOUT"].present?
-    stdout = ActiveSupport::Logger.new($stdout)
-    stdout.formatter = ::Logger::Formatter.new
-    config.logger = ActiveSupport::TaggedLogging.new(stdout)
+    require_relative "../../lib/log_stream"
+    stream = ActiveSupport::Logger.new(LogStream.for_process)
+    stream.formatter = ::Logger::Formatter.new
+    config.logger = ActiveSupport::TaggedLogging.new(stream)
   end
 
   # EN 18216:2026 §6.2: all data exchange shall use TLS. Terminate TLS at the

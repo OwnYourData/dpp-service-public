@@ -14,11 +14,13 @@ feature is off: no form, and every `/newsletter` path answers 404.
 | `NEWSLETTER_FROM` | The mailbox that sends, e.g. `newsletter@example.org`. |
 
 Mail goes out through Microsoft Graph (`sendMail`) with an app-only token
-(OAuth 2.0 client credentials), as plain text and without saving a copy in
-Sent Items. The app needs no API permission in Entra; restrict it to the one
-mailbox with Exchange Online RBAC for Applications: a service principal, a
-management scope for that mailbox and the role `Application Mail.Send` with
-that scope. `Test-ServicePrincipalAuthorization` shows the result.
+(OAuth 2.0 client credentials), as plain text. Confirmation mails go as JSON,
+without a copy in Sent Items. Notifications carry headers of their own for
+unsubscribing with one click, which Graph accepts only in MIME format; Graph
+keeps a copy of each of them in Sent Items of the sending mailbox. The app
+needs no API permission in Entra; restrict it to the one mailbox with Exchange
+Online RBAC for Applications: a service principal, a management scope for that
+mailbox and the role `Application Mail.Send` with that scope. `Test-ServicePrincipalAuthorization` shows the result.
 
 ## Behaviour
 
@@ -36,7 +38,13 @@ that scope. `Test-ServicePrincipalAuthorization` shows the result.
   requested and confirmed. Nothing else; links carry signed ids, no token is
   stored.
 - **Unsubscribing:** every notification carries a link to a page with a button;
-  pressing it deletes the row at once.
+  pressing it deletes the row at once. The same address is in the headers
+  `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+  (RFC 2369, RFC 8058), so that a mail program can offer "Unsubscribe": it
+  sends a `POST` to that address, which unsubscribes without a page and answers
+  with a short text. Exchange Online passes `List-Unsubscribe` on but drops
+  `List-Unsubscribe-Post`; a mail program then opens the address in the
+  browser, which shows the page with the button.
 - **Conversion:** the page after confirming names the conversion `newsletter`
   (docs/Consent.md); it counts only with the visitor's consent.
 
@@ -53,3 +61,9 @@ bin/rails newsletter:stats
 bin/rails newsletter:send LOCALE=en < issue-en.md
 bin/rails newsletter:send LOCALE=en SEND=1 < issue-en.md
 ```
+
+## Removing unconfirmed subscriptions
+
+`bin/rails newsletter:prune` deletes the subscriptions that were not
+confirmed within seven days and prints how many. Run it once a day, for
+example as a cron job; it touches nothing else.

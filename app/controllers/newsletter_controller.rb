@@ -7,7 +7,9 @@
 #                                 "check your inbox", whether or not the
 #                                 address is known
 #   GET  /newsletter/confirm      page with a button; POST confirms
-#   GET  /newsletter/unsubscribe  page with a button; POST unsubscribes
+#   GET  /newsletter/unsubscribe  page with a button; POST unsubscribes, from
+#                                 the button or from a mail program that
+#                                 unsubscribes with one click (RFC 8058)
 #
 # Confirming and unsubscribing need a POST, so that mail scanners that open
 # links do not confirm or unsubscribe on their own. Without mail configuration
@@ -68,8 +70,12 @@ class NewsletterController < ActionController::Base
     render_page(:unsubscribe_form, token: params[:token])
   end
 
+  # The mail program of a recipient posts "List-Unsubscribe=One-Click" to the
+  # address in the List-Unsubscribe header; it gets a short answer and no page.
   def unsubscribe
     NewsletterSubscription.find_for_unsubscribe(params[:token])&.destroy
+    return render(plain: "Unsubscribed.\n") if params["List-Unsubscribe"] == "One-Click"
+
     render_page(:unsubscribed)
   end
 

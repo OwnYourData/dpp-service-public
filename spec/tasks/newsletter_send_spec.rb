@@ -63,6 +63,8 @@ RSpec.describe "newsletter:send" do
     expect(sent.map { |m| m[:subject] }.uniq).to eq(["New act on batteries"])
     links = sent.map { |m| m[:body][/unsubscribe\?token=\S+/] }
     expect(links.uniq.size).to eq(2)
+    expect(sent.map { |m| m[:headers]["List-Unsubscribe"] }).to eq(sent.map { |m| "<#{m[:body][%r{https://\S+/newsletter/unsubscribe\?token=\S+}]}>" })
+    expect(sent.map { |m| m[:headers]["List-Unsubscribe-Post"] }.uniq).to eq(["List-Unsubscribe=One-Click"])
     expect(out).to include("2 sent, 0 failed")
     expect(out).not_to include("@example.org")
   end

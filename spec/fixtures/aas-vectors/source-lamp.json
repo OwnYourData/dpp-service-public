@@ -1,0 +1,211 @@
+{
+  "digitalProductPassportId": "did:oyd:zQmExampleLamp",
+  "uniqueProductIdentifier": "https://dpp.example.org/01/09520123456788/21/000001",
+  "granularity": "item",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-11-03T10:00:00Z",
+  "economicOperatorId": "did:oyd:zQmExampleOperator",
+  "elements": [
+    {
+      "elementId": "ProductIdentification",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ModelIdentifier",
+          "value": "NL-A60-9W-827",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BrandName",
+          "value": "Nordlicht Leuchtmittel GmbH",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ProductDesignation",
+          "value": "Nordlicht Pro A60 9 W E27",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SerialNumber",
+          "value": "NL2026-0004711",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "DateOfManufacture",
+          "value": "2026-06-15",
+          "valueDataType": "xsd:date"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CountryOfOrigin",
+          "value": "AT",
+          "valueDataType": "xsd:string"
+        }
+      ]
+    },
+    {
+      "elementId": "EnergyPerformance",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "OnModePower",
+          "value": 8.5,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "W"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "StandbyPower",
+          "value": 0,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "W"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "LuminousFlux",
+          "value": 806,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "lm"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EnergyEfficiencyClass",
+          "value": "F",
+          "valueDataType": "xsd:string"
+        }
+      ]
+    },
+    {
+      "elementId": "LightQuality",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CorrelatedColourTemperature",
+          "value": 2700,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "K"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ColourRenderingIndex",
+          "value": 90,
+          "valueDataType": "xsd:integer"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BeamAngle",
+          "value": 200,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "deg"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "DimmingType",
+          "value": "phase",
+          "valueDataType": "xsd:string"
+        }
+      ]
+    },
+    {
+      "elementId": "Durability",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RatedLifetime",
+          "value": 25000,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "h"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SwitchingCycles",
+          "value": 100000,
+          "valueDataType": "xsd:integer"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "WarrantyPeriod",
+          "value": 5,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "a"
+        }
+      ]
+    },
+    {
+      "elementId": "Compliance",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CeMarking",
+          "value": "CE-2026-NL-A60-0091",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RoHSCompliant",
+          "value": true,
+          "valueDataType": "xsd:boolean"
+        }
+      ]
+    },
+    {
+      "elementId": "SubstancesOfConcern",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ContainsSubstancesOfVeryHighConcern",
+          "value": true,
+          "valueDataType": "xsd:boolean"
+        },
+        {
+          "objectType": "MultiValuedDataElement",
+          "elementId": "SubstancesOfVeryHighConcern",
+          "elements": [
+            {
+              "objectType": "SingleValuedDataElement",
+              "elementId": "SubstanceName",
+              "value": "Lead (CAS 7439-92-1), in the solder of the driver board",
+              "valueDataType": "xsd:string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "elementId": "EnvironmentalFootprint",
+      "objectType": "DataElementCollection",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CarbonFootprint",
+          "value": 2.4,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kg CO2e"
+        }
+      ]
+    },
+    {
+      "objectType": "RelatedResource",
+      "elementId": "DeclarationOfConformity",
+      "contentType": "application/pdf",
+      "url": "https://example.org/nordlicht/doc/NL-A60-9W-827.pdf"
+    },
+    {
+      "objectType": "RelatedResource",
+      "elementId": "DismantlingInstructions",
+      "contentType": "application/pdf",
+      "url": "https://example.org/nordlicht/dismantling/NL-A60.pdf"
+    }
+  ]
+}

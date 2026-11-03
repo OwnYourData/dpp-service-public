@@ -1,0 +1,1211 @@
+{
+  "model": "Battery Pass Data Model",
+  "version": "1.2.0",
+  "license": "CC-BY-4.0",
+  "source": {
+    "repository": "https://github.com/batterypass/BatteryPassDataModel",
+    "commit": "7f4091810d56ad4cd031897d58dd5e438b4d979f",
+    "files": {
+      "BatteryPass/io.BatteryPass.GeneralProductInformation/1.2.0/gen/GeneralProductInformation.aas": "94d1754d83c60f10a8892b94b25057824dd5ef6894a6d52377d796647e17b75f",
+      "BatteryPass/io.BatteryPass.CarbonFootprint/1.2.0/gen/CarbonFootprintForBatteries.aas": "0f9906a2759100ca19b4d29a962943aa2a2a2602a78a936e9814bd66066d6473",
+      "BatteryPass/io.BatteryPass.Circularity/1.2.0/gen/Circularity.aas": "f2de8dc16fe1d11a483bc827fff0d35d4fd0ad99fe09adce7893068975e22d72",
+      "BatteryPass/io.BatteryPass.MaterialComposition/1.2.0/gen/MaterialComposition.aas": "87ef8c098dd8085043f3de8c9d6fb2379f53cabf571ae94606f4e29529ccba98",
+      "BatteryPass/io.BatteryPass.Performance/1.2.0/gen/PerformanceAndDurability.aas": "0513bd1b5c56a2d03141c7c69961240e2157d17c035051a9bff92d139e10d31d",
+      "BatteryPass/io.BatteryPass.SupplyChainDueDiligence/1.2.0/gen/SupplyChainDueDiligence.aas": "062b4f2b5d1c84a1cae0c724b74c3b43bb78244ee352cb7f4418ea8ade2cd04e",
+      "BatteryPass/io.BatteryPass.Labels/1.2.0/gen/Labeling.aas": "cb061ed4aa05b18d919e449da54d58e36605f7f3fde5fad5c5f2fd58fad1a1b8"
+    }
+  },
+  "submodels": [
+    {
+      "idShort": "GeneralProductInformation",
+      "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#GeneralProductInformation",
+      "elements": [
+        {
+          "idShort": "productIdentifier",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#productIdentifier",
+          "valueType": "xs:string"
+        },
+        {
+          "idShort": "batteryPassportIdentifier",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#batteryPassportIdentifier",
+          "valueType": "xs:string"
+        },
+        {
+          "idShort": "batteryCategory",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#batteryCategory",
+          "valueType": "xs:string",
+          "values": [
+            "lmt",
+            "ev",
+            "industrial",
+            "stationary"
+          ]
+        },
+        {
+          "idShort": "manufacturerInformation",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "contactName",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#contactName",
+              "valueType": "xs:string"
+            },
+            {
+              "idShort": "postalAddress",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "addressCountry",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#addressCountry",
+                  "valueType": "xs:string"
+                },
+                {
+                  "idShort": "postalCode",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#postalCode",
+                  "valueType": "xs:string"
+                },
+                {
+                  "idShort": "streetAddress",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#streetAddress",
+                  "valueType": "xs:string"
+                }
+              ]
+            },
+            {
+              "idShort": "identifier",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#identifier",
+              "valueType": "xs:string"
+            }
+          ]
+        },
+        {
+          "idShort": "manufacturingDate",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#manufacturingDate",
+          "valueType": "xs:dateTime"
+        },
+        {
+          "idShort": "batteryStatus",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#batteryStatus",
+          "valueType": "xs:string",
+          "values": [
+            "Original",
+            "Repurposed",
+            "Reused",
+            "Remanufactured",
+            "Waste"
+          ]
+        },
+        {
+          "idShort": "batteryMass",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#batteryMass",
+          "valueType": "xs:float",
+          "unit": "kilogram"
+        },
+        {
+          "idShort": "manufacturingPlace",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "addressCountry",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#addressCountry",
+              "valueType": "xs:string"
+            },
+            {
+              "idShort": "postalCode",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#postalCode",
+              "valueType": "xs:string"
+            },
+            {
+              "idShort": "streetAddress",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#streetAddress",
+              "valueType": "xs:string"
+            }
+          ]
+        },
+        {
+          "idShort": "operatorInformation",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "contactName",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#contactName",
+              "valueType": "xs:string"
+            },
+            {
+              "idShort": "postalAddress",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "addressCountry",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#addressCountry",
+                  "valueType": "xs:string"
+                },
+                {
+                  "idShort": "postalCode",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#postalCode",
+                  "valueType": "xs:string"
+                },
+                {
+                  "idShort": "streetAddress",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#streetAddress",
+                  "valueType": "xs:string"
+                }
+              ]
+            },
+            {
+              "idShort": "identifier",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#identifier",
+              "valueType": "xs:string"
+            }
+          ]
+        },
+        {
+          "idShort": "puttingIntoService",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#puttingIntoService",
+          "valueType": "xs:dateTime"
+        },
+        {
+          "idShort": "warrentyPeriod",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.GeneralProductInformation:1.0.0#warrentyPeriod",
+          "valueType": "xs:gMonth",
+          "unit": "month"
+        }
+      ]
+    },
+    {
+      "idShort": "CarbonFootprintForBatteries",
+      "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#CarbonFootprintForBatteries",
+      "elements": [
+        {
+          "idShort": "batteryCarbonFootprint",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#batteryCarbonFootprint",
+          "valueType": "xs:double",
+          "unit": "kilogramperkilowatthour"
+        },
+        {
+          "idShort": "carbonFootprintPerLifecycleStage",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#CarbonFootprints",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "lifecycleStage",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#lifecycleStage",
+                "valueType": "xs:string",
+                "values": [
+                  "RawMaterialExtraction",
+                  "MainProduction",
+                  "Distribution",
+                  "Recycling"
+                ]
+              },
+              {
+                "idShort": "carbonFootprint",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#carbonFootprint",
+                "valueType": "xs:double",
+                "unit": "kilogramperkilowatthour"
+              }
+            ]
+          }
+        },
+        {
+          "idShort": "carbonFootprintPerformanceClass",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#carbonFootprintPerformanceClass",
+          "valueType": "xs:string"
+        },
+        {
+          "idShort": "carbonFootprintStudy",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#carbonFootprintStudy",
+          "valueType": "xs:anyURI"
+        },
+        {
+          "idShort": "absoluteCarbonFootprint",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.CarbonFootprint:1.2.0#absoluteCarbonFootprint",
+          "valueType": "xs:double",
+          "unit": "kilogramm"
+        }
+      ]
+    },
+    {
+      "idShort": "Circularity",
+      "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#Circularity",
+      "elements": [
+        {
+          "idShort": "dismantlingAndRemovalInformation",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#DocumentationList",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "documentType",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#documentType",
+                "valueType": "xs:string",
+                "values": [
+                  "BillOfMaterial",
+                  "Model3D",
+                  "DismantlingManual",
+                  "RemovalManual",
+                  "OtherManual",
+                  "Drawing"
+                ]
+              },
+              {
+                "idShort": "mimeType",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#mimeType",
+                "valueType": "xs:string"
+              },
+              {
+                "idShort": "documentURL",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#documentURL",
+                "valueType": "xs:anyURI"
+              }
+            ]
+          }
+        },
+        {
+          "idShort": "sparePartSources",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#SparePartSourcesList",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "nameOfSupplier",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#nameOfSupplier",
+                "valueType": "xs:string"
+              },
+              {
+                "idShort": "addressOfSupplier",
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "addressCountry",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#addressCountry",
+                    "valueType": "xs:string"
+                  },
+                  {
+                    "idShort": "postalCode",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#postalCode",
+                    "valueType": "xs:string"
+                  },
+                  {
+                    "idShort": "streetAddress",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#streetAddress",
+                    "valueType": "xs:string"
+                  }
+                ]
+              },
+              {
+                "idShort": "emailAddressOfSupplier",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#emailAddressOfSupplier",
+                "valueType": "xs:string"
+              },
+              {
+                "idShort": "supplierWebAddress",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#supplierWebAddress",
+                "valueType": "xs:anyURI"
+              },
+              {
+                "idShort": "components",
+                "modelType": "SubmodelElementList",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#ComponentList",
+                "item": {
+                  "modelType": "SubmodelElementCollection",
+                  "elements": [
+                    {
+                      "idShort": "partName",
+                      "modelType": "Property",
+                      "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#partName",
+                      "valueType": "xs:string"
+                    },
+                    {
+                      "idShort": "partNumber",
+                      "modelType": "Property",
+                      "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#partNumber",
+                      "valueType": "xs:string"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "idShort": "recycledContent",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#RecycledContentList",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "preConsumerShare",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#preConsumerShare",
+                "valueType": "xs:float"
+              },
+              {
+                "idShort": "recycledMaterial",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#recycledMaterial",
+                "valueType": "xs:string",
+                "values": [
+                  "Cobalt",
+                  "Nickel",
+                  "Lithium",
+                  "Lead"
+                ]
+              },
+              {
+                "idShort": "postConsumerShare",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#postConsumerShare",
+                "valueType": "xs:float"
+              }
+            ]
+          }
+        },
+        {
+          "idShort": "safetyMeasures",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "safetyInstructions",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#safetyInstructions",
+              "valueType": "xs:anyURI"
+            },
+            {
+              "idShort": "extinguishingAgent",
+              "modelType": "SubmodelElementList",
+              "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#ExtinguishingAgentsList",
+              "item": {
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#extinguishingAgent",
+                "valueType": "xs:string"
+              }
+            }
+          ]
+        },
+        {
+          "idShort": "endOfLifeInformation",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "wastePrevention",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#wastePrevention",
+              "valueType": "xs:anyURI"
+            },
+            {
+              "idShort": "separateCollection",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#separateCollection",
+              "valueType": "xs:anyURI"
+            },
+            {
+              "idShort": "informationOnCollection",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#informationOnCollection",
+              "valueType": "xs:anyURI"
+            }
+          ]
+        },
+        {
+          "idShort": "renewableContent",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.Circularity:1.2.0#renewableContent",
+          "valueType": "xs:float",
+          "unit": "percent"
+        }
+      ]
+    },
+    {
+      "idShort": "MaterialComposition",
+      "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#MaterialComposition",
+      "elements": [
+        {
+          "idShort": "batteryChemistry",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "shortName",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#shortName",
+              "valueType": "xs:string"
+            },
+            {
+              "idShort": "clearName",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#clearName",
+              "valueType": "xs:string"
+            }
+          ]
+        },
+        {
+          "idShort": "batteryMaterials",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#BatteryMaterialList",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "batteryMaterialLocation",
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "componentName",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#componentName",
+                    "valueType": "xs:string"
+                  },
+                  {
+                    "idShort": "componentId",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#componentId",
+                    "valueType": "xs:string"
+                  }
+                ]
+              },
+              {
+                "idShort": "batteryMaterialIdentifier",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#batteryMaterialIdentifier",
+                "valueType": "xs:string"
+              },
+              {
+                "idShort": "batteryMaterialName",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#batteryMaterialName",
+                "valueType": "xs:string"
+              },
+              {
+                "idShort": "batteryMaterialMass",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#batteryMaterialMass",
+                "valueType": "xs:float",
+                "unit": "gram"
+              },
+              {
+                "idShort": "isCriticalRawMaterial",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#isCriticalRawMaterial",
+                "valueType": "xs:boolean"
+              }
+            ]
+          }
+        },
+        {
+          "idShort": "hazardousSubstances",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#HazardousSubstancesList",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "hazardousSubstanceClass",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#hazardousSubstanceClass",
+                "valueType": "xs:string",
+                "values": [
+                  "AcuteToxicity",
+                  "SkinCorrosionOrIrritation",
+                  "EyeDamageOrIrritation"
+                ]
+              },
+              {
+                "idShort": "hazardousSubstanceName",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#hazardousSubstanceName",
+                "valueType": "xs:string"
+              },
+              {
+                "idShort": "hazardousSubstanceConcentration",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#hazardousSubstanceConcentration",
+                "valueType": "xs:double",
+                "unit": "percent"
+              },
+              {
+                "idShort": "hazardousSubstanceImpact",
+                "modelType": "SubmodelElementList",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#ImpactList",
+                "item": {
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#hazardousSubstanceImpact",
+                  "valueType": "xs:string"
+                }
+              },
+              {
+                "idShort": "hazardousSubstanceLocation",
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "componentName",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#componentName",
+                    "valueType": "xs:string"
+                  },
+                  {
+                    "idShort": "componentId",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#componentId",
+                    "valueType": "xs:string"
+                  }
+                ]
+              },
+              {
+                "idShort": "hazardousSubstanceIdentifier",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.MaterialComposition:1.2.0#hazardousSubstanceIdentifier",
+                "valueType": "xs:string"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "idShort": "PerformanceAndDurability",
+      "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#PerformanceAndDurability",
+      "elements": [
+        {
+          "idShort": "batteryTechicalProperties",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "originalPowerCapability",
+              "modelType": "SubmodelElementList",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#OriginalPowerCapabilityAtSoC",
+              "item": {
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "atSoC",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#atSoC",
+                    "valueType": "xs:float",
+                    "unit": "percent"
+                  },
+                  {
+                    "idShort": "powerCapabilityAt",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#powerCapabilityAt",
+                    "valueType": "xs:float",
+                    "unit": "percent"
+                  }
+                ]
+              }
+            },
+            {
+              "idShort": "ratedMaximumPower",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#ratedMaximumPower",
+              "valueType": "xs:double",
+              "unit": "kilowatt"
+            },
+            {
+              "idShort": "powerCapabilityRatio",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#powerCapabilityRatio",
+              "valueType": "xs:float",
+              "unit": "percent"
+            },
+            {
+              "idShort": "ratedEnergy",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#ratedEnergy",
+              "valueType": "xs:float",
+              "unit": "kilowattHour"
+            },
+            {
+              "idShort": "expectedNumberOfCycles",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#expectedNumberOfCycles",
+              "valueType": "xs:long",
+              "unit": "cycle"
+            },
+            {
+              "idShort": "initialSelfDischarge",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#initialSelfDischarge",
+              "valueType": "xs:double",
+              "unit": "percentPerMonth"
+            },
+            {
+              "idShort": "roundtripEfficiency",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#roundtripEfficiency",
+              "valueType": "xs:float",
+              "unit": "percent"
+            },
+            {
+              "idShort": "ratedCapacity",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#ratedCapacity",
+              "valueType": "xs:float",
+              "unit": "ampereHour"
+            },
+            {
+              "idShort": "initialInternalResistance",
+              "modelType": "SubmodelElementList",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#InitialInternalResistance",
+              "item": {
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "ohmicResistance",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#ohmicResistance",
+                    "valueType": "xs:double",
+                    "unit": "ohm"
+                  },
+                  {
+                    "idShort": "batteryComponent",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#batteryComponent",
+                    "valueType": "xs:string",
+                    "values": [
+                      "pack",
+                      "module",
+                      "cell"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "idShort": "expectedLifetime",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#expectedLifetime",
+              "valueType": "xs:short",
+              "unit": "year"
+            },
+            {
+              "idShort": "cRate",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#cRate",
+              "valueType": "xs:float",
+              "unit": "C"
+            },
+            {
+              "idShort": "nominalVoltage",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#nominalVoltage",
+              "valueType": "xs:float",
+              "unit": "volt"
+            },
+            {
+              "idShort": "minimumVoltage",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#minimumVoltage",
+              "valueType": "xs:float",
+              "unit": "volt"
+            },
+            {
+              "idShort": "maximumVoltage",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#maximumVoltage",
+              "valueType": "xs:float",
+              "unit": "volt"
+            },
+            {
+              "idShort": "capacityThresholdForExhaustion",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#capacityThresholdForExhaustion",
+              "valueType": "xs:double",
+              "unit": "percent"
+            },
+            {
+              "idShort": "lifetimeReferenceTest",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lifetimeReferenceTest",
+              "valueType": "xs:anyURI"
+            },
+            {
+              "idShort": "cRateLifeCycleTest",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#cRateLifeCycleTest",
+              "valueType": "xs:float",
+              "unit": "C"
+            },
+            {
+              "idShort": "temperatureRangeIdleState",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#temperatureRangeIdleState",
+              "valueType": "xs:double"
+            }
+          ]
+        },
+        {
+          "idShort": "batteryCondition",
+          "modelType": "SubmodelElementCollection",
+          "elements": [
+            {
+              "idShort": "energyThroughput",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#energyThroughput",
+              "valueType": "xs:double",
+              "unit": "kilowattHour"
+            },
+            {
+              "idShort": "capacityThroughput",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "capacityThroughputValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#capacityThroughputValue",
+                  "valueType": "xs:float",
+                  "unit": "ampereHour"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "numberOfFullCycles",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "numberOfFullCyclesValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#numberOfFullCyclesValue",
+                  "valueType": "xs:integer",
+                  "unit": "cycle"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "stateOfCertifiedEnergy",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "stateOfCertifiedEnergyValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#stateOfCertifiedEnergyValue",
+                  "valueType": "xs:float",
+                  "unit": "percent"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "capacityFade",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "capacityFadeValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#capacityFadeValue",
+                  "valueType": "xs:float",
+                  "unit": "percent"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "remainingEnergy",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "remainingEnergyalue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#remainingEnergyalue",
+                  "valueType": "xs:float",
+                  "unit": "kilowattHour"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "remainingCapacity",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "remainingCapacityValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#remainingCapacityValue",
+                  "valueType": "xs:float",
+                  "unit": "kilowattHour"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "negativeEvents",
+              "modelType": "SubmodelElementList",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#NegativeEvents",
+              "item": {
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "negativeEvent",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#negativeEvent",
+                    "valueType": "xs:string"
+                  },
+                  {
+                    "idShort": "lastUpdate",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                    "valueType": "xs:dateTime"
+                  }
+                ]
+              }
+            },
+            {
+              "idShort": "temperatureInformation",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "timeExtremeHighTemp",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#timeExtremeHighTemp",
+                  "valueType": "xs:double",
+                  "unit": "minuteUnitOfTime"
+                },
+                {
+                  "idShort": "timeExtremeLowTemp",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#timeExtremeLowTemp",
+                  "valueType": "xs:double",
+                  "unit": "minuteUnitOfTime"
+                },
+                {
+                  "idShort": "timeExtremeHighTempCharging",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#timeExtremeHighTempCharging",
+                  "valueType": "xs:double",
+                  "unit": "minuteUnitOfTime"
+                },
+                {
+                  "idShort": "timeExtremeLowTempCharging",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#timeExtremeLowTempCharging",
+                  "valueType": "xs:double",
+                  "unit": "minuteUnitOfTime"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "remainingPowerCapability",
+              "modelType": "SubmodelElementList",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#RemainingPowerCapability",
+              "item": {
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "remainingPowerCapabilityValue",
+                    "modelType": "SubmodelElementCollection",
+                    "elements": [
+                      {
+                        "idShort": "rPCLastUpdated",
+                        "modelType": "Property",
+                        "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#rPCLastUpdated",
+                        "valueType": "xs:dateTime"
+                      },
+                      {
+                        "idShort": "atSoC",
+                        "modelType": "Property",
+                        "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#atSoC",
+                        "valueType": "xs:float",
+                        "unit": "percent"
+                      },
+                      {
+                        "idShort": "powerCapabilityAt",
+                        "modelType": "Property",
+                        "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#powerCapabilityAt",
+                        "valueType": "xs:float",
+                        "unit": "percent"
+                      }
+                    ]
+                  },
+                  {
+                    "idShort": "lastUpdate",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                    "valueType": "xs:dateTime"
+                  }
+                ]
+              }
+            },
+            {
+              "idShort": "powerFade",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#powerFade",
+              "valueType": "xs:float",
+              "unit": "percent"
+            },
+            {
+              "idShort": "roundTripEfficiencyFade",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#roundTripEfficiencyFade",
+              "valueType": "xs:float",
+              "unit": "percent"
+            },
+            {
+              "idShort": "evolutionOfSelfDischarge",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "evolutionOfSelfDischargeEntityValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#evolutionOfSelfDischargeEntityValue",
+                  "valueType": "xs:float",
+                  "unit": "percent"
+                }
+              ]
+            },
+            {
+              "idShort": "currentSelfDischargingRate",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "currentSelfDischargingRateEntity",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#currentSelfDischargingRateEntity",
+                  "valueType": "xs:float",
+                  "unit": "percent"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "internalResistanceIncrease",
+              "modelType": "SubmodelElementList",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#CurrentInternalResistanceValue",
+              "item": {
+                "modelType": "SubmodelElementCollection",
+                "elements": [
+                  {
+                    "idShort": "internalResistanceIncreaseValue",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#internalResistanceIncreaseValue",
+                    "valueType": "xs:float",
+                    "unit": "percent"
+                  },
+                  {
+                    "idShort": "lastUpdate",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                    "valueType": "xs:dateTime"
+                  },
+                  {
+                    "idShort": "batteryComponent",
+                    "modelType": "Property",
+                    "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#batteryComponent",
+                    "valueType": "xs:string",
+                    "values": [
+                      "pack",
+                      "module",
+                      "cell"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "idShort": "roundTripEfficiencyat50PerCentCycleLife",
+              "modelType": "Property",
+              "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#roundTripEfficiencyat50PerCentCycleLife",
+              "valueType": "xs:float",
+              "unit": "percent"
+            },
+            {
+              "idShort": "remainingRoundTripEnergyEfficiency",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "remainingRoundTripEnergyEfficiencyValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#remainingRoundTripEnergyEfficiencyValue",
+                  "valueType": "xs:float",
+                  "unit": "percent"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            },
+            {
+              "idShort": "stateOfCharge",
+              "modelType": "SubmodelElementCollection",
+              "elements": [
+                {
+                  "idShort": "stateOfChargeValue",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#stateOfChargeValue",
+                  "valueType": "xs:float",
+                  "unit": "percent"
+                },
+                {
+                  "idShort": "lastUpdate",
+                  "modelType": "Property",
+                  "semanticId": "urn:samm:io.BatteryPass.Performance:1.2.0#lastUpdate",
+                  "valueType": "xs:dateTime"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "idShort": "SupplyChainDueDiligence",
+      "semanticId": "urn:samm:io.BatteryPass.SupplyChainDueDiligence:1.2.0#SupplyChainDueDiligence",
+      "elements": [
+        {
+          "idShort": "supplyChainDueDiligenceReport",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.SupplyChainDueDiligence:1.2.0#supplyChainDueDiligenceReport",
+          "valueType": "xs:anyURI"
+        },
+        {
+          "idShort": "thirdPartyAussurances",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.SupplyChainDueDiligence:1.2.0#thirdPartyAussurances",
+          "valueType": "xs:anyURI"
+        },
+        {
+          "idShort": "supplyChainIndicies",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.SupplyChainDueDiligence:1.2.0#supplyChainIndicies",
+          "valueType": "xs:float"
+        }
+      ]
+    },
+    {
+      "idShort": "Labeling",
+      "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#Labeling",
+      "elements": [
+        {
+          "idShort": "declarationOfConformity",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#declarationOfConformity",
+          "valueType": "xs:anyURI"
+        },
+        {
+          "idShort": "resultOfTestReport",
+          "modelType": "Property",
+          "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#resultOfTestReport",
+          "valueType": "xs:anyURI"
+        },
+        {
+          "idShort": "labels",
+          "modelType": "SubmodelElementList",
+          "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#Labels",
+          "item": {
+            "modelType": "SubmodelElementCollection",
+            "elements": [
+              {
+                "idShort": "labelingSymbol",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#labelingSymbol",
+                "valueType": "xs:anyURI"
+              },
+              {
+                "idShort": "labelingMeaning",
+                "modelType": "MultiLanguageProperty",
+                "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#labelingMeaning"
+              },
+              {
+                "idShort": "labelingSubject",
+                "modelType": "Property",
+                "semanticId": "urn:samm:io.BatteryPass.Labels:1.2.0#labelingSubject",
+                "valueType": "xs:string",
+                "values": [
+                  "SeparateCollection",
+                  "HazardousMaterial",
+                  "CarbonFootPrint",
+                  "ExtinguishingAgent"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

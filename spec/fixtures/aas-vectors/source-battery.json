@@ -1,0 +1,494 @@
+{
+  "digitalProductPassportId": "did:oyd:zQmExampleBattery",
+  "uniqueProductIdentifier": "https://dpp.example.org/01/09520123456788/21/VOLT-EVP-2026-000916",
+  "granularity": "item",
+  "dppSchemaVersion": "EN 18223:2026",
+  "dppStatus": "Active",
+  "lastUpdated": "2026-11-03T10:00:00Z",
+  "economicOperatorId": "did:oyd:zQmExampleOperator",
+  "elements": [
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "BatteryIdentification",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BatteryIdentifier",
+          "value": "VOLT-EVP-2026-000916",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ManufacturerIdentifier",
+          "value": "9520123456788",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ManufacturerName",
+          "value": "Voltaris Energy Systems GmbH",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ManufacturingPlace",
+          "value": "Graz, Austria",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ManufacturingDate",
+          "value": "2026-06",
+          "valueDataType": "xsd:gYearMonth"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "DateOfPuttingIntoService",
+          "value": "2026-08",
+          "valueDataType": "xsd:gYearMonth"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "WarrantyPeriod",
+          "value": "2034-06",
+          "valueDataType": "xsd:gYearMonth"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BatteryCategory",
+          "value": "EVBattery",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BatteryMass",
+          "value": 412.5,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kg"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BatteryStatus",
+          "value": "Original",
+          "valueDataType": "xsd:string"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "ConformityAndLabelling",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ExtinguishingAgent",
+          "value": "Water mist or F-500 encapsulator agent; do not use CO2",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "MeaningOfLabelsAndSymbols",
+          "value": "Crossed-out wheeled bin: do not dispose of with household waste. Li-ion: lithium-ion cell chemistry. CE: conformity with EU law.",
+          "valueDataType": "xsd:string"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "CarbonFootprint",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BatteryCarbonFootprint",
+          "value": 61.4,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kgCO2e/kWh"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RawMaterialAcquisitionContribution",
+          "value": 38.9,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kgCO2e/kWh"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ProductionContribution",
+          "value": 17.2,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kgCO2e/kWh"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "DistributionContribution",
+          "value": 2.1,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kgCO2e/kWh"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EndOfLifeContribution",
+          "value": 3.2,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "kgCO2e/kWh"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CarbonFootprintPerformanceClass",
+          "value": "C",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CarbonFootprintStudy",
+          "value": "https://docs.voltaris.example/evp/carbon-footprint-study.pdf",
+          "valueDataType": "xsd:anyURI"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "DueDiligence",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "DueDiligenceReport",
+          "value": "https://docs.voltaris.example/evp/due-diligence-report-2026.pdf",
+          "valueDataType": "xsd:anyURI"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ThirdPartyAssurance",
+          "value": "Initiative for Responsible Mining Assurance (IRMA), audited 2026-03",
+          "valueDataType": "xsd:string"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "MaterialsAndComposition",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "BatteryChemistry",
+          "value": "NMC",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CathodeMaterials",
+          "value": "Lithium nickel manganese cobalt oxide, aluminium foil, PVDF binder",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "AnodeMaterials",
+          "value": "Graphite, silicon oxide, copper foil, CMC/SBR binder",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ElectrolyteMaterials",
+          "value": "Lithium hexafluorophosphate in ethylene carbonate and ethyl methyl carbonate",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ImpactOfSubstances",
+          "value": "The cells are sealed. Electrolyte released by mechanical damage is corrosive and harmful if inhaled; damaged cells can enter thermal runaway. Do not open, crush or expose to fire.",
+          "valueDataType": "xsd:string"
+        },
+        {
+          "objectType": "MultiValuedDataElement",
+          "elementId": "CriticalRawMaterials",
+          "valueDataType": "xsd:decimal",
+          "elements": [
+            {
+              "objectType": "SingleValuedDataElement",
+              "elementId": "Cobalt",
+              "value": 2.9,
+              "valueDataType": "xsd:decimal",
+              "unitOfMeasure": "%"
+            },
+            {
+              "objectType": "SingleValuedDataElement",
+              "elementId": "Natural graphite",
+              "value": 16.4,
+              "valueDataType": "xsd:decimal",
+              "unitOfMeasure": "%"
+            },
+            {
+              "objectType": "SingleValuedDataElement",
+              "elementId": "Lithium",
+              "value": 1.8,
+              "valueDataType": "xsd:decimal",
+              "unitOfMeasure": "%"
+            }
+          ]
+        },
+        {
+          "objectType": "DataElementCollection",
+          "elementId": "HazardousSubstances",
+          "elements": [
+            {
+              "objectType": "DataElementCollection",
+              "elementId": "Lithium hexafluorophosphate",
+              "elements": [
+                {
+                  "objectType": "SingleValuedDataElement",
+                  "elementId": "CasNumber",
+                  "value": "21324-40-3",
+                  "valueDataType": "xsd:string"
+                },
+                {
+                  "objectType": "SingleValuedDataElement",
+                  "elementId": "MassPercentage",
+                  "value": 1.1,
+                  "valueDataType": "xsd:decimal",
+                  "unitOfMeasure": "%"
+                }
+              ]
+            },
+            {
+              "objectType": "DataElementCollection",
+              "elementId": "Ethylene carbonate",
+              "elements": [
+                {
+                  "objectType": "SingleValuedDataElement",
+                  "elementId": "CasNumber",
+                  "value": "96-49-1",
+                  "valueDataType": "xsd:string"
+                },
+                {
+                  "objectType": "SingleValuedDataElement",
+                  "elementId": "MassPercentage",
+                  "value": 4.6,
+                  "valueDataType": "xsd:decimal",
+                  "unitOfMeasure": "%"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "RecycledContent",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PreConsumerRecycledNickelShare",
+          "value": 4.2,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PreConsumerRecycledCobaltShare",
+          "value": 9.1,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PreConsumerRecycledLithiumShare",
+          "value": 2.4,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PreConsumerRecycledLeadShare",
+          "value": 0,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PostConsumerRecycledNickelShare",
+          "value": 3.1,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PostConsumerRecycledCobaltShare",
+          "value": 7.8,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PostConsumerRecycledLithiumShare",
+          "value": 1.2,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PostConsumerRecycledLeadShare",
+          "value": 0,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RenewableContentShare",
+          "value": 1.6,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "Circularity",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "DismantlingInformation",
+          "value": "https://docs.voltaris.example/evp/dismantling-manual.pdf",
+          "valueDataType": "xsd:anyURI"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "PartNumbersForComponents",
+          "value": "https://docs.voltaris.example/evp/part-numbers.pdf",
+          "valueDataType": "xsd:anyURI"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SourcesOfSpareParts",
+          "value": "https://service.voltaris.example/spare-parts",
+          "valueDataType": "xsd:anyURI"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SafetyMeasures",
+          "value": "https://docs.voltaris.example/evp/safety-measures.pdf",
+          "valueDataType": "xsd:anyURI"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "EndOfLife",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EndUserWastePrevention",
+          "value": "https://docs.voltaris.example/evp/waste-prevention.pdf",
+          "valueDataType": "xsd:anyURI"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "SeparateCollectionInformation",
+          "value": "https://docs.voltaris.example/evp/separate-collection.pdf",
+          "valueDataType": "xsd:anyURI"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "EndOfLifeTreatment",
+          "value": "https://docs.voltaris.example/evp/end-of-life.pdf",
+          "valueDataType": "xsd:anyURI"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "PerformanceAndDurability",
+      "elements": [
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RatedCapacity",
+          "value": 230.5,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "Ah"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "RemainingCapacity",
+          "value": 227.1,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "Ah"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "CapacityFade",
+          "value": 1.3,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "StateOfCertifiedEnergy",
+          "value": 98.4,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "StateOfCharge",
+          "value": 61.5,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "%"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "NominalVoltage",
+          "value": 355.2,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "V"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "OriginalPowerCapability",
+          "value": 150000,
+          "valueDataType": "xsd:decimal",
+          "unitOfMeasure": "W"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ExpectedLifetimeYears",
+          "value": 15,
+          "valueDataType": "xsd:integer",
+          "unitOfMeasure": "a"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "ExpectedLifetimeCycles",
+          "value": 3000,
+          "valueDataType": "xsd:integer"
+        },
+        {
+          "objectType": "SingleValuedDataElement",
+          "elementId": "NumberOfFullCycles",
+          "value": 142,
+          "valueDataType": "xsd:integer"
+        }
+      ]
+    },
+    {
+      "objectType": "DataElementCollection",
+      "elementId": "Documentation",
+      "elements": [
+        {
+          "objectType": "RelatedResource",
+          "elementId": "Document1",
+          "contentType": "application/pdf",
+          "url": "https://docs.voltaris.example/evp/declaration-of-conformity.pdf",
+          "language": "de",
+          "resourceTitle": "EU-Konformitätserklärung"
+        },
+        {
+          "objectType": "RelatedResource",
+          "elementId": "Document2",
+          "contentType": "application/pdf",
+          "url": "https://docs.voltaris.example/evp/test-reports.pdf",
+          "language": "en",
+          "resourceTitle": "Test reports"
+        }
+      ]
+    }
+  ]
+}

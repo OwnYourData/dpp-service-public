@@ -67,6 +67,12 @@ tags:
       Beyond EN 18222:2026. Who read what of the controlled part of passports,
       who was refused, and which access grants were registered and revoked
       (docs/AccessClasses.md §10). This operation carries no `x-semanticId`.
+  - name: AAS view
+    description: >-
+      Beyond EN 18222:2026. A passport as an Asset Administration Shell (AAS
+      V3.0, JSON): a view derived from what the read methods hand out, read
+      under the same rules, and not signed (docs/AAS.md). These operations
+      carry no `x-semanticId`.
 
 security:
   - bearerAuth: []   # Public read data is accessible unauthenticated (EN 18239:2026 6.1); controlled data requires a token.
@@ -162,6 +168,7 @@ paths:
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
             X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
+            Link: { $ref: '#/components/headers/AasViewLink' }
           description: Success — requested DPP.
           content:
             application/json:
@@ -363,6 +370,57 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Result' }
+
+  /dpps/{dppId}/aas:
+    parameters:
+      - $ref: '#/components/parameters/DppId'
+    get:
+      tags: [AAS view]
+      summary: Read a DPP as an Asset Administration Shell
+      description: >-
+        The passport with the specified DPP ID as an AAS V3.0 environment in JSON. The view is
+        read like ReadDPPById: the public part without a token, more for a
+        reader with access rights, with the same headers and the same entries
+        in the access log. It holds a shell (globalAssetId: the product
+        identifier), the submodel DppMetadata (IDTA 02099-1), the submodel
+        PassportElements with every data element of the passport, and for a
+        passport a published model fits (so far the Battery Pass Data Model
+        1.2.0) that model's submodels, as far as the passport fits them. It is
+        not signed; the shell and `Link: <...>; rel="via"` name the passport
+        it is derived from (docs/AAS.md).
+      operationId: readDPPByIdAsAAS
+      responses:
+        '200':
+          headers:
+            Link: { $ref: '#/components/headers/AasViewSource' }
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
+            X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
+            X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
+          description: Success — the AAS environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AasEnvironment' }
+        '400':
+          description: >-
+            ClientErrorBadRequest — the flag `representation` was given; it does
+            not apply to the view, which is always derived from the full
+            representation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406':
+          description: >-
+            The client prefers `application/jose`: there is no signature for
+            this view. `Link: <...>; rel="via"` names the passport, whose
+            signature ReadDPPById hands out.
+          headers:
+            Link: { $ref: '#/components/headers/AasViewSource' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/BadGateway' }
 
   /dpps/{dppId}/signature:
     parameters:
@@ -611,6 +669,7 @@ paths:
             X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
             X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
             X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
+            Link: { $ref: '#/components/headers/AasViewLink' }
           description: Success — latest active DPP.
           content:
             application/json:
@@ -620,6 +679,57 @@ paths:
         '401': { $ref: '#/components/responses/NotAuthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
+
+  /dppsByProductId/{productId}/aas:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    get:
+      tags: [AAS view]
+      summary: Read the DPP of a product as an Asset Administration Shell
+      description: >-
+        The current active passport for the given product ID as an AAS V3.0 environment in JSON. The view is
+        read like ReadDPPById: the public part without a token, more for a
+        reader with access rights, with the same headers and the same entries
+        in the access log. It holds a shell (globalAssetId: the product
+        identifier), the submodel DppMetadata (IDTA 02099-1), the submodel
+        PassportElements with every data element of the passport, and for a
+        passport a published model fits (so far the Battery Pass Data Model
+        1.2.0) that model's submodels, as far as the passport fits them. It is
+        not signed; the shell and `Link: <...>; rel="via"` name the passport
+        it is derived from (docs/AAS.md).
+      operationId: readDPPByProductIdAsAAS
+      responses:
+        '200':
+          headers:
+            Link: { $ref: '#/components/headers/AasViewSource' }
+            X-DPP-Payload-Hash: { $ref: '#/components/headers/PayloadHash' }
+            X-DPP-Commit-State: { $ref: '#/components/headers/CommitState' }
+            X-DPP-Signature-State: { $ref: '#/components/headers/SignatureState' }
+            X-DPP-Access-Roles: { $ref: '#/components/headers/AccessRoles' }
+            X-DPP-Controlled-Part: { $ref: '#/components/headers/ControlledPart' }
+          description: Success — the AAS environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AasEnvironment' }
+        '400':
+          description: >-
+            ClientErrorBadRequest — the flag `representation` was given; it does
+            not apply to the view, which is always derived from the full
+            representation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '401': { $ref: '#/components/responses/NotAuthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406':
+          description: >-
+            The client prefers `application/jose`: there is no signature for
+            this view. `Link: <...>; rel="via"` names the passport, whose
+            signature ReadDPPById hands out.
+          headers:
+            Link: { $ref: '#/components/headers/AasViewSource' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/BadGateway' }
 
   /dppsByIdAndDate/{dppId}:
     parameters:
@@ -984,6 +1094,17 @@ components:
   # Payload commitment (EN 18246:2026; docs/Integrity.md)
   ###########################################################################
   headers:
+    AasViewLink:
+      description: >-
+        The AAS view of the passport (docs/AAS.md):
+        `<.../dpps/{dppId}/aas>; rel="alternate"; type="application/json";
+        title="Asset Administration Shell (AAS V3.0)"`.
+      schema: { type: string }
+    AasViewSource:
+      description: >-
+        The passport the AAS view is derived from, ReadDPPById in the full
+        representation: `<.../dpps/{dppId}?representation=full>; rel="via"`.
+      schema: { type: string }
     RequestBinding:
       description: >-
         Sent with a write whose token carries no `rqh`, while such writes are
@@ -1184,6 +1305,26 @@ components:
   # Schemas
   ###########################################################################
   schemas:
+    AasEnvironment:
+      type: object
+      description: >-
+        An environment of the Asset Administration Shell, V3.0, JSON
+        serialization (IDTA-01001, Part 1): one shell and its submodels, no
+        concept descriptions. The semantic identifiers point to their sources
+        (docs/AAS.md).
+      externalDocs:
+        description: JSON schema of AAS V3.0 (admin-shell-io/aas-specs)
+        url: https://github.com/admin-shell-io/aas-specs
+      required: [assetAdministrationShells, submodels]
+      properties:
+        assetAdministrationShells:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { type: object }
+        submodels:
+          type: array
+          items: { type: object }
     OperatorSignature:
       type: string
       description: >-

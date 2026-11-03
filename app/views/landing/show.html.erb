@@ -92,6 +92,7 @@
   .btn.primary { background: var(--accent); color: var(--surface); }
   .btn.secondary { color: var(--accent); background: transparent; }
   h2 { font-size: 20px; margin: 44px 0 16px; }
+  .instance-notice { margin: 24px 0 0; padding: 12px 16px; border-radius: var(--radius); background: var(--wip-soft); color: var(--wip); font-weight: 600; }
   .newsletter { display: flex; justify-content: space-between; gap: 16px 28px; flex-wrap: wrap; align-items: flex-end; }
   .newsletter h2 { margin: 0 0 6px; }
   .newsletter p { margin: 0; max-width: 520px; }
@@ -203,6 +204,10 @@
 </header>
 
 <main class="wrap">
+<% if (notice = InstanceNotice.text) -%>
+
+  <p class="instance-notice" role="note"><%= notice %></p>
+<% end -%>
 
   <section class="hero">
     <h1>Digital Product Passports on open standards</h1>
@@ -214,7 +219,7 @@
     <p class="nonprofit">OwnYourData is a non-profit association: all tools on this page are free of charge and open source.</p>
     <div class="actions">
       <a class="btn primary" href="/api-docs/index.html">Explore the API</a>
-      <a class="btn secondary" href="https://dpp.oydapp.eu/01/09520123456788/21/000001">Example passport (JSON)</a>
+      <a class="btn secondary" href="<%= ExamplePassport.url %>">Example passport (JSON)</a>
     </div>
   </section>
 

@@ -105,7 +105,9 @@ with the same rules as `ReadDPPByProductId`:
 
 The public part is what anyone gets; a reader with access rights presents a
 token, as on the read paths. Every answer varies on `Accept`. A carrier host
-serves nothing else: the API stays on its own host.
+serves nothing else: the API stays on its own host. The one exception is an
+instance with a single host, which lists its API host as a carrier host too: there
+only a path that no part of the service takes is looked up as a product identifier.
 
 ## 4. Why the `serviceEndpoint` goes through the product identifier
 

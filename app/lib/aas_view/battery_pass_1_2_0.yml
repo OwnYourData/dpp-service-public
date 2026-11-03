@@ -1,0 +1,122 @@
+# Where the data elements of a battery passport go in the submodels of the
+# Battery Pass Data Model 1.2.0 (structure: battery_pass_1_2_0.json, extracted
+# from the published model, CC BY 4.0; see NOTICE).
+#
+# Read by AasView::Template. The rules (docs/AAS.md):
+#   * an element goes into a submodel only where meaning, data type and unit
+#     agree; whatever does not stays in PassportElements alone;
+#   * "values" translates the members of an enumeration, nothing else is
+#     converted; a value the table does not know is left out;
+#   * "unit" is the unitOfMeasure the passport element has to carry; an
+#     element with another unit, or with one where none is named, is left out;
+#   * "value" is a constant; an item that holds nothing but constants is left
+#     out.
+#
+# Targets are idShort paths in the submodel. "name[n]" is the n-th item of a
+# list, "name[]" one item per child of the container named in "each".
+
+model: Battery Pass Data Model
+version: 1.2.0
+
+# A passport is read as a battery passport if it has this element. The DPP
+# Manager writes it for its product type DppBattery.
+recognise: BatteryIdentification/BatteryIdentifier
+
+# Units of the passport and the units of the model they stand for.
+units:
+  kg: kilogram
+  kgCO2e/kWh: kilogramperkilowatthour
+  "%": percent
+  Ah: ampereHour
+  V: volt
+  a: year
+
+# A count carries no unit in the passport; the model names what is counted.
+counts: [cycle]
+
+# Units the AAS files of the model leave out although its SAMM aspect model
+# names them (io.BatteryPass.Circularity 1.2.0, Circularity.ttl: both shares
+# are measurements in unit:percent, from 0 to 100).
+model_units:
+  Circularity/recycledContent[]/preConsumerShare: percent
+  Circularity/recycledContent[]/postConsumerShare: percent
+
+submodels:
+  GeneralProductInformation:
+    productIdentifier: { source: BatteryIdentification/BatteryIdentifier }
+    batteryPassportIdentifier: { header: digitalProductPassportId }
+    batteryCategory:
+      source: BatteryIdentification/BatteryCategory
+      values: { EVBattery: ev, LMTBattery: lmt, IndustrialBattery: industrial, StationaryStorage: stationary }
+    manufacturerInformation/contactName: { source: BatteryIdentification/ManufacturerName }
+    manufacturerInformation/identifier: { source: BatteryIdentification/ManufacturerIdentifier }
+    batteryStatus:
+      source: BatteryIdentification/BatteryStatus
+      values: { Original: Original, Repurposed: Repurposed, Reused: Reused, Remanufactured: Remanufactured, Waste: Waste }
+    batteryMass: { source: BatteryIdentification/BatteryMass, unit: kg }
+
+  CarbonFootprintForBatteries:
+    batteryCarbonFootprint: { source: CarbonFootprint/BatteryCarbonFootprint, unit: kgCO2e/kWh }
+    carbonFootprintPerLifecycleStage[1]/lifecycleStage: { value: RawMaterialExtraction }
+    carbonFootprintPerLifecycleStage[1]/carbonFootprint:
+      { source: CarbonFootprint/RawMaterialAcquisitionContribution, unit: kgCO2e/kWh }
+    carbonFootprintPerLifecycleStage[2]/lifecycleStage: { value: MainProduction }
+    carbonFootprintPerLifecycleStage[2]/carbonFootprint:
+      { source: CarbonFootprint/ProductionContribution, unit: kgCO2e/kWh }
+    carbonFootprintPerLifecycleStage[3]/lifecycleStage: { value: Distribution }
+    carbonFootprintPerLifecycleStage[3]/carbonFootprint:
+      { source: CarbonFootprint/DistributionContribution, unit: kgCO2e/kWh }
+    carbonFootprintPerLifecycleStage[4]/lifecycleStage: { value: Recycling }
+    carbonFootprintPerLifecycleStage[4]/carbonFootprint:
+      { source: CarbonFootprint/EndOfLifeContribution, unit: kgCO2e/kWh }
+    carbonFootprintPerformanceClass: { source: CarbonFootprint/CarbonFootprintPerformanceClass }
+    carbonFootprintStudy: { source: CarbonFootprint/CarbonFootprintStudy }
+
+  Circularity:
+    dismantlingAndRemovalInformation[1]/documentURL: { source: Circularity/DismantlingInformation }
+    sparePartSources[1]/supplierWebAddress: { source: Circularity/SourcesOfSpareParts }
+    recycledContent[1]/recycledMaterial: { value: Nickel }
+    recycledContent[1]/preConsumerShare: { source: RecycledContent/PreConsumerRecycledNickelShare, unit: "%" }
+    recycledContent[1]/postConsumerShare: { source: RecycledContent/PostConsumerRecycledNickelShare, unit: "%" }
+    recycledContent[2]/recycledMaterial: { value: Cobalt }
+    recycledContent[2]/preConsumerShare: { source: RecycledContent/PreConsumerRecycledCobaltShare, unit: "%" }
+    recycledContent[2]/postConsumerShare: { source: RecycledContent/PostConsumerRecycledCobaltShare, unit: "%" }
+    recycledContent[3]/recycledMaterial: { value: Lithium }
+    recycledContent[3]/preConsumerShare: { source: RecycledContent/PreConsumerRecycledLithiumShare, unit: "%" }
+    recycledContent[3]/postConsumerShare: { source: RecycledContent/PostConsumerRecycledLithiumShare, unit: "%" }
+    recycledContent[4]/recycledMaterial: { value: Lead }
+    recycledContent[4]/preConsumerShare: { source: RecycledContent/PreConsumerRecycledLeadShare, unit: "%" }
+    recycledContent[4]/postConsumerShare: { source: RecycledContent/PostConsumerRecycledLeadShare, unit: "%" }
+    safetyMeasures/safetyInstructions: { source: Circularity/SafetyMeasures }
+    safetyMeasures/extinguishingAgent[1]: { source: ConformityAndLabelling/ExtinguishingAgent }
+    endOfLifeInformation/wastePrevention: { source: EndOfLife/EndUserWastePrevention }
+    endOfLifeInformation/separateCollection: { source: EndOfLife/SeparateCollectionInformation }
+    renewableContent: { source: RecycledContent/RenewableContentShare, unit: "%" }
+
+  MaterialComposition:
+    batteryChemistry/shortName: { source: MaterialsAndComposition/BatteryChemistry }
+    batteryMaterials[]:
+      each: MaterialsAndComposition/CriticalRawMaterials
+      fields:
+        batteryMaterialName: { element_id: true }
+        isCriticalRawMaterial: { value: true }
+    hazardousSubstances[]:
+      each: MaterialsAndComposition/HazardousSubstances
+      fields:
+        hazardousSubstanceName: { element_id: true }
+        hazardousSubstanceConcentration: { source: MassPercentage, unit: "%" }
+        hazardousSubstanceIdentifier: { source: CasNumber }
+
+  PerformanceAndDurability:
+    batteryTechicalProperties/ratedCapacity: { source: PerformanceAndDurability/RatedCapacity, unit: Ah }
+    batteryTechicalProperties/expectedNumberOfCycles: { source: PerformanceAndDurability/ExpectedLifetimeCycles }
+    batteryTechicalProperties/expectedLifetime: { source: PerformanceAndDurability/ExpectedLifetimeYears, unit: a }
+    batteryTechicalProperties/nominalVoltage: { source: PerformanceAndDurability/NominalVoltage, unit: V }
+    batteryCondition/numberOfFullCycles/numberOfFullCyclesValue: { source: PerformanceAndDurability/NumberOfFullCycles }
+    batteryCondition/stateOfCertifiedEnergy/stateOfCertifiedEnergyValue:
+      { source: PerformanceAndDurability/StateOfCertifiedEnergy, unit: "%" }
+    batteryCondition/capacityFade/capacityFadeValue: { source: PerformanceAndDurability/CapacityFade, unit: "%" }
+    batteryCondition/stateOfCharge/stateOfChargeValue: { source: PerformanceAndDurability/StateOfCharge, unit: "%" }
+
+  SupplyChainDueDiligence:
+    supplyChainDueDiligenceReport: { source: DueDiligence/DueDiligenceReport }

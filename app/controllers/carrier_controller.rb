@@ -25,7 +25,8 @@
 #
 # Access is that of the read paths: the public part without a token, more for
 # the owner and for a reader with access rights who presents one, with the
-# same headers and the same entries in the access log.
+# same headers and the same entries in the access log. Like them, the answer
+# names the AAS view of the passport in a Link header (docs/AAS.md).
 #
 # An identifier this service has no passport for is answered with 404: JSON,
 # or a short page for a browser, with Vary: Accept either way.
@@ -33,7 +34,9 @@
 # A carrier host serves nothing else. What is recognisably an address of the
 # API rather than an identifier is answered with 404 and says where the API is,
 # so that a client looking for the API here does not conclude that a passport
-# does not exist.
+# does not exist. On the API host itself, listed as a carrier host for an
+# instance with one host (CarrierHosts::OnApiHost), only the paths that no
+# other route takes arrive here.
 class CarrierController < ApplicationController
   # First path segments that belong to the API host, never to an identifier.
   API_SEGMENTS = %w[dpp api-docs .well-known up version].freeze
@@ -58,6 +61,7 @@ class CarrierController < ApplicationController
     result = PassportAccess.current(dpp, reader: reader_did)
     report_commitment(dpp)
     report_access(result)
+    link_aas_view(dpp)
     return render_passport_or_signature(dpp, result.document) unless html_preferred?
 
     vary_on_accept!
@@ -90,12 +94,18 @@ class CarrierController < ApplicationController
     nil
   end
 
+  # On the API host itself a path under one of these segments that reached
+  # this controller is one the API does not have.
   def refuse_api_path
     first = request.path.split("/").reject(&:empty?).first.to_s
     return unless API_SEGMENTS.include?(first)
 
-    render_result("ClientErrorResourceNotFound",
-                  text: "This host answers product identifiers only; the API is at #{api_base}")
+    text = if CarrierHosts.api_host?(request.host)
+             "No such resource"
+           else
+             "This host answers product identifiers only; the API is at #{api_base}"
+           end
+    render_result("ClientErrorResourceNotFound", text: text)
   end
 
   # A person who scanned a carrier whose identifier this service does not know

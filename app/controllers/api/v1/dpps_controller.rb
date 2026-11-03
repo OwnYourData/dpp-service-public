@@ -176,11 +176,13 @@ module Api
       # The public part, or more for a reader with access rights
       # (PassportAccess). With Accept: application/jose the signature of the
       # economic operator, where it covers exactly that answer
-      # (OperatorSignatureDelivery).
+      # (OperatorSignatureDelivery). A Link header names the AAS view
+      # (AasViewLink, docs/AAS.md).
       def show
         result = PassportAccess.current(@dpp, reader: reader_did)
         report_commitment(@dpp)
         report_access(result)
+        link_aas_view(@dpp)
         render_passport_or_signature(@dpp, result.document)
       end
 
@@ -457,6 +459,7 @@ module Api
         result = PassportAccess.current(dpp, reader: reader_did)
         report_commitment(dpp)
         report_access(result)
+        link_aas_view(dpp)
         render_passport_or_signature(dpp, result.document)
       end
 

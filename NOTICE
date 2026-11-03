@@ -1,0 +1,31 @@
+DPP Service
+Copyright 2026 OwnYourData
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The AAS view of a passport (docs/AAS.md) uses material from two works
+published under the Creative Commons Attribution 4.0 International licence
+(https://creativecommons.org/licenses/by/4.0/). Neither work's licensor
+endorses this software.
+
+1. Battery Pass Data Model, version 1.2.0
+   by the BatteryPass project consortium
+   https://github.com/batterypass/BatteryPassDataModel
+   (commit 7f4091810d56ad4cd031897d58dd5e438b4d979f)
+
+   Used in app/lib/aas_view/battery_pass_1_2_0.json, extracted from the AAS
+   files of the seven submodels: the identifiers (idShort, semanticId), the
+   element structure, the data types, the units and the value lists. The
+   descriptions, definitions and example values of the model are not taken
+   over. Changed: arranged in a JSON file of its own (rake task
+   dpp:aas:extract_battery_pass); two units the AAS files leave out are taken
+   from the SAMM aspect model of the same release
+   (app/lib/aas_view/battery_pass_1_2_0.yml, model_units).
+
+2. IDTA 02099-1 Digital Product Passport, Part 1 (submodel template
+   DppMetadata), version 1.0
+   by the Industrial Digital Twin Association (IDTA)
+   https://github.com/admin-shell-io/submodel-templates
+
+   Used in app/lib/aas_view.rb (AasView::Metadata): the semantic identifiers
+   and idShorts of the submodel and its elements. Nothing else is taken over.

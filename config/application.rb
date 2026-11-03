@@ -12,6 +12,7 @@ require "rails/test_unit/railtie"
 Bundler.require(*Rails.groups)
 
 require_relative "../lib/http_version_gate"
+require_relative "../lib/noindex"
 
 module DppService
   class Application < Rails::Application
@@ -26,6 +27,10 @@ module DppService
     # Refuse HTTP/1.x on the DPP API once the proxy reports the client's
     # version (EN 18216:2026 clause 4). See lib/http_version_gate.rb.
     config.middleware.insert_after ActionDispatch::RequestId, HttpVersionGate
+
+    # Off unless DPP_NOINDEX is set: X-Robots-Tag on every response and a
+    # robots.txt that disallows everything. See lib/noindex.rb.
+    config.middleware.insert_before 0, Noindex
 
     # All identifiers/paths are UTF-8; timestamps are UTC (EN 18223:2026 LastUpdate).
     config.time_zone = "UTC"

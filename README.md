@@ -90,6 +90,7 @@ The rest:
 | [docs/examples-lightbulb.md](docs/examples-lightbulb.md) | one complete worked example (an LED lamp) with full request and response payloads |
 | [docs/Identifiers.md](docs/Identifiers.md) | the six things called "identifier" in the DPP context, how they relate, and which of them ends up on the data carrier |
 | [docs/Integrity.md](docs/Integrity.md) | how the identifier, the version chain and the payload commitment fit together, and what a reader can verify without trusting anyone |
+| [docs/AAS.md](docs/AAS.md) | a passport as an Asset Administration Shell (AAS V3.0): what the view holds, the Battery Pass Data Model, and why the view is read like a passport but not signed |
 | [docs/AccessClasses.md](docs/AccessClasses.md) | the vocabulary of access classes (public, legitimate interest, authority), the access policy that assigns one class to every attribute of a passport, how a policy is registered and attached to a passport, access grants and revoking them, what each reader gets on the read paths, and the access log |
 | [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
 | [bin/attest_payload](bin/attest_payload) | the holder side of the same coin: hash what the custodian delivers and sign the entry with your own document key: `bundle exec ruby bin/attest_payload <carrier URL> --keys <file>` |
@@ -130,6 +131,8 @@ Beyond the standard's methods:
 | list the access grants one has issued | GET | `/dpp/v1/access-grants` |
 | revoke an access grant one has issued | DELETE | `/dpp/v1/access-grants/:jti` |
 | read the entries of the access log that concern one | GET | `/dpp/v1/access-log` |
+| read a passport as an Asset Administration Shell (AAS V3.0) | GET | `/dpp/v1/dpps/:dpp_id/aas` |
+| the same by product identifier | GET | `/dpp/v1/dppsByProductId/:product_id/aas` |
 | health check | GET | `/up` |
 | image tag and commit of the running instance | GET | `/version` |
 
@@ -190,6 +193,21 @@ RAILS_ENV=test bin/rails db:prepare
 bundle exec rspec
 ```
 
+Two groups run only when they are given what they need. The AAS view is
+checked with the AAS test engines of the IDTA, which need Python 3.13 or
+older (version 1.0.3 does not load under 3.14; on macOS `/usr/bin/python3`
+will do):
+
+```bash
+/usr/bin/python3 -m venv tmp/aas-test-engines
+tmp/aas-test-engines/bin/pip install aas_test_engines==1.0.3
+AAS_TEST_ENGINES=tmp/aas-test-engines/bin/aas_test_engines bundle exec rspec spec/lib/aas_conformance_spec.rb
+```
+
+The migrations run on an empty SQLite database in every run, and on
+PostgreSQL as well with `DPP_MIGRATION_CHECK_DATABASE_URL` naming an empty
+database there.
+
 ## Open items before production use
 
 1. **Access log kept inside the database (EN 18239:2026).** Signature
@@ -241,3 +259,6 @@ The DPP Service is part of [PACE-DPP](https://dpp-austria.at/) – Promoting and
 ## License
 
 [Apache 2.0 License 2026 - OwnYourData.eu](https://github.com/OwnYourData/dpp-service-public/blob/main/LICENSE)
+
+The AAS view uses identifiers and the structure of two models published under
+CC BY 4.0, the Battery Pass Data Model and IDTA 02099-1; see [NOTICE](NOTICE).

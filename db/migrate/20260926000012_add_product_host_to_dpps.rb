@@ -13,16 +13,22 @@
 # Partial, over active passports only: DeleteDPPById marks the row archived
 # before it removes it. Passports minted before the carrier redesign have no
 # product_key, and NULLs never collide in a unique index.
+#
+# The existing rows are filled in with SQL and plain URI parsing, not through
+# the model: a migration runs against the schema of its own day, and the model
+# of today expects the schema of today.
 class AddProductHostToDpps < ActiveRecord::Migration[7.2]
   INDEX = "index_dpps_on_active_product"
 
   def up
     add_column :dpps, :product_host, :string
 
-    Dpp.reset_column_information
-    Dpp.find_each do |dpp|
-      host = ProductIdentifier.new(dpp.product_id).host
-      dpp.update_column(:product_host, host.downcase) if host
+    select_rows("SELECT dpp_id, product_id FROM dpps WHERE product_id IS NOT NULL").each do |dpp_id, product_id|
+      host = host_of(product_id)
+      next if host.nil?
+
+      execute("UPDATE dpps SET product_host = #{connection.quote(host.downcase)} " \
+              "WHERE dpp_id = #{connection.quote(dpp_id)}")
     end
 
     add_index :dpps, %i[product_key product_host], unique: true,
@@ -33,5 +39,14 @@ class AddProductHostToDpps < ActiveRecord::Migration[7.2]
   def down
     remove_index  :dpps, name: INDEX
     remove_column :dpps, :product_host
+  end
+
+  private
+
+  # The host of a product identifier, as ProductIdentifier#host reads it.
+  def host_of(product_id)
+    URI.parse(product_id.to_s.strip).host
+  rescue URI::InvalidURIError
+    nil
   end
 end

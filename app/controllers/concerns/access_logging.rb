@@ -10,11 +10,13 @@ module AccessLogging
   extend ActiveSupport::Concern
 
   # The operations of EN 18222:2026 the read paths implement, by controller
-  # and action; the collection path is this service's own.
+  # and action; the collection path and the AAS view are this service's own.
   OPERATIONS = {
     "api/v1/dpps#show" => "ReadDPPById",
     "api/v1/dpps#by_product_id" => "ReadDPPByProductId",
     "api/v1/dpps#by_id_and_date" => "ReadDPPVersionByIdAndDate",
+    "api/v1/aas#show" => "ReadDPPByIdAsAAS",
+    "api/v1/aas#by_product_id" => "ReadDPPByProductIdAsAAS",
     "api/v1/data_elements#show" => "ReadDataElement",
     "api/v1/data_element_collections#show" => "ReadDataElementCollection"
   }.freeze

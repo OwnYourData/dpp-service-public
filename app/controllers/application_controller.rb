@@ -11,6 +11,7 @@ class ApplicationController < ActionController::API
   include WriteWarnings
   include ReaderAccess
   include AccessLogging
+  include AasViewLink
 
   # A limit per client address and minute, reads and writes counted apart:
   # reading is public and cheap, writing mints DIDs and reaches custodians.

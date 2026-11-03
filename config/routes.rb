@@ -57,6 +57,12 @@ Rails.application.routes.draw do
       # access policy leaves to the default, and which rules reach nothing.
       # For the owner only.
       get "dpps/:dpp_id/access-policy", to: "api/v1/dpps#show_access_policy"
+
+      # Not in EN 18222:2026 either: the passport as an Asset Administration
+      # Shell (AAS V3.0, JSON), a view derived from what ReadDPPById hands out
+      # (docs/AAS.md).
+      get "dpps/:dpp_id/aas", to: "api/v1/aas#show"
+
       put "dpps/:dpp_id/signature", to: "api/v1/signatures#update"
 
       # --- 6  Fine Granular Life Cycle API — Table 19 ---------------------
@@ -73,6 +79,9 @@ Rails.application.routes.draw do
 
     get "dppsByProductId/:product_id",
         to: "api/v1/dpps#by_product_id",                 # ReadDPPByProductId
+        constraints: { product_id: id }
+    get "dppsByProductId/:product_id/aas",
+        to: "api/v1/aas#by_product_id",                  # the same, as AAS (docs/AAS.md)
         constraints: { product_id: id }
 
     # EN 18222:2026 Table 16 keys this method on the passport identifier.
@@ -132,4 +141,11 @@ Rails.application.routes.draw do
   # Health check
   get "up", to: proc { [200, { "Content-Type" => "application/json" }, ['{"status":"ok"}']] }
   get "version", to: proc { [200, { "Content-Type" => "application/json" }, [BuildInfo.to_json]] }
+
+  # The API host listed as a carrier host as well (CarrierHosts::OnApiHost):
+  # a path that no route above takes is looked up as a product identifier.
+  # Last, so that it never shadows the API or the pages.
+  constraints(CarrierHosts::OnApiHost) do
+    get "*identifier", to: "carrier#show", format: false, as: :carrier_on_api_host
+  end
 end

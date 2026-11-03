@@ -82,7 +82,10 @@ All settings come from environment variables.
 | `DPP_WRITE_LOG_RETENTION_DAYS` | `3653` | days entries of the write log are kept at least; `bin/rails dpp:writes:prune` removes older ones, but none of a passport that exists or has a version kept |
 | `DPP_AVAILABLE_SERVICES_URL` | — (none) | https URL of the JSON list of available DPP services shown on the start page; fetched at most once an hour; a list without `notice` is not taken, and when fetching fails the last good list stays. Without it the start page shows the list shipped in `config/available_services.json` |
 | `DPP_SEED_DEMO` | — (off) | `1` or `true`: `bin/rails db:seed`, and `bin/rails db:prepare` on an empty database, add an example passport. Without it they add none, in every environment |
-| `DPP_CARRIER_HOSTS` | — (none) | hosts, comma-separated, on which this instance answers the product identifiers printed on products, for the passports it keeps (see below). The API is not served there |
+| `DPP_CARRIER_HOSTS` | — (none) | hosts, comma-separated, on which this instance answers the product identifiers printed on products, for the passports it keeps (see below). The API is not served there, except on the host of `DPP_SERVICE_ENDPOINT_BASE` when that is listed too |
+| `DPP_NOINDEX` | — (off) | `1` or `true`: every response carries `X-Robots-Tag: noindex, nofollow`, and `/robots.txt` disallows everything. For an instance that is not meant to be found, such as a test instance |
+| `DPP_INSTANCE_NOTICE` | — (none) | one line of plain text shown at the top of the start page, for example what the instance is for and until when it runs |
+| `DPP_EXAMPLE_PASSPORT_URL` | the reference passport of the public instance | absolute http(s) address of the passport behind "Example passport" on the start page, for an instance that keeps passports of its own |
 
 **Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
 DID is created.** Without the variable the service derives the key from
@@ -147,6 +150,13 @@ After a passport is created, `X-DPP-Carrier: served` or `unserved` says whether
 its identifier names one of these hosts; `/.well-known/dpp-service` lists them
 as `carrierHosts`.
 
+An instance with one host only lists the host of `DPP_SERVICE_ENDPOINT_BASE`
+in `DPP_CARRIER_HOSTS`. There the API, the start page and the other pages keep
+their paths, and only a path none of them takes is looked up as a product
+identifier. A product identifier on that host must therefore not begin with
+one of those paths (`/dpp/`, `/api-docs`, `/privacy`, …); a GS1 Digital Link,
+which begins with an application identifier such as `/01/`, never does.
+
 ---
 
 ## 4. With Docker
@@ -154,7 +164,9 @@ as `carrierHosts`.
 The image is published, so nothing has to be built: **`oydeu/dpp-service`**, for
 `linux/amd64` and `linux/arm64`. It is built from this repository with every
 release commit (`.github/workflows/image.yml`): `latest` and a tag with the date
-of the commit, for example `261028`. Together with the `docker-compose.yml` in
+of the commit, for example `261028`, and `261028b`, `261028c` … for further
+release commits of the same day. A tag is never pushed twice, so an image
+pinned by its tag stays the same. Together with the `docker-compose.yml` in
 this repository it brings its own PostgreSQL, runs the migrations once and
 starts.
 

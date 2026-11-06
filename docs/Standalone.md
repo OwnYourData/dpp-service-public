@@ -58,7 +58,8 @@ All settings come from environment variables.
 | Variable | Default | Meaning |
 |---|---|---|
 | `SECRET_KEY_BASE` | — | mandatory in production (Rails) |
-| `KEY_VAULT_KEK` | derived from `SECRET_KEY_BASE` | key with which DID keys are stored encrypted |
+| `KEY_VAULT_KEK` | — | mandatory in production: key with which the keys of minted DIDs are stored encrypted; the service does not start without it ([docs/KeyRotation.md](KeyRotation.md)) |
+| `KEY_VAULT_KEK_PREVIOUS` | — (none) | only while changing `KEY_VAULT_KEK`: the previous value, with which values not yet moved are read ([docs/KeyRotation.md](KeyRotation.md)) |
 | `DPP_DB_HOST` | `localhost` | PostgreSQL |
 | `DPP_DB_NAME` | `dpp_service_production` | |
 | `DPP_DB_USER` / `DPP_DB_PASSWORD` | — | |
@@ -87,10 +88,13 @@ All settings come from environment variables.
 | `DPP_INSTANCE_NOTICE` | — (none) | one line of plain text shown at the top of the start page, for example what the instance is for and until when it runs |
 | `DPP_EXAMPLE_PASSPORT_URL` | the reference passport of the public instance | absolute http(s) address of the passport behind "Example passport" on the start page, for an instance that keeps passports of its own |
 
-**Be sure to set `KEY_VAULT_KEK` before the first passport with a self-minted
-DID is created.** Without the variable the service derives the key from
-`SECRET_KEY_BASE` — whoever then rotates `SECRET_KEY_BASE` later makes all
-stored DID keys unreadable and the affected passports irrevocable.
+**Keep `KEY_VAULT_KEK` safe.** It encrypts the keys of every passport whose
+DID the service minted; lost, those passports can never again be changed or
+ended. It is independent of `SECRET_KEY_BASE`, and either can be changed
+without the other ([docs/KeyRotation.md](KeyRotation.md)). An instance that
+ran without `KEY_VAULT_KEK` sets `KEY_VAULT_KEK_PREVIOUS` to its
+`SECRET_KEY_BASE` and moves its stored keys with `bin/rails key_vault:rekey`,
+as described there.
 
 **`DPP_AUTH_MODE` is set to `permissive`** as long as nothing else is
 configured. In this mode the bearer token is only decoded, not verified, and no

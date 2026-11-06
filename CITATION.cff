@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Fabianek
     given-names: Christoph
-    affiliation: "DID Daten-Intermediär-Dienste FlexCo / OwnYourData"
+    affiliation: "OwnYourData"
 abstract: >-
   Reference implementation of a custody-delegation architecture for
   standards-based Digital Product Passports: a DPP service provider applies

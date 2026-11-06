@@ -92,6 +92,7 @@ The rest:
 | [docs/Integrity.md](docs/Integrity.md) | how the identifier, the version chain and the payload commitment fit together, and what a reader can verify without trusting anyone |
 | [docs/AAS.md](docs/AAS.md) | a passport as an Asset Administration Shell (AAS V3.0): what the view holds, the Battery Pass Data Model, and why the view is read like a passport but not signed |
 | [docs/AccessClasses.md](docs/AccessClasses.md) | the vocabulary of access classes (public, legitimate interest, authority), the access policy that assigns one class to every attribute of a passport, how a policy is registered and attached to a passport, access grants and revoking them, what each reader gets on the read paths, and the access log |
+| [docs/KeyRotation.md](docs/KeyRotation.md) | the two secrets of the service, what each protects, and how to change the key of the stored DID keys without downtime |
 | [bin/verify_dpp](bin/verify_dpp) | scan a carrier link, resolve the passport, recompute the hash: `bundle exec ruby bin/verify_dpp <carrier URL>` |
 | [bin/attest_payload](bin/attest_payload) | the holder side of the same coin: hash what the custodian delivers and sign the entry with your own document key: `bundle exec ruby bin/attest_payload <carrier URL> --keys <file>` |
 | [bin/sign_dpp](bin/sign_dpp) | sign a passport as its economic operator, with the key of your own DID, and hand the signature to the service: `bundle exec ruby bin/sign_dpp <dppId> --keys <file>` |

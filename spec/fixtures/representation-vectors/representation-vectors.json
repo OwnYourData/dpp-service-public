@@ -618,7 +618,7 @@
               {
                 "objectType": "SingleValuedDataElement",
                 "elementId": "LightSourceType",
-                "dictionaryReference": "0173-1#02-AAO677#003",
+                "dictionaryReference": "https://dict.example.org/dpp/lighting/LightSourceType",
                 "value": "LED",
                 "valueDataType": "xsd:string"
               },

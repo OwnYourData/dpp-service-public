@@ -1,14 +1,26 @@
 # DPP Service — Digital Product Passport API
 
-Rails 7 **API-only** service implementing the Digital Product Passport endpoints
+## At a glance
+
+- **What it is:** an implementation of the Digital Product Passport API of
+  EN 18222:2026. It creates, versions, serves and ends passports whose payload
+  follows EN 18223:2026. It is a service, not a checker: to test a passport or
+  a DPP service against the standards, use the
+  [OwnYourData DPP Conformance Toolkit](#related-tools).
+- **For whom:** whoever runs a DPP service, for their own products or for
+  economic operators, and developers of DPP clients. Economic operators work
+  with it through the [DPP Manager](#client-the-dpp-manager).
+- **Status:** research software from the PACE-DPP lighthouse project; what is
+  still open is listed under
+  [Open items before production use](#open-items-before-production-use).
+- **Hosted instance:** https://dpp-service.ownyourdata.eu, operated by
+  OwnYourData.
+- **License:** Apache 2.0.
+
+A Rails 7.2 service implementing the Digital Product Passport endpoints
 defined by the CEN/CENELEC JTC 24 standards. The REST contract is derived
 from **EN 18222:2026** (APIs for product passport lifecycle management), with
 payloads from **EN 18223:2026** (system interoperability / semantic model).
-
-> ℹ️ **Public snapshot.** This repository is a snapshot of an internal
-> development repository, published without history and refreshed
-> periodically. Pull requests here cannot be merged — please open an issue
-> instead, or contact [OwnYourData](https://www.ownyourdata.eu).
 
 > ⚠️ All eight JTC 24 standards are published as EN …:2026. Six of them are
 > cited in the Official Journal as harmonised standards; EN 18239 and EN 18246
@@ -17,8 +29,10 @@ payloads from **EN 18223:2026** (system interoperability / semantic model).
 > the fine-granular methods is an RFC 9535 JSONPath singular query
 > (EN 18222:2026 8.1); the element identifiers separated by `/` are accepted as
 > well. The two collection operations are an addition beyond the published
-> method set. The `semanticId` base URI `https://jtc24/...` is still a
-> placeholder.
+> method set. In [`docs/openapi.yaml`](docs/openapi.yaml) each operation that
+> realises a method of EN 18222:2026 names it in `x-semanticId`; the values use
+> the `https://jtc24/...` base URI that the standard gives for the result
+> object, which does not resolve.
 
 ## Running it
 
@@ -70,6 +84,16 @@ its own DID document, so it is self-certifying: what the specification calls
 recomputes step by step. The service uses it for the passport identifier and for
 actor identities; nothing in the API is specific to it, and `docs/Identifiers.md`
 says which identifier is which.
+
+## Client: the DPP Manager
+
+The **[DPP Manager](https://github.com/OwnYourData/dpp-manager-public)** is the
+application for economic operators: it creates and manages passports in this
+service without a command line. It runs as a container on the operator's own
+computer (image [`oydeu/dpp-manager`](https://hub.docker.com/r/oydeu/dpp-manager)),
+keeps identity, keys and passports in one encrypted file and talks to the
+service only over its HTTP API. [docs/DPP-Manager-Demo.md](docs/DPP-Manager-Demo.md)
+walks through it screen by screen.
 
 ## Documentation
 
@@ -223,8 +247,11 @@ database there.
 2. **EU registry client (EN 18222:2026 §5).** `registerDPP` checks the entry and
    answers `502` (`registryNotConnected`); nothing is registered. The Commission
    publishes no API specification for the EU DPP Registry.
-3. **Content negotiation (EN 18216:2026 §5).** JSON is implemented; XML, JSON-LD
-   and HTML renderers are not.
+3. **Content negotiation (EN 18216:2026 §5).** JSON is implemented on every
+   path. On the carrier path a browser gets the passport as an HTML page
+   ([docs/Identifiers.md](docs/Identifiers.md) section 3), and every passport
+   can be read as an Asset Administration Shell ([docs/AAS.md](docs/AAS.md)).
+   XML and JSON-LD renderers are not implemented.
 4. **Data dictionary (EN 18223:2026 §4.3).** The element-path resolver walks the
    document structurally instead of validating against a product-group
    dictionary.
@@ -244,6 +271,36 @@ database there.
    carries no signature of the economic operator. What remains open is the trust anchor:
    it is self-managed, EN 18246:2026 expects an accredited one, so electronic
    attestation of attributes (EAA) is not covered.
+
+## Related tools
+
+Other open-source tools from OwnYourData around the passport:
+
+- **OwnYourData DPP Conformance Toolkit** — checks passports and DPP services
+  against the standards and EU regulation, as automated checks and not as a
+  certification. [dpp-criteria](https://github.com/OwnYourData/dpp-criteria)
+  holds the open criteria, [dpplint](https://github.com/OwnYourData/dpplint)
+  checks the passport behind a product identifier (online at
+  https://dpplint.ownyourdata.eu), and
+  [dpp-validator](https://github.com/OwnYourData/dpp-validator) runs the
+  service criteria against listed DPP services.
+- **[DIDlint](https://github.com/OwnYourData/didlint)** — validates DID
+  documents against W3C DID Core, online at https://didlint.ownyourdata.eu.
+- **[SOyA](https://github.com/OwnYourData/soya)** — the Semantic Overlay
+  Architecture that describes, validates and transforms the data structures the
+  DPP Manager uses for product types (repository at https://soya.ownyourdata.eu).
+- **[OYDID](https://github.com/OwnYourData/oydid)** — the `did:oyd` method used
+  here for passport identifiers and actor identities
+  ([specification](https://ownyourdata.github.io/oydid/)).
+
+## Maintenance and contributions
+
+The DPP Service is maintained by the association
+[OwnYourData](https://www.ownyourdata.eu). This repository is a snapshot of an
+internal development repository, published without history and refreshed
+periodically. Pull requests here cannot be merged: please report bugs and ask
+questions as [issues](https://github.com/OwnYourData/dpp-service-public/issues),
+or contact OwnYourData.
 
 ## Citing this
 

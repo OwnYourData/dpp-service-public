@@ -15,8 +15,8 @@ Base URL: `https://api.dpp.example.org/dpp/v1`
 | Identifier formats (URI/URL, GS1 Digital Link, W3C DID) | **EN 18219:2026** |
 | **The concrete product characteristics** (luminous flux, colour temperature, lifetime …) | **Not in 18223.** 18223 only defines the *framework*. Which data points a lightbulb has to carry is laid down in the ESPR act for the product group (lighting: Regulation (EU) 2019/2020 + 2019/2015) and in a data dictionary that every element points to via `dictionaryReference` (EN 18223:2026, 4.3). |
 
-> The `dictionaryReference` values below are **illustrative** (ECLASS/IEC CDD style) and have to
-> be replaced against the real repository of the product group.
+> The `dictionaryReference` values below are **illustrative**: `dict.example.org` stands for the
+> data dictionary of the product group and has to be replaced by its real repository.
 
 ## Identifiers in the example
 
@@ -112,7 +112,7 @@ Authorization: Bearer <token>
         {
           "objectType": "SingleValuedDataElement",
           "elementId": "LightSourceType",
-          "dictionaryReference": "0173-1#02-AAO677#003",
+          "dictionaryReference": "https://dict.example.org/dpp/lighting/LightSourceType",
           "value": "LED",
           "valueDataType": "xsd:string"
         },
